@@ -1,0 +1,6 @@
+{
+  "name": "AuraStream PWA - Mobile Music Player",
+  "description": "Aplicativo de música PWA mobile-first com arquitetura de streaming híbrida, Piped API, Media Session API e design dark glassmorphic.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
