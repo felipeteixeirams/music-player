@@ -1,8 +1,13 @@
-import React from 'react';
-import { Play, Pause, Heart, Sparkles, Music } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { formatTime } from '../utils/audioEngine';
+import {
+  downloadTrackForOffline,
+  removeOfflineTrack,
+  isTrackOfflineAvailable
+} from '../utils/offlineManager';
 
 interface TrackListProps {
   tracks: Track[];
@@ -17,7 +22,33 @@ export const TrackList: React.FC<TrackListProps> = ({
   onTrackSelect,
   emptyMessage = 'Nenhuma faixa encontrada nesta seção.'
 }) => {
-  const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked } = useAudio();
+  const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked, audioStreamUrl } = useAudio();
+  const [downloadingTrackId, setDownloadingTrackId] = useState<string | null>(null);
+  const [offlineStatusMap, setOfflineStatusMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const status: Record<string, boolean> = {};
+    tracks.forEach((t) => {
+      status[t.id] = isTrackOfflineAvailable(t.id);
+    });
+    setOfflineStatusMap(status);
+  }, [tracks]);
+
+  const handleToggleOffline = async (e: React.MouseEvent, track: Track) => {
+    e.stopPropagation();
+    const isCurrentlyOffline = offlineStatusMap[track.id];
+
+    if (isCurrentlyOffline) {
+      await removeOfflineTrack(track.id);
+      setOfflineStatusMap((prev) => ({ ...prev, [track.id]: false }));
+    } else {
+      setDownloadingTrackId(track.id);
+      const streamUrlToCache = currentTrack?.id === track.id && audioStreamUrl ? audioStreamUrl : '';
+      await downloadTrackForOffline(track.id, streamUrlToCache, track.coverUrl);
+      setDownloadingTrackId(null);
+      setOfflineStatusMap((prev) => ({ ...prev, [track.id]: true }));
+    }
+  };
 
   if (tracks.length === 0) {
     return (
@@ -42,10 +73,12 @@ export const TrackList: React.FC<TrackListProps> = ({
       )}
 
       <div className="space-y-1.5">
-        {tracks.map((track, idx) => {
+        {tracks.map((track) => {
           const isThisTrackActive = currentTrack?.id === track.id;
           const isThisTrackPlaying = isThisTrackActive && isPlaying;
           const liked = isLiked(track.id);
+          const isOffline = offlineStatusMap[track.id];
+          const isDownloading = downloadingTrackId === track.id;
 
           return (
             <div
@@ -72,7 +105,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                   : 'bg-white/[0.02] hover:bg-white/[0.05] border-transparent hover:border-white/5 text-white/90'
               }`}
             >
-              {/* Left Slot: Index / Play Icon & Artwork */}
+              {/* Left Slot: Artwork & Details */}
               <div className="flex items-center gap-3 min-w-0">
                 <div className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 border border-white/10 bg-gradient-to-tr from-purple-900/40 via-pink-900/30 to-indigo-950 flex items-center justify-center">
                   <Music className="w-5 h-5 text-purple-300/60" />
@@ -115,18 +148,41 @@ export const TrackList: React.FC<TrackListProps> = ({
                 </div>
               </div>
 
-              {/* Right Slot: Duration & Favorite */}
-              <div className="flex items-center gap-2 shrink-0 ml-3">
-                <span className="text-[11px] text-white/40 tabular-nums font-mono">
+              {/* Right Slot: Duration, Download & Favorite */}
+              <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                <span className="text-[11px] text-white/40 tabular-nums font-mono mr-1">
                   {formatTime(track.duration)}
                 </span>
+
+                {/* Offline Download Button */}
+                <button
+                  onClick={(e) => handleToggleOffline(e, track)}
+                  disabled={isDownloading}
+                  aria-label={isOffline ? 'Disponível offline (Clique para remover)' : 'Baixar para ouvir offline'}
+                  title={isOffline ? 'Disponível Offline' : 'Baixar para ouvir offline'}
+                  className={`p-1.5 rounded-full transition-transform active:scale-75 ${
+                    isOffline
+                      ? 'text-emerald-400 hover:text-emerald-300'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                  ) : isOffline ? (
+                    <CheckCircle2 className="w-4 h-4 fill-emerald-500/20" />
+                  ) : (
+                    <ArrowDownCircle className="w-4 h-4" />
+                  )}
+                </button>
+
+                {/* Like / Favorite Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleLike(track.id);
                   }}
                   aria-label={liked ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                  className="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-transform active:scale-75"
+                  className="p-1.5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-transform active:scale-75"
                 >
                   <Heart
                     className={`w-4 h-4 ${
