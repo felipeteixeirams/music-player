@@ -143,7 +143,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [likedTrackIds]);
 
-  // Audio Visualizer data generator (simulates smooth FFT analyzer frequency bands synchronized with playing state)
+  // Audio Visualizer data generator (strictly active during audio playback)
   useEffect(() => {
     let phase = 0;
     const updateSpectrum = () => {
@@ -151,21 +151,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         phase += 0.08;
         const bands = 24;
         const nextData = new Array(bands).fill(0).map((_, i) => {
-          // Dynamic harmonic curve + random jitter
           const base = Math.sin(phase + i * 0.4) * 0.35 + 0.55;
           const noise = (Math.random() - 0.5) * 0.2;
           const intensity = Math.max(0.1, Math.min(1.0, base + noise));
           return Math.round(intensity * 100);
         });
         setAudioFrequencyData(nextData);
+        animationFrameRef.current = requestAnimationFrame(updateSpectrum);
       } else {
-        // Idle calm bars
-        setAudioFrequencyData((prev) => prev.map((v) => Math.max(8, v * 0.92)));
+        // Strictly flat zero when paused or stopped
+        setAudioFrequencyData(new Array(24).fill(0));
       }
-      animationFrameRef.current = requestAnimationFrame(updateSpectrum);
     };
 
-    animationFrameRef.current = requestAnimationFrame(updateSpectrum);
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(updateSpectrum);
+    } else {
+      setAudioFrequencyData(new Array(24).fill(0));
+    }
+
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
@@ -178,38 +182,39 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentTrack(track);
     setDuration(track.duration);
     setCurrentTime(0);
-    if (shouldPlay) setIsPlaying(true);
 
     // If track has a youtubeId (Authentic YouTube / YouTube Music track)
     if (track.sources.youtubeId) {
       const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
       
-      // Synchronously set fallbackUrl so the background player receives the URL immediately within the user gesture!
-      setActiveEngine('fallback');
-      setAudioStreamUrl(fallbackUrl);
-      setIsBuffering(false);
-
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
       }
 
-      // Check in background if direct audio stream (Opus/M4A) is quickly available
-      fetchPipedAudioStream(track.sources.youtubeId, 1500).then((pipedResult) => {
+      // Try fetching direct audio stream from Piped instances first with a quick 1.5s timeout
+      try {
+        const pipedResult = await fetchPipedAudioStream(track.sources.youtubeId, 1500);
         if (pipedResult.audioUrl && audioRef.current) {
           setActiveEngine('piped');
           setAudioStreamUrl(pipedResult.audioUrl);
           audioRef.current.src = pipedResult.audioUrl;
           if (shouldPlay) {
-            audioRef.current.play().catch(() => {
-              // Seamlessly retain background player if direct audio fails
-              setActiveEngine('fallback');
-              setAudioStreamUrl(fallbackUrl);
-            });
+            await audioRef.current.play();
+            setIsPlaying(true);
           }
+          setIsBuffering(false);
+          return;
         }
-      }).catch(() => {});
+      } catch {}
 
+      // Fallback to official YouTube headless engine player
+      setActiveEngine('fallback');
+      setAudioStreamUrl(fallbackUrl);
+      if (shouldPlay) {
+        setIsPlaying(true);
+      }
+      setIsBuffering(false);
       return;
     }
 
