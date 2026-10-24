@@ -14,7 +14,8 @@ import { ExpandedPlayer } from './components/ExpandedPlayer';
 import { HeadlessPlayerFallback } from './components/HeadlessPlayerFallback';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { CacheSettingsModal } from './components/CacheSettingsModal';
-import { TRACKS, getTracksByCategory, getTracksByStyle } from './data/musicCatalog';
+import { BottomNavBar } from './components/BottomNavBar';
+import { TRACKS, getTracksByStyle } from './data/musicCatalog';
 import { Play, Sparkles, Globe, ShieldCheck, Loader2 } from 'lucide-react';
 import { Track } from './types/music';
 import { logPipedSearchResults } from './utils/audioLogger';
@@ -22,6 +23,7 @@ import { logPipedSearchResults } from './utils/audioLogger';
 const MusicAppContent: React.FC = () => {
   const { playTrack, likedTrackIds } = useAudio();
 
+  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'library' | 'explore'>('home');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -41,6 +43,25 @@ const MusicAppContent: React.FC = () => {
         .catch((err) => console.warn('Service Worker registration note:', err));
     }
   }, []);
+
+  // Sync BottomNavBar tabs with TopBar search states
+  const handleSelectTab = (tab: 'home' | 'search' | 'library' | 'explore') => {
+    setActiveTab(tab);
+    if (tab === 'search') {
+      setIsSearchOpen(true);
+      setSearchScope('online');
+    } else if (tab === 'library') {
+      setIsSearchOpen(false);
+      setActiveFilter('liked');
+    } else if (tab === 'explore') {
+      setIsSearchOpen(false);
+      setActiveFilter('all');
+    } else {
+      setIsSearchOpen(false);
+      setActiveFilter('all');
+      setSelectedCategoryId(null);
+    }
+  };
 
   // Perform live online music search via Piped API backend proxy
   const performOnlineSearch = useCallback(async () => {
@@ -82,7 +103,7 @@ const MusicAppContent: React.FC = () => {
     }
 
     // Filter by topbar category
-    if (activeFilter === 'liked') {
+    if (activeFilter === 'liked' || activeTab === 'library') {
       return result.filter((t) => likedTrackIds.includes(t.id));
     }
 
@@ -96,7 +117,7 @@ const MusicAppContent: React.FC = () => {
     }
 
     return result;
-  }, [searchQuery, searchScope, activeFilter, selectedCategoryId, likedTrackIds]);
+  }, [searchQuery, searchScope, activeFilter, selectedCategoryId, likedTrackIds, activeTab]);
 
   const classicRockTracks = useMemo(() => getTracksByStyle('Classic Rock'), []);
   const altPopTracks = useMemo(() => getTracksByStyle('Alternative Pop'), []);
@@ -110,7 +131,7 @@ const MusicAppContent: React.FC = () => {
       <OfflineIndicator />
 
       {/* Main Mobile/Tablet Wrapper */}
-      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-32">
+      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-36">
         {/* Top App Bar with live search */}
         <TopBar
           activeFilter={activeFilter}
@@ -150,7 +171,6 @@ const MusicAppContent: React.FC = () => {
           onClose={() => setIsCacheSettingsOpen(false)}
         />
 
-
         <main className="flex-1 space-y-4">
           {/* 1. Live Online Piped Search Results View */}
           {isSearchOpen && searchScope === 'online' ? (
@@ -180,20 +200,20 @@ const MusicAppContent: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : /* 2. Local Catalog Search or Category Filter View */
-          (searchQuery || activeFilter !== 'all' || (selectedCategoryId && selectedCategoryId !== 'all')) ? (
+          ) : /* 2. Local Catalog Search or Category Filter / Library View */
+          (searchQuery || activeFilter !== 'all' || activeTab === 'library' || (selectedCategoryId && selectedCategoryId !== 'all')) ? (
             <div className="pt-2 space-y-3">
               <TrackList
                 tracks={filteredCatalogTracks}
                 title={
                   searchQuery
                     ? `Catálogo Local para "${searchQuery}"`
-                    : activeFilter === 'liked'
-                    ? 'Minhas Músicas Favoritas'
+                    : activeFilter === 'liked' || activeTab === 'library'
+                    ? 'Sua Biblioteca (Favoritos)'
                     : 'Faixas Selecionadas'
                 }
                 emptyMessage={
-                  activeFilter === 'liked'
+                  activeFilter === 'liked' || activeTab === 'library'
                     ? 'Nenhuma música favoritada ainda. Toque no ícone de coração em qualquer faixa para salvar!'
                     : 'Nenhuma música encontrada no catálogo local.'
                 }
@@ -305,7 +325,7 @@ const MusicAppContent: React.FC = () => {
                 onTrackSelect={(track) => playTrack(track, TRACKS)}
               />
 
-              {/* Mobile PWA & Hybrid Audio Architecture Architecture Card */}
+              {/* Mobile PWA & Hybrid Audio Architecture Card */}
               <div className="px-4 py-2">
                 <div className="p-4 rounded-3xl bg-white/[0.02] border border-white/[0.07] space-y-2 text-left">
                   <div className="flex items-center gap-2 text-xs font-semibold text-purple-400">
@@ -329,6 +349,9 @@ const MusicAppContent: React.FC = () => {
 
       {/* Fullscreen Expanded Player (Modal / Bottom Sheet) */}
       <ExpandedPlayer />
+
+      {/* Spotify / Apple Music Style Bottom Navigation Bar */}
+      <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} />
 
       {/* Headless Player Redundant Fallback Engine (1px by 1px opacity 0) */}
       <HeadlessPlayerFallback />

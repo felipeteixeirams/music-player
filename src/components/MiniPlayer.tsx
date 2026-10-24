@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, SkipForward, Disc3, Radio } from 'lucide-react';
+import { Play, Pause, SkipForward } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { calculateProgress } from '../utils/audioEngine';
 
@@ -34,10 +34,9 @@ export const MiniPlayer: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-3 pt-1 pointer-events-none"
-      style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed bottom-[56px] left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto"
     >
-      <div className="max-w-md mx-auto pointer-events-auto">
+      <div className="w-full pointer-events-auto">
         {/* iOS-Style Floating Glassmorphic Container */}
         <div
           onClick={() => toggleExpanded(true)}
@@ -60,11 +59,11 @@ export const MiniPlayer: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center justify-between p-2.5 pl-3 gap-3">
+          <div className="flex items-center justify-between p-2 pl-3 gap-3">
             {/* Left Slot: Rotating Album Artwork (Vinyl effect) */}
             <div className="relative shrink-0">
               <div
-                className={`w-11 h-11 rounded-2xl overflow-hidden border border-white/20 shadow-md bg-gradient-to-tr from-purple-900/60 to-pink-900/60 flex items-center justify-center relative ${
+                className={`w-10 h-10 rounded-2xl overflow-hidden border border-white/20 shadow-md bg-gradient-to-tr from-purple-900/60 to-pink-900/60 flex items-center justify-center relative ${
                   isPlaying ? 'animate-[spin_10s_linear_infinite]' : ''
                 }`}
                 style={{ transformOrigin: 'center' }}
@@ -81,7 +80,7 @@ export const MiniPlayer: React.FC = () => {
               </div>
 
               {/* Center vinyl pin hole micro-detail */}
-              <div className="absolute inset-0 m-auto w-2.5 h-2.5 rounded-full bg-black/60 border border-white/40 pointer-events-none" />
+              <div className="absolute inset-0 m-auto w-2 h-2 rounded-full bg-black/60 border border-white/40 pointer-events-none" />
             </div>
 
             {/* Middle Slot: Track Name & Artist */}
@@ -108,12 +107,12 @@ export const MiniPlayer: React.FC = () => {
                   togglePlayPause();
                 }}
                 aria-label={isPlaying ? 'Pausar música' : 'Reproduzir música'}
-                className="w-11 h-11 rounded-full flex items-center justify-center bg-white text-black hover:bg-white/90 active:scale-90 transition-all shadow-md"
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-white text-black hover:bg-white/90 active:scale-90 transition-all shadow-md"
               >
                 {isPlaying ? (
-                  <Pause className="w-5 h-5 fill-current" />
+                  <Pause className="w-4 h-4 fill-current" />
                 ) : (
-                  <Play className="w-5 h-5 fill-current ml-0.5" />
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
                 )}
               </button>
 
@@ -123,7 +122,7 @@ export const MiniPlayer: React.FC = () => {
                   playNext();
                 }}
                 aria-label="Avançar para a próxima faixa"
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
               >
                 <SkipForward className="w-4 h-4 fill-current" />
               </button>
