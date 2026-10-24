@@ -6,6 +6,7 @@ import {
   getPreviousTrackIndex,
   resolveAudioDetails
 } from '../utils/audioEngine';
+import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 
 interface AudioContextType {
   currentTrack: Track | null;
@@ -175,15 +176,36 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [isPlaying]);
 
-  // Handle track source resolution (Hybrid Engine logic - 100% authentic YouTube audio)
-  // Handle track source resolution (Hybrid Engine logic - 100% authentic YouTube audio)
+  // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
     setIsBuffering(true);
     setCurrentTrack(track);
     setDuration(track.duration);
     setCurrentTime(0);
 
-    // If track has a youtubeId (Authentic YouTube / YouTube Music track)
+    // 1. First priority: Check if track is cached for offline playback
+    if (isTrackOfflineAvailable(track.id)) {
+      const offlineBlobUrl = await getOfflineAudioUrl(track.id);
+      if (offlineBlobUrl && audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = offlineBlobUrl;
+        setActiveEngine('native');
+        setAudioStreamUrl(offlineBlobUrl);
+        setPipedStatus({ quality: 'Offline Cache', instanceUsed: 'Local Cache Storage' });
+        if (shouldPlay) {
+          try {
+            await audioRef.current.play();
+            setIsPlaying(true);
+          } catch (err) {
+            console.warn('Offline stream playback notice:', err);
+          }
+        }
+        setIsBuffering(false);
+        return;
+      }
+    }
+
+    // 2. Online stream resolution (YouTube / Piped)
     if (track.sources.youtubeId) {
       const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
       
@@ -279,7 +301,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (nextIdx >= 0 && nextIdx < queue.length && nextIdx !== currentIndex) {
       const nextTrack = queue[nextIdx];
       // Prime the server-side Piped stream resolution cache in background
-      if (nextTrack.sources.youtubeId) {
+      if (nextTrack.sources.youtubeId && !isTrackOfflineAvailable(nextTrack.id)) {
         fetchPipedAudioStream(nextTrack.sources.youtubeId).catch(() => {});
       }
       // Warm up browser audio stream cache if native
@@ -387,7 +409,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    if (activeEngine === 'fallback' || (currentTrack && currentTrack.sources.youtubeId && !audioStreamUrl.startsWith('http'))) {
+    if (activeEngine === 'fallback' || (currentTrack && currentTrack.sources.youtubeId && !audioStreamUrl.startsWith('http') && !audioStreamUrl.startsWith('blob'))) {
       setIsPlaying((prev) => !prev);
       return;
     }

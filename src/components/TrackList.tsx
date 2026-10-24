@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { formatTime } from '../utils/audioEngine';
@@ -16,6 +16,12 @@ interface TrackListProps {
   emptyMessage?: string;
 }
 
+interface ToastNotice {
+  id: string;
+  message: string;
+  type: 'success' | 'error';
+}
+
 export const TrackList: React.FC<TrackListProps> = ({
   tracks,
   title,
@@ -25,6 +31,7 @@ export const TrackList: React.FC<TrackListProps> = ({
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked, audioStreamUrl } = useAudio();
   const [downloadingTrackId, setDownloadingTrackId] = useState<string | null>(null);
   const [offlineStatusMap, setOfflineStatusMap] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<ToastNotice | null>(null);
 
   useEffect(() => {
     const status: Record<string, boolean> = {};
@@ -34,6 +41,13 @@ export const TrackList: React.FC<TrackListProps> = ({
     setOfflineStatusMap(status);
   }, [tracks]);
 
+  // Toast notice timer
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
   const handleToggleOffline = async (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
     const isCurrentlyOffline = offlineStatusMap[track.id];
@@ -41,12 +55,31 @@ export const TrackList: React.FC<TrackListProps> = ({
     if (isCurrentlyOffline) {
       await removeOfflineTrack(track.id);
       setOfflineStatusMap((prev) => ({ ...prev, [track.id]: false }));
+      setToast({
+        id: Date.now().toString(),
+        message: `"${track.title}" removida do armazenamento offline.`,
+        type: 'success'
+      });
     } else {
       setDownloadingTrackId(track.id);
       const streamUrlToCache = currentTrack?.id === track.id && audioStreamUrl ? audioStreamUrl : '';
-      await downloadTrackForOffline(track.id, streamUrlToCache, track.coverUrl);
+      const result = await downloadTrackForOffline(track, streamUrlToCache);
       setDownloadingTrackId(null);
-      setOfflineStatusMap((prev) => ({ ...prev, [track.id]: true }));
+
+      if (result.success) {
+        setOfflineStatusMap((prev) => ({ ...prev, [track.id]: true }));
+        setToast({
+          id: Date.now().toString(),
+          message: `"${track.title}" baixada com sucesso para ouvir offline!`,
+          type: 'success'
+        });
+      } else {
+        setToast({
+          id: Date.now().toString(),
+          message: result.error || `Não foi possível baixar "${track.title}".`,
+          type: 'error'
+        });
+      }
     }
   };
 
@@ -62,7 +95,25 @@ export const TrackList: React.FC<TrackListProps> = ({
   }
 
   return (
-    <section className="px-4 py-3" aria-label={title || 'Lista de faixas'}>
+    <section className="px-4 py-3 relative" aria-label={title || 'Lista de faixas'}>
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div
+          className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl border shadow-xl flex items-center gap-2.5 text-xs max-w-sm w-[90%] backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200 ${
+            toast.type === 'success'
+              ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200'
+              : 'bg-rose-950/90 border-rose-500/40 text-rose-200'
+          }`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          )}
+          <span className="truncate flex-1 font-medium">{toast.message}</span>
+        </div>
+      )}
+
       {title && (
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-bold text-white tracking-tight">{title}</h2>
