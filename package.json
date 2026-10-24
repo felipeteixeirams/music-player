@@ -9,6 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
+    "test": "tsx --test src/**/*.test.ts api/**/*.test.ts",
+    "test:integrations:live": "RUN_LIVE_INTEGRATION_TESTS=1 tsx --test api/integrations.live.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

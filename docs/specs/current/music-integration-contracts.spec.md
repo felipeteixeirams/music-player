@@ -52,19 +52,22 @@ Estas alterações estavam aplicadas ao inspecionar o workspace e devem ser pres
 - `api/feed.ts`, `api/search.ts` e `server.ts` usam esse helper ao mapear resultados Piped, filtrando IDs inválidos antes do limite de 15 resultados.
 - `src/components/ExpandedPlayer.tsx` não monta mais outro `ReactPlayer` diretamente sobre a artwork. O fallback headless fica como proprietário da reprodução YouTube quando a engine ativa é `fallback`, evitando duas fontes tocando simultaneamente.
 - `src/utils/audioEngine.test.ts` tem casos iniciais para `extractYouTubeId`.
+- `api/integrations.test.ts` invoca os handlers Vercel de busca, feed e stream com `fetch` simulado; também verifica o consumo da resposta de stream por `fetchPipedAudioStream`.
+- `api/integrations.live.test.ts` contém um smoke test opt-in que consulta busca/stream reais e verifica um byte de áudio direto ou a resposta oEmbed do fallback.
+- `package.json` agora oferece `npm test`, executado por `tsx --test` sobre os testes de `src/` e `api/`.
 
 Não reverter essas alterações durante a implementação dos contratos. O helper atual pode ser mantido ou reorganizado se todos os usos e testes forem migrados juntos.
 
-### Validação já tentada
+### Validação registrada
 
-- `git diff --check`: passou no estado observado.
-- Diagnósticos do editor nos arquivos alterados: sem erros no momento da checagem.
-- Sete cenários executados diretamente com Node 24 para `extractYouTubeId`: passaram.
-- `npm run lint` não pôde rodar: `tsc` não estava instalado no workspace.
-- O teste `node --experimental-strip-types --test src/utils/audioEngine.test.ts` não pôde iniciar os testes porque os imports relativos do projeto omitem extensões, que o resolver ESM do Node não localizou.
-- `bun test` também não pôde rodar porque `bun` não estava instalado.
-
-Esses resultados validam apenas o helper ID; ainda não validam build, tipagem global, os mappers nem a reprodução real.
+- `npm test`: 20 testes passaram e um smoke live foi ignorado por padrão; os aprovados incluem seis testes de integração HTTP com respostas externas simuladas e a suíte unitária existente.
+- `npm run test:integrations:live`: passou em 2026-10-24. A busca real retornou 15 faixas via `pipedapi.ducks.party`; resolução Piped de áudio direto falhou para a primeira faixa e o YouTube oEmbed confirmou HTTP 200 para o fallback.
+- `npm run lint`: passou após instalar as dependências do projeto.
+- `npm run build`: passou; o Vite ainda mostra avisos de `__dirname` no config loader e de chunks grandes.
+- `git diff --check`: passou.
+- Os testes de integração não chamam YouTube Music nem Piped reais. Eles validam handlers, parsing dos payloads-fixture, fallback e o contrato entre o endpoint de stream e o cliente.
+- O smoke live faz chamadas reais e lê no máximo um byte do stream quando há URL direta; se não houver, valida oEmbed para identificar um fallback potencialmente incorporável. Isso não confirma reprodução efetiva no navegador.
+- Não foi feito teste de playback em navegador. A disponibilidade real de streams Piped para outras faixas e o funcionamento de `HeadlessPlayerFallback` permanecem por validar.
 
 ## Problema central
 
@@ -244,8 +247,9 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - Preferir testes com `node:test` se já for a convenção e resolver imports com o setup adequado, ou adotar Vitest se necessário para Vite/React; não deixar os arquivos de teste sem script para execução.
 - Adicionar scripts explícitos, por exemplo `test` e possivelmente `test:watch`, após escolher runner.
 - Mockar `fetch` para fixtures determinísticas. Nenhum teste unitário deve fazer requisição a Piped/YouTube.
+- `npm run test:integrations:live` é a exceção explícita para smoke test com rede real; não deve ser incluído no `npm test` padrão.
 - Comandos esperados no final: `npm test` (ou script acordado), `npm run lint`, `npm run build` e `git diff --check`.
-- Smoke test externo é separado, opcional por disponibilidade e sem credenciais: busca uma faixa de consulta conhecida, valida contrato e tenta resolver seu stream. Relatar instância e engine selecionadas sem imprimir URL assinada completa.
+- Smoke test externo é separado, opcional por disponibilidade e sem credenciais: busca uma faixa conhecida, valida contrato e tenta resolver seu stream; se o áudio direto falhar, verifica se o vídeo de fallback é incorporável. Relatar instância e engine selecionadas sem imprimir URL assinada completa.
 
 ## Critérios de aceite
 
@@ -266,18 +270,20 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - `src/utils/youtubeId.ts`: normalização atual do ID, já compartilhada por busca/feed/local server.
 - `src/utils/audioEngine.ts`: seleção de stream e engine no cliente.
 - `src/utils/audioEngine.test.ts`: testes de utilitários e casos iniciais do ID.
+- `api/integrations.test.ts`: cobertura de integração com HTTP mockado para busca, feed e resolução.
+- `api/integrations.live.test.ts`: smoke externo condicionado por `RUN_LIVE_INTEGRATION_TESTS=1`.
 - `src/context/AudioContext.tsx`: prioridade offline, resolução Piped, fallback e estado playback.
 - `src/components/HeadlessPlayerFallback.tsx`: player ReactPlayer para fallback YouTube.
 - `src/components/ExpandedPlayer.tsx`: artwork do player expandido; não deve hospedar engine paralela.
 - `src/App.tsx`: consumidores HTTP do feed e da busca.
 - `api/feed.ts`, `api/search.ts`, `api/streams/[id].ts`: endpoints serverless, atualmente com parsing/integração próprios.
 - `server.ts`: servidor Express local, também contém clients, parsing e cache Piped.
-- `package.json`, `bun.lock`, `tsconfig.json`: scripts/dependências e configuração; no estado observado não há script `test` e as dependências não estavam instaladas.
+- `package.json`, `bun.lock`, `tsconfig.json`: scripts/dependências e configuração; `npm test` roda `tsx --test`. No ambiente usado para a validação, as dependências precisaram ser instaladas sem lockfile npm e com `--legacy-peer-deps` por conflito entre esbuild e o peer opcional do Vite.
 
 ## Observações para o próximo agente
 
 - Comece verificando `git status` e preserve todas as alterações existentes; este spec não autoriza descartar trabalho do usuário.
 - Reabra os arquivos antes de editar, pois o estado pode ter avançado desde a criação deste documento.
-- Não considerar o trabalho anterior completo: a normalização do ID e remoção do player duplicado são correções parciais, não substituem contratos, mappers ou cobertura integrada.
-- Não alegar reprodução garantida com base em testes unitários. Serviços públicos podem ficar indisponíveis, mudar payload, bloquear tráfego, limitar taxa ou devolver URLs expiradas.
+- Não considerar o trabalho anterior completo: os testes atuais simulam provedores e não substituem contratos/mappers compartilhados, smoke test real ou validação de playback no navegador.
+- Não alegar reprodução garantida com base em testes unitários, no smoke oEmbed ou na resolução da API isoladamente. Serviços públicos podem ficar indisponíveis, mudar payload, bloquear tráfego, limitar taxa ou devolver URLs expiradas.
 - Priorizar a cadeia reproduzível e observável de ponta a ponta, mantendo testes sem rede e deixando o smoke test externo como evidência complementar.

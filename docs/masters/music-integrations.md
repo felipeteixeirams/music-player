@@ -8,11 +8,11 @@ A especificação ativa é [Contratos, mappers e testes](../specs/current/music-
 
 ## Estado
 
-**Status: especificação em andamento; implementação incompleta.**
+**Status: implementação parcial; busca externa e fallback incorporável validados, mas stream direto Piped e playback no navegador não confirmados.**
 
-Já existem correções parciais de normalização de IDs Piped/YouTube e remoção do player concorrente no painel expandido. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e testes cobrindo a cadeia completa até o resolvedor/player.
+Já existem correções parciais de normalização de IDs Piped/YouTube, remoção do player concorrente no painel expandido, testes determinísticos dos handlers e um smoke test contra os serviços reais. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e teste de playback no navegador.
 
-Não afirmar que reprodução está garantida apenas porque um payload foi mapeado ou um teste unitário passou. É necessário validar o fluxo no código e, como evidência complementar, fazer smoke test externo quando os serviços estiverem disponíveis.
+Os testes HTTP simulam respostas dos provedores e validam parsing, fallback e contratos dentro do processo. O smoke executado em 2026-10-24 encontrou busca via `pipedapi.ducks.party`, mas não obteve stream Piped direto para a primeira faixa; o fallback passou na verificação oEmbed do YouTube. Isso comprova a busca e que o vídeo é incorporável, não que áudio tocou. Não afirmar que reprodução está garantida sem teste real no navegador.
 
 ## Domínio coberto
 
@@ -47,6 +47,9 @@ Serviços atuais observados:
 - `src/components/ExpandedPlayer.tsx`: UI expandida; não deve iniciar uma engine paralela.
 - `src/App.tsx`: consumo de `/api/feed` e `/api/search`.
 - `src/utils/audioEngine.test.ts`: testes existentes de utilitários e IDs.
+- `api/integrations.test.ts`: testes de integração dos handlers Vercel e do cliente de streams, com respostas HTTP simuladas.
+- `api/integrations.live.test.ts`: smoke test opt-in que consulta provedores reais, tenta resolver stream e verifica áudio direto ou incorporabilidade do fallback.
+- `package.json`: `npm test` executa a suíte via `tsx --test`.
 
 A especificação ativa contém o mapa mais completo dos arquivos e os detalhes conhecidos; consulte-a antes de mudar qualquer contrato.
 
@@ -73,6 +76,8 @@ Leia [Contratos, mappers e testes](../specs/current/music-integration-contracts.
 - sequência recomendada de mudanças;
 - matriz de testes e critérios de aceite;
 - limitações da validação já executada.
+
+Com dependências instaladas, execute `npm test` para os testes determinísticos. Execute `npm run test:integrations:live` separadamente quando houver acesso à rede; esse comando consulta serviços públicos e pode falhar por indisponibilidade externa.
 
 ## Atualização deste master
 

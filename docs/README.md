@@ -29,7 +29,7 @@ Masters e satélites são documentos navegáveis por links, não pontos de entra
 
 | Domínio | Master | Satélites ativos | Estado |
 | --- | --- | --- | --- |
-| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md) | Em especificação; contratos e mappers ainda precisam ser implementados e validados. |
+| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md) | Testes determinísticos e smoke live adicionados; resolução Piped e playback real ainda não confirmados. |
 
 ## Regras de manutenção
 
