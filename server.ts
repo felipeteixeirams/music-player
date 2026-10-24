@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { extractYouTubeId } from './src/utils/youtubeId';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,10 +106,10 @@ async function searchPipedInstance(instance: string, cleanQuery: string) {
 
     if (data && Array.isArray(data.items) && data.items.length > 0) {
       const tracks = data.items
-        .filter((item: any) => item && item.url && item.title)
+        .filter((item: any) => item && item.url && item.title && extractYouTubeId(item.url))
         .slice(0, 15)
         .map((item: any) => {
-          const rawId = item.url.replace('/watch?v=', '').replace('/streams/', '');
+          const rawId = extractYouTubeId(item.url)!;
           return {
             id: `piped-${rawId}`,
             title: item.title,

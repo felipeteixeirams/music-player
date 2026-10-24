@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { extractYouTubeId } from '../src/utils/youtubeId';
 
 const PIPED_SERVER_INSTANCES = [
   'https://api.piped.private.coffee',
@@ -39,10 +40,10 @@ async function searchPipedInstance(instance: string, cleanQuery: string) {
 
     if (data && Array.isArray(data.items) && data.items.length > 0) {
       const tracks = data.items
-        .filter((item: any) => item && item.url && item.title)
+        .filter((item: any) => item && item.url && item.title && extractYouTubeId(item.url))
         .slice(0, 15)
         .map((item: any) => {
-          const rawId = item.url.replace('/watch?v=', '').replace('/streams/', '');
+          const rawId = extractYouTubeId(item.url)!;
           return {
             id: `piped-${rawId}`,
             title: item.title,

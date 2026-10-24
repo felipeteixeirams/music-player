@@ -20,7 +20,6 @@ import {
 import { useAudio } from '../context/AudioContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
 import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
-import ReactPlayer from 'react-player';
 
 export const ExpandedPlayer: React.FC = () => {
   const {
@@ -44,7 +43,6 @@ export const ExpandedPlayer: React.FC = () => {
     toggleRepeat,
     toggleLike,
     isLiked,
-    activeEngine,
     audioFrequencyData
   } = useAudio();
 
@@ -189,42 +187,15 @@ export const ExpandedPlayer: React.FC = () => {
                   isPlaying ? 'scale-100' : 'scale-[0.96]'
                 }`}
               >
-                {currentTrack.sources.youtubeId ? (
-                  <div className="absolute inset-0 w-full h-full">
-                    {(() => {
-                      const PlayerComponent = ReactPlayer as any;
-                      return (
-                        <PlayerComponent
-                          url={`https://www.youtube.com/watch?v=${currentTrack.sources.youtubeId}`}
-                          playing={isPlaying}
-                          volume={isMuted ? 0 : volume}
-                          width="100%"
-                          height="100%"
-                          controls={false}
-                          config={{
-                            youtube: {
-                              playerVars: {
-                                autoplay: 1,
-                                controls: 0,
-                                playsinline: 1
-                              }
-                            }
-                          }}
-                        />
-                      );
-                    })()}
-                  </div>
-                ) : (
-                  <img
-                    src={currentTrack.coverUrl}
-                    alt={`Capa do álbum ${currentTrack.album}`}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                )}
+                <img
+                  src={currentTrack.coverUrl}
+                  alt={`Capa do álbum ${currentTrack.album}`}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
               </div>
             </div>
           )}

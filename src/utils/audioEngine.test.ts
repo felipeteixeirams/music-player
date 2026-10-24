@@ -11,6 +11,17 @@ import {
   resolveAudioDetails
 } from './audioEngine';
 import { Track } from '../types/music';
+import { extractYouTubeId } from './youtubeId';
+
+test('extractYouTubeId normalizes Piped and YouTube URLs', () => {
+  assert.equal(extractYouTubeId('dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+  assert.equal(extractYouTubeId('/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+  assert.equal(extractYouTubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+  assert.equal(extractYouTubeId('https://youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+  assert.equal(extractYouTubeId('/streams/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+  assert.equal(extractYouTubeId('/watch?v=invalid'), null);
+  assert.equal(extractYouTubeId(null), null);
+});
 
 test('formatTime formats seconds properly into MM:SS', () => {
   assert.equal(formatTime(0), '00:00');
