@@ -80,8 +80,11 @@ describe('Offline Manager Unit Tests', () => {
       album: 'Test Album',
       duration: 180,
       coverUrl: 'https://example.com/cover.jpg',
+      style: 'Pop',
+      categoryId: 'web',
       sources: {
-        localUrl: 'https://example.com/audio.mp3'
+        localUrl: 'https://example.com/audio.mp3',
+        youtubeId: 'abc123xyz'
       }
     };
 
@@ -104,8 +107,11 @@ describe('Offline Manager Unit Tests', () => {
       album: 'Success Album',
       duration: 200,
       coverUrl: 'https://example.com/cover.jpg',
+      style: 'Pop',
+      categoryId: 'web',
       sources: {
-        localUrl: 'https://example.com/audio.mp3'
+        localUrl: 'https://example.com/audio.mp3',
+        youtubeId: 'abc123xyz'
       }
     };
 
