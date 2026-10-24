@@ -6,11 +6,14 @@ import { logPipedAudioExtraction } from './audioLogger';
  * Endpoints: GET /streams/{id}
  */
 export const PIPED_INSTANCES: string[] = [
-  'https://pipedapi.kavin.rocks',
   'https://api.piped.private.coffee',
+  'https://pipedapi.ducks.party',
+  'https://pipedapi.in.projectsegfau.lt',
+  'https://api.piped.projectsegfau.lt',
+  'https://pipedapi.kavin.rocks',
   'https://piped-api.lunar.icu',
-  'https://pipedapi.tokhmi.xyz',
-  'https://api.piped.projectsegfau.lt'
+  'https://pipedapi.palvelintalo.fi',
+  'https://pipedapi.mha.fi'
 ];
 
 /**
@@ -119,7 +122,7 @@ export function extractAudioStreamFromPipedData(data: any): { url: string; quali
  */
 export async function fetchPipedAudioStream(
   youtubeId: string,
-  timeoutMs = 4000
+  timeoutMs = 3000
 ): Promise<{ audioUrl: string | null; quality?: string; instanceUsed?: string; error?: string }> {
   if (!youtubeId) {
     return { audioUrl: null, error: 'No YouTube ID provided' };
@@ -149,7 +152,7 @@ export async function fetchPipedAudioStream(
         return {
           audioUrl: localData.audioUrl,
           quality: localData.quality,
-          instanceUsed: localData.cached ? 'Piped Local (Cache 0ms)' : 'Piped Local Proxy'
+          instanceUsed: localData.cached ? 'Piped Local (Cache 0ms)' : (localData.instanceUsed || 'Piped Local Proxy')
         };
       }
       // If server verified direct streams are unavailable, log and immediately return

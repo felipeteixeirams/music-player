@@ -1,15 +1,73 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const PIPED_SERVER_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
   'https://api.piped.private.coffee',
-  'https://piped-api.lunar.icu',
-  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.ducks.party',
+  'https://pipedapi.in.projectsegfau.lt',
   'https://api.piped.projectsegfau.lt',
-  'https://pipedapi.drgns.space',
-  'https://watch.leptons.xyz/api',
-  'https://pipedapi.leptons.xyz'
+  'https://pipedapi.kavin.rocks',
+  'https://piped-api.lunar.icu',
+  'https://pipedapi.palvelintalo.fi',
+  'https://pipedapi.mha.fi'
 ];
+
+async function searchPipedInstance(instance: string, cleanQuery: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const response = await fetch(
+      `${instance}/search?q=${encodeURIComponent(cleanQuery)}&filter=music_songs`,
+      {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'AuraStream/1.0'
+        }
+      }
+    );
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const text = await response.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('Resposta não-JSON');
+    }
+
+    if (data && Array.isArray(data.items) && data.items.length > 0) {
+      const tracks = data.items
+        .filter((item: any) => item && item.url && item.title)
+        .slice(0, 15)
+        .map((item: any) => {
+          const rawId = item.url.replace('/watch?v=', '').replace('/streams/', '');
+          return {
+            id: `piped-${rawId}`,
+            title: item.title,
+            artist: item.uploaderName || 'Artista Desconhecido',
+            album: 'Piped Pure Stream',
+            duration: item.duration && item.duration > 0 ? item.duration : 180,
+            coverUrl: item.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500',
+            style: 'Online Stream',
+            categoryId: 'web',
+            sources: {
+              localUrl: '',
+              youtubeId: rawId
+            }
+          };
+        });
+
+      if (tracks.length === 0) throw new Error('Sem faixas válidas');
+      return { tracks, source: instance };
+    }
+
+    throw new Error('Sem resultados na instância');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const query = req.query.q;
@@ -22,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
   console.log(`[Vercel Serverless Search] 🔍 Buscando músicas para: "${cleanQuery}"`);
 
-  // 1. Try YouTube Music InnerTube API first
+  // 1. Try YouTube Music InnerTube API first with 2.5s timeout
   try {
     const ytRes = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
       method: 'POST',
@@ -42,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         query: cleanQuery
       }),
-      signal: AbortSignal.timeout(4500)
+      signal: AbortSignal.timeout(2500)
     });
 
     if (ytRes.ok) {
@@ -94,65 +152,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
   } catch (err: any) {
-    console.warn(`[Vercel Serverless Search] ℹ️ Falha na busca pelo InnerTube (${err?.message}). Redirecionando para Piped Network...`);
+    console.warn(`[Vercel Serverless Search] ℹ️ Falha/timeout na busca pelo InnerTube (${err?.message || err}). Redirecionando para busca paralela Piped Network...`);
   }
 
-  // 2. Fallback to Piped API instances
-  for (const instance of PIPED_SERVER_INSTANCES) {
-    try {
-      const response = await fetch(
-        `${instance}/search?q=${encodeURIComponent(cleanQuery)}&filter=music_songs`,
-        {
-          signal: AbortSignal.timeout(4000),
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'AuraStream/1.0'
-          }
-        }
-      );
+  // 2. Parallel Fallback to Piped API instances
+  try {
+    const result = await Promise.any(
+      PIPED_SERVER_INSTANCES.map((instance) => searchPipedInstance(instance, cleanQuery))
+    );
 
-      if (!response.ok) continue;
-
-      const text = await response.text();
-      let data: any;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        continue;
-      }
-
-      if (data && Array.isArray(data.items) && data.items.length > 0) {
-        const tracks = data.items
-          .filter((item: any) => item && item.url && item.title)
-          .slice(0, 15)
-          .map((item: any) => {
-            const rawId = item.url.replace('/watch?v=', '').replace('/streams/', '');
-            return {
-              id: `piped-${rawId}`,
-              title: item.title,
-              artist: item.uploaderName || 'Artista Desconhecido',
-              album: 'Piped Pure Stream',
-              duration: item.duration && item.duration > 0 ? item.duration : 180,
-              coverUrl: item.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500',
-              style: 'Online Stream',
-              categoryId: 'web',
-              sources: {
-                localUrl: '',
-                youtubeId: rawId
-              }
-            };
-          });
-
-        const durationMs = Date.now() - startTime;
-        console.log(`[Vercel Serverless Search] ✅ Encontradas ${tracks.length} faixas via Piped (${instance}) em ${durationMs}ms`);
-        res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
-        return res.status(200).json({ tracks, source: instance });
-      }
-    } catch {
-      continue;
-    }
+    const durationMs = Date.now() - startTime;
+    console.log(`[Vercel Serverless Search] ✅ Encontradas ${result.tracks.length} faixas via Piped (${result.source}) em ${durationMs}ms`);
+    res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
+    return res.status(200).json(result);
+  } catch {
+    console.log(`[Vercel Serverless Search] ⚠️ Nenhuma faixa online encontrada para "${cleanQuery}"`);
+    return res.status(200).json({ tracks: [], message: 'Nenhuma faixa online encontrada' });
   }
-
-  console.log(`[Vercel Serverless Search] ⚠️ Nenhuma faixa online encontrada para "${cleanQuery}"`);
-  return res.status(200).json({ tracks: [], message: 'Nenhuma faixa online encontrada' });
 }
