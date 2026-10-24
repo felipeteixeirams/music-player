@@ -12,14 +12,14 @@ app.use(express.json());
 
 // List of reliable public Piped API instances for server-side resolution
 const PIPED_SERVER_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
   'https://api.piped.private.coffee',
-  'https://piped-api.lunar.icu',
-  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.ducks.party',
+  'https://pipedapi.in.projectsegfau.lt',
   'https://api.piped.projectsegfau.lt',
-  'https://pipedapi.drgns.space',
-  'https://watch.leptons.xyz/api',
-  'https://pipedapi.leptons.xyz'
+  'https://pipedapi.kavin.rocks',
+  'https://piped-api.lunar.icu',
+  'https://pipedapi.palvelintalo.fi',
+  'https://pipedapi.mha.fi'
 ];
 
 // In-memory cache for extracted audio stream manifests (TTL: 4 hours)
@@ -33,6 +33,106 @@ interface CachedStream {
   expiresAt: number;
 }
 const streamCache = new Map<string, CachedStream>();
+
+async function fetchStreamFromInstance(instance: string, youtubeId: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const response = await fetch(`${instance}/streams/${encodeURIComponent(youtubeId)}`, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'AuraStream-Server/1.0'
+      }
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const text = await response.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('Invalid JSON');
+    }
+
+    if (data && Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
+      const validStreams = data.audioStreams.filter((s: any) => s && s.url);
+      if (validStreams.length === 0) throw new Error('No valid streams');
+
+      validStreams.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+      const best = validStreams[0];
+
+      return {
+        audioUrl: best.url,
+        quality: best.quality || `${Math.round((best.bitrate || 128000) / 1000)}kbps`,
+        bitrate: best.bitrate || 128000,
+        instanceUsed: instance
+      };
+    }
+    throw new Error('No audio streams');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function searchPipedInstance(instance: string, cleanQuery: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const response = await fetch(
+      `${instance}/search?q=${encodeURIComponent(cleanQuery)}&filter=music_songs`,
+      {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'AuraStream/1.0'
+        }
+      }
+    );
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const text = await response.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('Invalid JSON');
+    }
+
+    if (data && Array.isArray(data.items) && data.items.length > 0) {
+      const tracks = data.items
+        .filter((item: any) => item && item.url && item.title)
+        .slice(0, 15)
+        .map((item: any) => {
+          const rawId = item.url.replace('/watch?v=', '').replace('/streams/', '');
+          return {
+            id: `piped-${rawId}`,
+            title: item.title,
+            artist: item.uploaderName || 'Artista Desconhecido',
+            album: 'Piped Pure Stream',
+            duration: item.duration && item.duration > 0 ? item.duration : 180,
+            coverUrl: item.thumbnail || '/icon.svg',
+            style: 'Online Stream',
+            categoryId: 'web',
+            sources: {
+              localUrl: '',
+              youtubeId: rawId
+            }
+          };
+        });
+
+      if (tracks.length === 0) throw new Error('No valid tracks');
+      return { tracks, source: instance };
+    }
+    throw new Error('No items');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 // Endpoint: GET /api/streams/:id
 // Resolves pure audio stream without CORS restrictions and caches result
@@ -48,62 +148,29 @@ app.get('/api/streams/:id', async (req, res) => {
     return res.json({ ...cached.data, cached: true });
   }
 
-  // Query Piped instances server-side
-  for (const instance of PIPED_SERVER_INSTANCES) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3500);
+  // Query Piped instances server-side in parallel
+  try {
+    const result = await Promise.any(
+      PIPED_SERVER_INSTANCES.map((instance) => fetchStreamFromInstance(instance, youtubeId))
+    );
 
-      const response = await fetch(`${instance}/streams/${encodeURIComponent(youtubeId)}`, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'AuraStream-Server/1.0'
-        }
-      });
-      clearTimeout(timeout);
+    // Cache for 4 hours
+    streamCache.set(youtubeId, {
+      data: result,
+      expiresAt: Date.now() + 4 * 60 * 60 * 1000
+    });
 
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      if (Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
-        // Sort streams by highest bitrate
-        const validStreams = data.audioStreams.filter((s: any) => s && s.url);
-        if (validStreams.length === 0) continue;
-
-        validStreams.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
-        const best = validStreams[0];
-
-        const result = {
-          audioUrl: best.url,
-          quality: best.quality || `${Math.round((best.bitrate || 128000) / 1000)}kbps`,
-          bitrate: best.bitrate || 128000,
-          instanceUsed: instance
-        };
-
-        // Cache for 4 hours
-        streamCache.set(youtubeId, {
-          data: result,
-          expiresAt: Date.now() + 4 * 60 * 60 * 1000
-        });
-
-        console.log(`[Piped Server] ✅ Extracted direct audio stream for ${youtubeId}: ${best.url} (${result.quality})`);
-        return res.json({ ...result, cached: false });
-      }
-    } catch {
-      // Continue to next candidate
-      continue;
-    }
+    console.log(`[Piped Server] ✅ Extracted direct audio stream for ${youtubeId}: ${result.audioUrl} (${result.quality})`);
+    return res.json({ ...result, cached: false });
+  } catch {
+    console.log(`[Piped Server] ℹ️ Direct stream manifest unavailable for ${youtubeId}; delegating to authentic YouTube engine`);
+    return res.json({
+      directStreamAvailable: false,
+      audioUrl: null,
+      youtubeId,
+      message: 'Using authentic YouTube headless audio stream'
+    });
   }
-
-  console.log(`[Piped Server] ℹ️ Direct stream manifest unavailable for ${youtubeId}; delegating to authentic YouTube engine`);
-  // If Piped public instances did not provide a raw audio stream, delegate to the authentic YouTube headless engine
-  return res.json({
-    directStreamAvailable: false,
-    audioUrl: null,
-    youtubeId,
-    message: 'Using authentic YouTube headless audio stream'
-  });
 });
 
 // Endpoint: GET /api/search?q={query}
@@ -136,7 +203,7 @@ app.get('/api/search', async (req, res) => {
         },
         query: cleanQuery
       }),
-      signal: AbortSignal.timeout(4500)
+      signal: AbortSignal.timeout(2500)
     });
 
     if (ytRes.ok) {
@@ -189,61 +256,15 @@ app.get('/api/search', async (req, res) => {
     console.warn('YouTube Music InnerTube search notice, falling back to Piped:', err);
   }
 
-  // 2. Fallback to Piped API instances
-  const instances = [
-    'https://api.piped.private.coffee',
-    'https://piped-api.lunar.icu',
-    'https://pipedapi.tokhmi.xyz',
-    'https://pipedapi.kavin.rocks',
-    'https://api.piped.projectsegfau.lt'
-  ];
-
-  for (const instance of instances) {
-    try {
-      const response = await fetch(
-        `${instance}/search?q=${encodeURIComponent(cleanQuery)}&filter=music_songs`,
-        {
-          signal: AbortSignal.timeout(4000),
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'AuraStream/1.0'
-          }
-        }
-      );
-
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      if (Array.isArray(data.items) && data.items.length > 0) {
-        const tracks = data.items
-          .filter((item: any) => item && item.url && item.title)
-          .slice(0, 15)
-          .map((item: any) => {
-            const rawId = item.url.replace('/watch?v=', '').replace('/streams/', '');
-            return {
-              id: `piped-${rawId}`,
-              title: item.title,
-              artist: item.uploaderName || 'Artista Desconhecido',
-              album: 'Piped Pure Stream',
-              duration: item.duration && item.duration > 0 ? item.duration : 180,
-              coverUrl: item.thumbnail || '/icon.svg',
-              style: 'Online Stream',
-              categoryId: 'web',
-              sources: {
-                localUrl: '',
-                youtubeId: rawId
-              }
-            };
-          });
-
-        return res.json({ tracks, source: instance });
-      }
-    } catch {
-      continue;
-    }
+  // 2. Parallel Fallback to Piped API instances
+  try {
+    const result = await Promise.any(
+      PIPED_SERVER_INSTANCES.map((instance) => searchPipedInstance(instance, cleanQuery))
+    );
+    return res.json(result);
+  } catch {
+    return res.json({ tracks: [], message: 'No online tracks found' });
   }
-
-  return res.json({ tracks: [], message: 'No online tracks found' });
 });
 
 // Endpoint: GET /api/health
