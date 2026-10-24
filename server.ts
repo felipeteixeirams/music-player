@@ -84,6 +84,7 @@ app.get('/api/streams/:id', async (req, res) => {
           expiresAt: Date.now() + 4 * 60 * 60 * 1000
         });
 
+        console.log(`[Piped Server] ✅ Extracted direct audio stream for ${youtubeId}: ${best.url} (${result.quality})`);
         return res.json({ ...result, cached: false });
       }
     } catch {
@@ -92,25 +93,100 @@ app.get('/api/streams/:id', async (req, res) => {
     }
   }
 
-  // If all instances failed or rate limited, return a reliable fallback audio stream so playback never aborts
-  const fallbackResult = {
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=fallback-stream.mp3',
-    quality: '128kbps fallback',
-    bitrate: 128000,
-    instanceUsed: 'AuraStream Headless Redundant Stream'
-  };
-
-  return res.json({ ...fallbackResult, cached: false, fallbackActive: true });
+  console.log(`[Piped Server] ℹ️ Direct stream manifest unavailable for ${youtubeId}; delegating to authentic YouTube engine`);
+  // If Piped public instances did not provide a raw audio stream, delegate to the authentic YouTube headless engine
+  return res.json({
+    directStreamAvailable: false,
+    audioUrl: null,
+    youtubeId,
+    message: 'Using authentic YouTube headless audio stream'
+  });
 });
 
 // Endpoint: GET /api/search?q={query}
-// Searches live tracks via Piped API music_songs filter
+// Searches live tracks via YouTube Music InnerTube API with Piped fallback
 app.get('/api/search', async (req, res) => {
   const query = req.query.q;
   if (!query || typeof query !== 'string' || !query.trim()) {
     return res.status(400).json({ error: 'Query parameter q is required' });
   }
 
+  const cleanQuery = query.trim();
+
+  // 1. Try YouTube Music InnerTube API first
+  try {
+    const ytRes = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Origin': 'https://music.youtube.com'
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: 'WEB_REMIX',
+            clientVersion: '1.20231215.01.00',
+            hl: 'pt',
+            gl: 'BR'
+          }
+        },
+        query: cleanQuery
+      }),
+      signal: AbortSignal.timeout(4500)
+    });
+
+    if (ytRes.ok) {
+      const ytData = await ytRes.json();
+      const tabs = ytData.contents?.tabbedSearchResultsRenderer?.tabs || [];
+      const tracks: any[] = [];
+
+      for (const t of tabs) {
+        const sections = t.tabRenderer?.content?.sectionListRenderer?.contents || [];
+        for (const s of sections) {
+          const shelf = s.musicShelfRenderer;
+          if (shelf && shelf.contents) {
+            for (const c of shelf.contents) {
+              const item = c.musicResponsiveListItemRenderer;
+              if (item && item.videoId) {
+                const title = item.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
+                const artist = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'YouTube Music';
+                const album = item.flexColumns?.[2]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'Official Single';
+                const thumbs = item.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+                const thumbnail = thumbs && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : '/icon.svg';
+
+                if (title && !tracks.some((tr) => tr.sources.youtubeId === item.videoId)) {
+                  tracks.push({
+                    id: `ytm-${item.videoId}`,
+                    title,
+                    artist,
+                    album,
+                    duration: 210,
+                    coverUrl: thumbnail,
+                    style: 'YouTube Music',
+                    categoryId: 'web',
+                    sources: {
+                      localUrl: '',
+                      youtubeId: item.videoId
+                    }
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (tracks.length > 0) {
+        console.log(`[YouTube Music Search] ✅ Found ${tracks.length} official tracks for "${cleanQuery}"`);
+        return res.json({ tracks: tracks.slice(0, 15), source: 'YouTube Music InnerTube' });
+      }
+    }
+  } catch (err) {
+    console.warn('YouTube Music InnerTube search notice, falling back to Piped:', err);
+  }
+
+  // 2. Fallback to Piped API instances
   const instances = [
     'https://api.piped.private.coffee',
     'https://piped-api.lunar.icu',
@@ -122,7 +198,7 @@ app.get('/api/search', async (req, res) => {
   for (const instance of instances) {
     try {
       const response = await fetch(
-        `${instance}/search?q=${encodeURIComponent(query.trim())}&filter=music_songs`,
+        `${instance}/search?q=${encodeURIComponent(cleanQuery)}&filter=music_songs`,
         {
           signal: AbortSignal.timeout(4000),
           headers: {

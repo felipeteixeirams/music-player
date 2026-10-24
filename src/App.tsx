@@ -17,6 +17,7 @@ import { CacheSettingsModal } from './components/CacheSettingsModal';
 import { TRACKS, getTracksByCategory, getTracksByStyle } from './data/musicCatalog';
 import { Play, Sparkles, Globe, ShieldCheck, Loader2 } from 'lucide-react';
 import { Track } from './types/music';
+import { logPipedSearchResults } from './utils/audioLogger';
 
 const MusicAppContent: React.FC = () => {
   const { playTrack, likedTrackIds } = useAudio();
@@ -51,6 +52,7 @@ const MusicAppContent: React.FC = () => {
       if (!res.ok) throw new Error('Instâncias Piped indisponíveis');
       const data = await res.json();
       if (Array.isArray(data.tracks) && data.tracks.length > 0) {
+        logPipedSearchResults(searchQuery.trim(), data.tracks, data.source);
         setOnlineSearchResults(data.tracks);
       } else {
         setOnlineSearchResults([]);

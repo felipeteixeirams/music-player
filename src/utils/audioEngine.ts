@@ -1,4 +1,5 @@
 import { AudioEngineType, RepeatMode, Track } from '../types/music';
+import { logPipedAudioExtraction } from './audioLogger';
 
 /**
  * Public Piped API instances that offer CORS-friendly endpoints for pure audio extraction.
@@ -136,54 +137,45 @@ export async function fetchPipedAudioStream(
     if (localRes.ok) {
       const localData = await localRes.json();
       if (localData && localData.audioUrl) {
+        logPipedAudioExtraction({
+          context: 'stream_extraction',
+          youtubeId,
+          audioUrl: localData.audioUrl,
+          quality: localData.quality,
+          instanceUsed: localData.cached ? 'Piped Local (Cache 0ms)' : (localData.instanceUsed || 'Piped Local Proxy'),
+          cached: localData.cached,
+          sourceType: 'Piped Direct Audio Stream'
+        });
         return {
           audioUrl: localData.audioUrl,
           quality: localData.quality,
           instanceUsed: localData.cached ? 'Piped Local (Cache 0ms)' : 'Piped Local Proxy'
         };
       }
+      // If server verified direct streams are unavailable, log and immediately return
+      logPipedAudioExtraction({
+        context: 'stream_extraction',
+        youtubeId,
+        audioUrl: null,
+        quality: 'Original YouTube Stream',
+        instanceUsed: 'YouTube Engine',
+        sourceType: 'YouTube Headless Stream'
+      });
+      return {
+        audioUrl: null,
+        error: localData?.message || 'Direct stream unavailable',
+        instanceUsed: 'YouTube Engine'
+      };
     }
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      console.warn('Local proxy stream resolution timed out, falling back to direct instances');
-    }
-  }
-
-  // 2. Fallback to public Piped instances directly
-  for (const instance of PIPED_INSTANCES) {
-    let timeoutId: NodeJS.Timeout | null = null;
-    try {
-      const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      const endpoint = `${instance}/streams/${encodeURIComponent(youtubeId)}`;
-      const res = await fetch(endpoint, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-      if (timeoutId) clearTimeout(timeoutId);
-
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      const extracted = extractAudioStreamFromPipedData(data);
-      if (extracted && extracted.url) {
-        return {
-          audioUrl: extracted.url,
-          quality: extracted.quality,
-          instanceUsed: instance
-        };
-      }
-    } catch (err: any) {
-      if (timeoutId) clearTimeout(timeoutId);
-      // Continue to next instance candidate smoothly without throwing abort errors
-      continue;
+      console.warn('Local proxy stream resolution timed out');
     }
   }
 
   return {
     audioUrl: null,
-    error: 'Piped instances unreachable or rate-limited; fallback active'
+    error: 'Direct stream not available; authentic YouTube engine active'
   };
 }
 

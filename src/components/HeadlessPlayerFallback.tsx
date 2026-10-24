@@ -3,9 +3,9 @@ import ReactPlayer from 'react-player';
 import { useAudio } from '../context/AudioContext';
 
 /**
- * Headless Audio Engine Fallback
- * Renders react-player at 1px by 1px with opacity 0, strictly as a redundant audio engine
- * when native stream and Piped API are unreachable or restricted.
+ * Headless Audio Engine (YouTube & YouTube Music Official Audio Stream)
+ * Renders react-player off-screen with standard dimensions to prevent YouTube iframe
+ * miniaturization blocks (Error 150/151), delivering the authentic original song.
  */
 const PlayerComponent = ReactPlayer as any;
 
@@ -16,36 +16,38 @@ export const HeadlessPlayerFallback: React.FC = () => {
     isPlaying,
     volume,
     isMuted,
-    seekTo,
     playNext,
-    currentTime
+    updatePlaybackTime,
+    setDuration,
+    userSeekRequest,
+    clearUserSeekRequest
   } = useAudio();
 
   const playerRef = useRef<any>(null);
 
-  // Sync seek if needed when active in fallback mode
+  // Sync seek when user moves timeline slider
   useEffect(() => {
-    if (activeEngine === 'fallback' && playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-      const internalCurrent = playerRef.current.getCurrentTime();
-      if (Math.abs(internalCurrent - currentTime) > 2.5) {
-        playerRef.current.seekTo(currentTime, 'seconds');
-      }
+    if (userSeekRequest !== null && playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      playerRef.current.seekTo(userSeekRequest, 'seconds');
+      clearUserSeekRequest();
     }
-  }, [activeEngine, currentTime]);
+  }, [userSeekRequest, clearUserSeekRequest]);
 
   if (activeEngine !== 'fallback' || !audioStreamUrl) {
     return null;
   }
+
+  const originUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
   return (
     <div
       aria-hidden="true"
       style={{
         position: 'fixed',
-        bottom: 0,
-        right: 0,
-        width: 1,
-        height: 1,
+        left: -9999,
+        top: -9999,
+        width: 320,
+        height: 180,
         opacity: 0,
         pointerEvents: 'none',
         overflow: 'hidden',
@@ -57,8 +59,8 @@ export const HeadlessPlayerFallback: React.FC = () => {
         url={audioStreamUrl}
         playing={isPlaying}
         volume={isMuted ? 0 : volume}
-        width="1px"
-        height="1px"
+        width="320px"
+        height="180px"
         controls={false}
         playsinline
         config={{
@@ -70,22 +72,28 @@ export const HeadlessPlayerFallback: React.FC = () => {
               fs: 0,
               modestbranding: 1,
               playsinline: 1,
-              rel: 0
+              rel: 0,
+              origin: originUrl,
+              enablejsapi: 1
             }
           } as any
         }}
+        onReady={(player: any) => {
+          if (player && typeof player.getDuration === 'function') {
+            const d = player.getDuration();
+            if (d && d > 0) setDuration(Math.round(d));
+          }
+        }}
         onProgress={(state: any) => {
-          if (activeEngine === 'fallback' && state && typeof state.playedSeconds === 'number') {
-            seekTo(state.playedSeconds);
+          if (state && typeof state.playedSeconds === 'number') {
+            updatePlaybackTime(state.playedSeconds);
           }
         }}
         onEnded={() => {
-          if (activeEngine === 'fallback') {
-            playNext();
-          }
+          playNext();
         }}
         onError={(err: any) => {
-          console.warn('Headless audio fallback player event:', err);
+          console.warn('YouTube Engine playback notice:', err);
         }}
       />
     </div>

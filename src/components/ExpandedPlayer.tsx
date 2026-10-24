@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
+import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
 import { AudioEngineBadge } from './AudioEngineBadge';
 
 export const ExpandedPlayer: React.FC = () => {
@@ -50,6 +51,32 @@ export const ExpandedPlayer: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'artwork' | 'lyrics' | 'visualizer'>('artwork');
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
+  const [syncedLyrics, setSyncedLyrics] = useState<LrcLine[]>([]);
+  const [isFetchingLyrics, setIsFetchingLyrics] = useState(false);
+
+  React.useEffect(() => {
+    if (!currentTrack) return;
+    let isMounted = true;
+    setIsFetchingLyrics(true);
+    setSyncedLyrics([]);
+
+    fetchSyncedLyrics(currentTrack.artist, currentTrack.title).then((res) => {
+      if (isMounted) {
+        if (res.syncedLines.length > 0) {
+          setSyncedLyrics(res.syncedLines);
+        } else if (res.plainLyrics.length > 0) {
+          setSyncedLyrics(res.plainLyrics.map((text, idx) => ({ time: idx * 5, text })));
+        } else if (currentTrack.lyrics && currentTrack.lyrics.length > 0) {
+          setSyncedLyrics(currentTrack.lyrics.map((text, idx) => ({ time: idx * 5, text })));
+        }
+        setIsFetchingLyrics(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentTrack]);
 
   if (!isExpanded || !currentTrack) return null;
 
@@ -209,26 +236,35 @@ export const ExpandedPlayer: React.FC = () => {
 
           {activeTab === 'lyrics' && (
             <div className="w-full max-w-sm h-72 rounded-3xl bg-white/[0.03] border border-white/10 p-4 overflow-y-auto backdrop-blur-xl text-left no-scrollbar">
-              <h4 className="text-xs font-semibold text-purple-400 mb-2">Letra da Faixa</h4>
-              {currentTrack.lyrics && currentTrack.lyrics.length > 0 ? (
-                <div className="space-y-2 text-xs text-white/80 leading-relaxed font-sans">
-                  {currentTrack.lyrics.map((line, idx) => (
-                    <p
-                      key={idx}
-                      className={
-                        idx === 0
-                          ? 'text-white font-medium text-sm'
-                          : 'hover:text-white transition-colors'
-                      }
-                    >
-                      {line}
-                    </p>
-                  ))}
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-semibold text-purple-400">Letra Sincronizada (LRCLIB)</h4>
+                {isFetchingLyrics && <span className="text-[10px] text-white/40 animate-pulse">Carregando...</span>}
+              </div>
+              {syncedLyrics.length > 0 ? (
+                <div className="space-y-3 text-xs text-white/60 leading-relaxed font-sans pb-10">
+                  {syncedLyrics.map((line, idx) => {
+                    const nextLineTime = syncedLyrics[idx + 1]?.time || 9999;
+                    const isActive = currentTime >= line.time && currentTime < nextLineTime;
+                    return (
+                      <p
+                        key={idx}
+                        className={`transition-all duration-300 ${
+                          isActive
+                            ? 'text-white font-bold text-sm scale-[1.02] pl-2 border-l-2 border-purple-400'
+                            : 'hover:text-white/90'
+                        }`}
+                      >
+                        {line.text}
+                      </p>
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-xs text-white/50 py-10 text-center">
-                  Letra instrumental ou não disponível para esta faixa.
-                </p>
+                <div className="py-12 text-center">
+                  <p className="text-xs text-white/50">
+                    {isFetchingLyrics ? 'Buscando letra em tempo real...' : 'Letra instrumental ou não disponível para esta faixa.'}
+                  </p>
+                </div>
               )}
             </div>
           )}

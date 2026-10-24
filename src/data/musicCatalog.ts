@@ -51,7 +51,7 @@ export const TRACKS: Track[] = [
     categoryId: 'classic-rock',
     releaseYear: 1975,
     sources: {
-      localUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=epic-hollywood-trailer-9489.mp3',
+      localUrl: '',
       youtubeId: 'fJ9rUzIMcZQ'
     },
     lyrics: [
@@ -81,7 +81,7 @@ export const TRACKS: Track[] = [
     categoryId: 'alternative-pop',
     releaseYear: 2017,
     sources: {
-      localUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=energetic-rock-guitar-riff-10928.mp3',
+      localUrl: '',
       youtubeId: '7wtfhZwyrcc'
     },
     lyrics: [
@@ -109,7 +109,7 @@ export const TRACKS: Track[] = [
     categoryId: 'classic-rock',
     releaseYear: 1978,
     sources: {
-      localUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=energetic-rock-guitar-riff-10928.mp3',
+      localUrl: '',
       youtubeId: 'HgzGwKwLmgM'
     },
     lyrics: [
@@ -139,7 +139,7 @@ export const TRACKS: Track[] = [
     categoryId: 'alternative-pop',
     releaseYear: 2012,
     sources: {
-      localUrl: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3?filename=modern-vlog-10023.mp3',
+      localUrl: '',
       youtubeId: 'ktvTqvkJC60'
     },
     lyrics: [
@@ -167,7 +167,7 @@ export const TRACKS: Track[] = [
     categoryId: 'lofi-chill',
     releaseYear: 2024,
     sources: {
-      localUrl: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=lofi-study-112191.mp3',
+      localUrl: '',
       youtubeId: 'jfKfPfyJRdk'
     },
     lyrics: [
@@ -189,7 +189,7 @@ export const TRACKS: Track[] = [
     categoryId: 'synthwave',
     releaseYear: 2024,
     sources: {
-      localUrl: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=synthwave-80s-110045.mp3',
+      localUrl: '',
       youtubeId: '4xDzrJKXOOY'
     },
     lyrics: [
