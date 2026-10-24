@@ -23,6 +23,7 @@ export interface Category {
   description: string;
   gradient: string;
   accentColor: string;
+  searchQuery?: string;
 }
 
 export type AudioEngineType = 'native' | 'piped' | 'fallback';

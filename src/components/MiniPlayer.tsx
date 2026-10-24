@@ -11,26 +11,12 @@ export const MiniPlayer: React.FC = () => {
     duration,
     togglePlayPause,
     playNext,
-    toggleExpanded,
-    activeEngine
+    toggleExpanded
   } = useAudio();
 
   if (!currentTrack) return null;
 
   const progress = calculateProgress(currentTime, duration);
-
-  const getEngineBadge = () => {
-    switch (activeEngine) {
-      case 'native':
-        return { label: 'MP3 Nativo', color: 'text-emerald-400' };
-      case 'piped':
-        return { label: 'Piped Pure Audio', color: 'text-purple-400' };
-      case 'fallback':
-        return { label: 'Fallback Audio', color: 'text-amber-400' };
-    }
-  };
-
-  const engine = getEngineBadge();
 
   return (
     <div
@@ -92,10 +78,12 @@ export const MiniPlayer: React.FC = () => {
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-white/50 truncate">
                 <span className="truncate">{currentTrack.artist}</span>
-                <span aria-hidden="true">·</span>
-                <span className={`text-[10px] font-medium ${engine.color}`}>
-                  {engine.label}
-                </span>
+                {currentTrack.album && !currentTrack.album.includes('Piped') && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="truncate text-white/40">{currentTrack.album}</span>
+                  </>
+                )}
               </div>
             </div>
 

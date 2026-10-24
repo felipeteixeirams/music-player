@@ -1,16 +1,18 @@
 import React from 'react';
 import { Disc3, Flame, Moon, Radio } from 'lucide-react';
-import { CATEGORIES, getTracksByCategory } from '../data/musicCatalog';
+import { CATEGORIES } from '../data/musicCatalog';
 import { Category } from '../types/music';
 
 interface CategoryGridProps {
   selectedCategoryId: string | null;
   onSelectCategory: (categoryId: string) => void;
+  categoryCounts?: Record<string, number>;
 }
 
 export const CategoryGrid: React.FC<CategoryGridProps> = ({
   selectedCategoryId,
-  onSelectCategory
+  onSelectCategory,
+  categoryCounts
 }) => {
   const getCategoryIcon = (id: string) => {
     switch (id) {
@@ -40,7 +42,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {CATEGORIES.map((category: Category) => {
-          const trackCount = getTracksByCategory(category.id).length;
+          const trackCount = categoryCounts?.[category.id];
           const isSelected = selectedCategoryId === category.id;
 
           return (
@@ -64,7 +66,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                     {getCategoryIcon(category.id)}
                   </div>
                   <span className="text-[11px] text-white/50 tabular-nums">
-                    {trackCount} {trackCount === 1 ? 'faixa' : 'faixas'}
+                    {trackCount ? `${trackCount} faixas` : 'Em alta'}
                   </span>
                 </div>
 

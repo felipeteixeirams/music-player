@@ -20,7 +20,6 @@ import {
 import { useAudio } from '../context/AudioContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
 import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
-import { AudioEngineBadge } from './AudioEngineBadge';
 
 export const ExpandedPlayer: React.FC = () => {
   const {
@@ -134,7 +133,7 @@ export const ExpandedPlayer: React.FC = () => {
             </p>
           </div>
 
-          <AudioEngineBadge />
+          <div className="w-10 h-10 shrink-0" aria-hidden="true" />
         </div>
 
         {/* View Switcher Tabs (Artwork / Visualizer / Lyrics) */}
@@ -237,7 +236,7 @@ export const ExpandedPlayer: React.FC = () => {
           {activeTab === 'lyrics' && (
             <div className="w-full max-w-sm h-72 rounded-3xl bg-white/[0.03] border border-white/10 p-4 overflow-y-auto backdrop-blur-xl text-left no-scrollbar">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-semibold text-purple-400">Letra Sincronizada (LRCLIB)</h4>
+                <h4 className="text-xs font-semibold text-purple-400">Letra Sincronizada</h4>
                 {isFetchingLyrics && <span className="text-[10px] text-white/40 animate-pulse">Carregando...</span>}
               </div>
               {syncedLyrics.length > 0 ? (

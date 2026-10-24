@@ -47,9 +47,9 @@ async function searchPipedInstance(instance: string, cleanQuery: string) {
             id: `piped-${rawId}`,
             title: item.title,
             artist: item.uploaderName || 'Artista Desconhecido',
-            album: 'Piped Pure Stream',
+            album: 'Single Oficial',
             duration: item.duration && item.duration > 0 ? item.duration : 180,
-            coverUrl: item.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500',
+            coverUrl: rawId ? `https://i.ytimg.com/vi/${rawId}/hqdefault.jpg` : (item.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500'),
             style: 'Online Stream',
             categoryId: 'web',
             sources: {
@@ -120,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const artist = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'YouTube Music';
                 const album = item.flexColumns?.[2]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'Single Oficial';
                 const thumbs = item.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
-                const thumbnail = thumbs && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500';
+                const thumbnail = item.videoId ? `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg` : (thumbs && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500');
 
                 if (title && !tracks.some((tr) => tr.sources.youtubeId === item.videoId)) {
                   tracks.push({

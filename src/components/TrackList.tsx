@@ -143,7 +143,9 @@ export const TrackList: React.FC<TrackListProps> = ({
                   <div className="flex items-center gap-1.5 text-[11px] text-white/50 truncate mt-0.5">
                     <span className="truncate">{track.artist}</span>
                     <span aria-hidden="true">·</span>
-                    <span className="truncate text-white/40">{track.album}</span>
+                    <span className="truncate text-white/40">
+                      {track.album && !track.album.includes('Piped') ? track.album : (track.style || 'Single')}
+                    </span>
                   </div>
                 </div>
               </div>

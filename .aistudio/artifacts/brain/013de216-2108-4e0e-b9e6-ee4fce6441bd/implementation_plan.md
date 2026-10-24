@@ -1,60 +1,55 @@
-# Plano de Implementação — Integração Avançada (YouTube Music, LRCLIB e Audio Proxy)
+# Plano de Implementação — Reprodução Confiável em Segundo Plano e Interface 100% Limpa
 
-Plano de arquitetura para implementar busca oficial no YouTube Music, letras sincronizadas via LRCLIB e streaming contínuo de áudio via proxy no backend Node.js.
-
-## Decisões Críticas e Alinhamento com o Usuário
-
-> [!IMPORTANT]
-> O usuário confirmou o desejo de integrar **YouTube Music**, **LRCLIB** (letras sincronizadas) e **Streaming contínuo de áudio via proxy no backend** para garantir reprodução estável sem bloqueios de IP do Google.
-
-- **YouTube Music / InnerTube Search**: Busca estritamente filtrada por categoria de música (songs) para retornar apenas gravações oficiais de estúdio e artistas renomados.
-- **LRCLIB API**: Consulta assíncrona em tempo real para exibir letras sincronizadas por carimbo de tempo (`.lrc`).
-- **Backend Audio Proxy**: O backend atua como gateway de streaming, recebendo o ID do YouTube, resolvendo a URL crua do CDN e transmitindo os pacotes de áudio de forma contínua para o cliente PWA.
+Garantir que a música toque de fato sem bloqueios do navegador e remover qualquer menção técnica, selo ou engrenagem exposta na interface, deixando a experiência idêntica à de aplicativos comerciais como Spotify e Apple Music.
 
 ---
 
-## 1. Visão Geral e Conceito do Produto
+## 1. Diagnóstico do Problema de Reprodução
 
-- **Objetivo**: Elevar o AuraStream a um player PWA de altíssimo padrão, com catálogo oficial, letras sincronizadas e reprodução robusta na nuvem.
-- **Experiência do Usuário**: Pesquisa inteligente, capa em alta resolução, letras em tempo real acompanhando o ritmo da música e player otimizado para dispositivos móveis.
-
----
-
-## 2. Experiência do Usuário e Design Visual
-
-- **Aba de Letras Sincronizadas**: Nova aba no Player Expandido destacando a frase atual da música com rolagem suave em tempo real com base no progresso de reprodução.
-- **Busca Online Inteligente**: Resultados refinados direto do YouTube Music com indicação de artista, álbum e selo de alta fidelidade.
+### Por que o som não estava tocando?
+1. **Perda do Gesto do Usuário (*Transient User Activation Expiry*):**
+   - Ao tocar em uma música, o app aguardava requisições de rede assíncronas (Piped/InnerTube) que levavam de 1.5s a 3s.
+   - Navegadores mobile (Chrome Android, Safari iOS) expiram o token de clique após ~1.000ms. Quando o player tentava dar `.play()`, o navegador bloqueava por política de autoplay.
+2. **Estrangulamento de Iframes Fora da Tela (*Offscreen Throttling*):**
+   - Elementos em `left: -9999px` com `opacity: 0` são classificados pelo *IntersectionObserver* do navegador como invisíveis/em segundo plano, tendo sua execução de mídia pausada preventivamente.
 
 ---
 
-## 3. Decisões de Engenharia e Trade-offs
+## 2. Soluções de Engenharia Propostas
 
-- **Decisão 1: Proxy de Áudio no Backend (`/api/stream`)**
-  - *Abordagem*: O servidor Node.js intermedeia a conexão com a CDN do Google para evitar erros de CORS e restrições de IP do cliente.
-  - *Motivo*: Garante compatibilidade universal em qualquer navegador mobile.
-- **Decisão 2: LRCLIB para Letras**
-  - *Abordagem*: Consumo direto da API pública `https://lrclib.net` utilizando `artist_name` e `track_name`.
-  - *Motivo*: Solução gratuita e estável sem necessidade de chaves de API.
+### A. Desbloqueio Imediato de Áudio (*Instant Audio Priming*)
+- No exato momento do clique do usuário, registrar a intenção de áudio de forma síncrona, mantendo a ativação do usuário válida enquanto o link é resolvido.
+- Manter o elemento de fallback posicionado dentro dos limites do DOM com camuflagem de baixa opacidade sob o fundo do player (`z-index: -1`, `pointer-events: none`), evitando que o navegador congele o fluxo de áudio.
+
+### B. Remoção Total das Engrenagens da Interface (Estilo Spotify)
+- Remover o componente `AudioEngineBadge` e qualquer texto como *"Piped Pure Stream"*, *"Piped Local"*, *"YouTube Engine"* ou *"Fallback"*.
+- Exibir exclusivamente metadados artísticos reais (Título, Artista, Álbum Oficial, Ano).
+- Manter todos os detalhes de diagnóstico, taxas de bits, instâncias e logs de erro exclusivamente no console do desenvolvedor via `audioLogger.ts`.
 
 ---
 
-## 4. Arquitetura Técnica
+## 3. Arquitetura e Fluxo de Execução
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      PWA MOBILE CLIENT                       │
-│  Busca / Reprodução / Exibição de Letras Sincronizadas (LRC) │
-└──────────────┬───────────────────────────────┬───────────────┘
-               │                               │
-               ▼ (/api/search)                 ▼ (https://lrclib.net)
-┌──────────────────────────────┐ ┌─────────────────────────────┐
-│    NODE.JS VERCEL BACKEND    │ │         LRCLIB API          │
-│    YouTube Music Search      │ │    Letras Sincronizadas     │
-└──────────────┬───────────────┘ └─────────────────────────────┘
-               │
-               ▼ (/api/stream?id=...)
-┌──────────────────────────────────────────────────────────────┐
-│                    AUDIO PROXY GATEWAY                       │
-│         Stream Contínuo de Áudio da CDN do Google            │
-└──────────────────────────────────────────────────────────────┘
+[ Toque do Usuário na Faixa ]
+         │
+         ├──> 1. Desbloqueio Síncrono do Pipeline de Áudio (Mobile Autoplay Permitido)
+         │
+         ├──> 2. Resolução do Melhor Stream em Paralelo no Backend
+         │         │
+         │         ├──> A. Stream Direto Disponível? Toca no Audio Player Nativo
+         │         └──> B. Restrição de CDN? Toca no Motor Iframe Camuflado Sem Parar
+         │
+         └──> 3. Interface Limpa: Sem selos técnicos, apenas capa, letra sincronizada e controles
 ```
+
+---
+
+## 4. Plano de Verificação
+
+1. **Teste no Playwright:**
+   - Buscar uma faixa comercial (ex.: *"One Last Breath"* ou *"Believer"*).
+   - Clicar na faixa e verificar que o áudio inicia e o progresso do cronômetro avança em segundos reais.
+   - Confirmar ausência de selos técnicos na tela (apenas capa, título e controles).
+2. **Validação de Compilação:**
+   - `npm run lint` e `npm run build` com 0 erros.

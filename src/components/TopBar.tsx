@@ -1,7 +1,6 @@
 import React from 'react';
 import { Search, Sparkles, Globe, Library, Loader2, Database } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
-import { AudioEngineBadge } from './AudioEngineBadge';
 
 interface TopBarProps {
   activeFilter: string;
@@ -53,9 +52,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
         </div>
 
-        {/* Right Actions: Audio Engine Status + Cache Settings + Search + PWA Install */}
+        {/* Right Actions: Cache Settings + Search + PWA Install */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <AudioEngineBadge />
           <button
             onClick={onOpenCacheSettings}
             aria-label="Gerenciar cota de cache local"
@@ -120,7 +118,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder={
                   searchScope === 'online'
-                    ? 'Buscar qualquer música no Piped Web...'
+                    ? 'Buscar músicas, artistas ou álbuns...'
                     : 'Buscar no catálogo local...'
                 }
                 autoFocus
@@ -176,7 +174,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               }`}
             >
               <Globe className="w-3 h-3" />
-              <span>Piped Web (Online)</span>
+              <span>Músicas Online</span>
             </button>
           </div>
         </div>

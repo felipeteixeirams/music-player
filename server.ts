@@ -113,9 +113,9 @@ async function searchPipedInstance(instance: string, cleanQuery: string) {
             id: `piped-${rawId}`,
             title: item.title,
             artist: item.uploaderName || 'Artista Desconhecido',
-            album: 'Piped Pure Stream',
+            album: 'Single Oficial',
             duration: item.duration && item.duration > 0 ? item.duration : 180,
-            coverUrl: item.thumbnail || '/icon.svg',
+            coverUrl: rawId ? `https://i.ytimg.com/vi/${rawId}/hqdefault.jpg` : (item.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500'),
             style: 'Online Stream',
             categoryId: 'web',
             sources: {
@@ -173,16 +173,7 @@ app.get('/api/streams/:id', async (req, res) => {
   }
 });
 
-// Endpoint: GET /api/search?q={query}
-// Searches live tracks via YouTube Music InnerTube API with Piped fallback
-app.get('/api/search', async (req, res) => {
-  const query = req.query.q;
-  if (!query || typeof query !== 'string' || !query.trim()) {
-    return res.status(400).json({ error: 'Query parameter q is required' });
-  }
-
-  const cleanQuery = query.trim();
-
+async function executeLiveTrackSearch(cleanQuery: string, defaultStyle = 'Online Stream'): Promise<{ tracks: any[]; source: string }> {
   // 1. Try YouTube Music InnerTube API first
   try {
     const ytRes = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
@@ -220,10 +211,10 @@ app.get('/api/search', async (req, res) => {
               const item = c.musicResponsiveListItemRenderer;
               if (item && item.videoId) {
                 const title = item.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
-                const artist = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'YouTube Music';
-                const album = item.flexColumns?.[2]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'Official Single';
+                const artist = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'Artista Desconhecido';
+                const album = item.flexColumns?.[2]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'Single Oficial';
                 const thumbs = item.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
-                const thumbnail = thumbs && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : '/icon.svg';
+                const thumbnail = item.videoId ? `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg` : (thumbs && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500');
 
                 if (title && !tracks.some((tr) => tr.sources.youtubeId === item.videoId)) {
                   tracks.push({
@@ -233,7 +224,7 @@ app.get('/api/search', async (req, res) => {
                     album,
                     duration: 210,
                     coverUrl: thumbnail,
-                    style: 'YouTube Music',
+                    style: defaultStyle,
                     categoryId: 'web',
                     sources: {
                       localUrl: '',
@@ -248,8 +239,7 @@ app.get('/api/search', async (req, res) => {
       }
 
       if (tracks.length > 0) {
-        console.log(`[YouTube Music Search] ✅ Found ${tracks.length} official tracks for "${cleanQuery}"`);
-        return res.json({ tracks: tracks.slice(0, 15), source: 'YouTube Music InnerTube' });
+        return { tracks: tracks.slice(0, 15), source: 'YouTube Music InnerTube' };
       }
     }
   } catch (err) {
@@ -261,10 +251,63 @@ app.get('/api/search', async (req, res) => {
     const result = await Promise.any(
       PIPED_SERVER_INSTANCES.map((instance) => searchPipedInstance(instance, cleanQuery))
     );
-    return res.json(result);
+    return result;
   } catch {
-    return res.json({ tracks: [], message: 'No online tracks found' });
+    return { tracks: [], source: 'None' };
   }
+}
+
+// In-memory cache for live feed
+let liveFeedCache: { data: any; expiresAt: number } | null = null;
+
+// Endpoint: GET /api/feed
+// Returns 100% live tracks fetched from integrations for the home feed
+app.get('/api/feed', async (req, res) => {
+  if (liveFeedCache && liveFeedCache.expiresAt > Date.now()) {
+    return res.json({ ...liveFeedCache.data, cached: true });
+  }
+
+  const [trendingRes, rockRes, popRes, lofiRes] = await Promise.allSettled([
+    executeLiveTrackSearch('Top Hits Brasil 2026', 'Top Hits'),
+    executeLiveTrackSearch('Classic Rock Hits Queen AC/DC', 'Classic Rock'),
+    executeLiveTrackSearch('Alternative Pop Imagine Dragons', 'Alternative Pop'),
+    executeLiveTrackSearch('Lofi Chill Beats Study', 'Lofi Chill')
+  ]);
+
+  const trending = trendingRes.status === 'fulfilled' ? trendingRes.value.tracks : [];
+  const rock = rockRes.status === 'fulfilled' ? rockRes.value.tracks : [];
+  const pop = popRes.status === 'fulfilled' ? popRes.value.tracks : [];
+  const lofi = lofiRes.status === 'fulfilled' ? lofiRes.value.tracks : [];
+
+  const feedData = {
+    trending,
+    rock,
+    pop,
+    lofi,
+    featured: trending[0] || rock[0] || null
+  };
+
+  if (trending.length > 0 || rock.length > 0) {
+    liveFeedCache = {
+      data: feedData,
+      expiresAt: Date.now() + 2 * 60 * 60 * 1000 // 2 hours
+    };
+  }
+
+  return res.json({ ...feedData, cached: false });
+});
+
+// Endpoint: GET /api/search?q={query}
+// Searches live tracks via YouTube Music InnerTube API with Piped fallback
+app.get('/api/search', async (req, res) => {
+  const query = req.query.q;
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ error: 'Query parameter q is required' });
+  }
+
+  const cleanQuery = query.trim();
+  const result = await executeLiveTrackSearch(cleanQuery);
+  return res.json(result);
 });
 
 // Endpoint: GET /api/health

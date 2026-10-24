@@ -76,12 +76,15 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
               >
                 <img
                   src={track.coverUrl}
-                  alt={`Capa do álbum ${track.album} por ${track.artist}`}
+                  alt=""
                   referrerPolicy="no-referrer"
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
                     isThisTrackPlaying ? 'scale-105' : ''
                   }`}
                   loading="lazy"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80';
+                  }}
                 />
 
                 {/* Gradient Scrim */}

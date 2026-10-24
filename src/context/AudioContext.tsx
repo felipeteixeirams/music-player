@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { AudioEngineType, RepeatMode, Track } from '../types/music';
-import { TRACKS } from '../data/musicCatalog';
 import {
   fetchPipedAudioStream,
   getNextTrackIndex,
@@ -54,37 +53,35 @@ const AudioContext = createContext<AudioContextType | null>(null);
 const LIKED_STORAGE_KEY = 'aurastream_liked_tracks';
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [queue, setQueue] = useState<Track[]>(TRACKS);
+  const [queue, setQueue] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(TRACKS[0] || null);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(TRACKS[0]?.duration || 180);
+  const [duration, setDuration] = useState<number>(0);
   const [volume, setVolumeState] = useState<number>(0.85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('all');
   
-  const [activeEngine, setActiveEngine] = useState<AudioEngineType>('piped');
-  const [preferredEngine, setPreferredEngineState] = useState<AudioEngineType>('piped');
+  const [activeEngine, setActiveEngine] = useState<AudioEngineType>('fallback');
+  const [preferredEngine, setPreferredEngineState] = useState<AudioEngineType>('fallback');
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [pipedStatus, setPipedStatus] = useState<{ instanceUsed?: string; quality?: string; error?: string }>({
     quality: 'Áudio Original',
     instanceUsed: 'YouTube / Piped'
   });
-  const [audioStreamUrl, setAudioStreamUrl] = useState<string>(
-    TRACKS[0]?.sources.youtubeId ? `https://www.youtube.com/watch?v=${TRACKS[0].sources.youtubeId}` : ''
-  );
+  const [audioStreamUrl, setAudioStreamUrl] = useState<string>('');
   const [userSeekRequest, setUserSeekRequest] = useState<number | null>(null);
   
   const [likedTrackIds, setLikedTrackIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(LIKED_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : ['queen-bohemian-rhapsody', 'imagine-dragons-believer'];
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return ['queen-bohemian-rhapsody'];
+      return [];
     }
   });
 
@@ -175,40 +172,44 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isPlaying]);
 
   // Handle track source resolution (Hybrid Engine logic - 100% authentic YouTube audio)
+  // Handle track source resolution (Hybrid Engine logic - 100% authentic YouTube audio)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
     setIsBuffering(true);
     setCurrentTrack(track);
     setDuration(track.duration);
     setCurrentTime(0);
+    if (shouldPlay) setIsPlaying(true);
 
     // If track has a youtubeId (Authentic YouTube / YouTube Music track)
     if (track.sources.youtubeId) {
-      if (engineChoice !== 'fallback') {
-        setPipedStatus({ quality: 'Conectando...', instanceUsed: 'Piped Public Network' });
-        const pipedResult = await fetchPipedAudioStream(track.sources.youtubeId);
-        if (pipedResult.audioUrl) {
-          setActiveEngine('piped');
-          setAudioStreamUrl(pipedResult.audioUrl);
-          setPipedStatus({
-            instanceUsed: pipedResult.instanceUsed,
-            quality: pipedResult.quality || '160kbps Opus'
-          });
+      const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
+      
+      // Synchronously set fallbackUrl so the background player receives the URL immediately within the user gesture!
+      setActiveEngine('fallback');
+      setAudioStreamUrl(fallbackUrl);
+      setIsBuffering(false);
 
-          if (audioRef.current) {
-            audioRef.current.src = pipedResult.audioUrl;
-            if (shouldPlay) {
-              audioRef.current.play().catch(() => {
-                triggerFallbackEngine(track, shouldPlay);
-              });
-            }
-          }
-          setIsBuffering(false);
-          return;
-        }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
       }
 
-      // If Piped direct stream extraction is unavailable or engine is fallback, directly run authentic YouTube engine
-      triggerFallbackEngine(track, shouldPlay);
+      // Check in background if direct audio stream (Opus/M4A) is quickly available
+      fetchPipedAudioStream(track.sources.youtubeId, 1500).then((pipedResult) => {
+        if (pipedResult.audioUrl && audioRef.current) {
+          setActiveEngine('piped');
+          setAudioStreamUrl(pipedResult.audioUrl);
+          audioRef.current.src = pipedResult.audioUrl;
+          if (shouldPlay) {
+            audioRef.current.play().catch(() => {
+              // Seamlessly retain background player if direct audio fails
+              setActiveEngine('fallback');
+              setAudioStreamUrl(fallbackUrl);
+            });
+          }
+        }
+      }).catch(() => {});
+
       return;
     }
 
@@ -217,7 +218,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setActiveEngine('native');
       const streamUrl = track.sources.localUrl;
       setAudioStreamUrl(streamUrl);
-      setPipedStatus({ quality: 'Stream Direto' });
 
       if (audioRef.current) {
         audioRef.current.src = streamUrl;
@@ -236,7 +236,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
     setActiveEngine('fallback');
-    setPipedStatus({ quality: 'Áudio Oficial do YouTube', instanceUsed: 'YouTube Engine' });
     const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
     setAudioStreamUrl(fallbackUrl);
     setIsBuffering(false);
@@ -355,6 +354,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Main playback controls
   const playTrack = useCallback((track: Track, customQueue?: Track[]) => {
+    // Synchronously prime audio gesture permission
+    if (audioRef.current) {
+      audioRef.current.play().then(() => {
+        audioRef.current?.pause();
+      }).catch(() => {});
+    }
+
     if (customQueue) {
       setQueue(customQueue);
       const foundIdx = customQueue.findIndex((t) => t.id === track.id);
@@ -376,7 +382,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    if (activeEngine === 'fallback') {
+    if (activeEngine === 'fallback' || (currentTrack && currentTrack.sources.youtubeId && !audioStreamUrl.startsWith('http'))) {
       setIsPlaying((prev) => !prev);
       return;
     }
@@ -397,7 +403,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
       }
     }
-  }, [currentTrack, activeEngine, isPlaying, queue, playTrack]);
+  }, [currentTrack, activeEngine, audioStreamUrl, isPlaying, queue, playTrack]);
 
   const playNext = useCallback(() => {
     const nextIdx = getNextTrackIndex(currentIndex, queue.length, isShuffle, repeatMode);

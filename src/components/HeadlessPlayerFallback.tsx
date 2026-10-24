@@ -4,8 +4,9 @@ import { useAudio } from '../context/AudioContext';
 
 /**
  * Headless Audio Engine (YouTube & YouTube Music Official Audio Stream)
- * Renders react-player off-screen with standard dimensions to prevent YouTube iframe
- * miniaturization blocks (Error 150/151), delivering the authentic original song.
+ * Renders react-player with standard dimensions in viewport under the UI layer to prevent
+ * browser off-screen throttling and iframe miniaturization blocks (Error 150/151),
+ * ensuring continuous and authentic audio playback behind the scenes.
  */
 const PlayerComponent = ReactPlayer as any;
 
@@ -33,10 +34,8 @@ export const HeadlessPlayerFallback: React.FC = () => {
     }
   }, [userSeekRequest, clearUserSeekRequest]);
 
-  if (activeEngine !== 'fallback' || !audioStreamUrl) {
-    return null;
-  }
-
+  const isFallbackActive = activeEngine === 'fallback' && Boolean(audioStreamUrl);
+  const targetUrl = isFallbackActive ? audioStreamUrl : '';
   const originUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
   return (
@@ -44,58 +43,67 @@ export const HeadlessPlayerFallback: React.FC = () => {
       aria-hidden="true"
       style={{
         position: 'fixed',
-        left: -9999,
-        top: -9999,
+        bottom: 0,
+        right: 0,
         width: 320,
         height: 180,
-        opacity: 0,
+        opacity: 0.001,
         pointerEvents: 'none',
         overflow: 'hidden',
-        zIndex: -9999
+        zIndex: -50,
+        clipPath: 'inset(100%)'
       }}
     >
-      <PlayerComponent
-        ref={playerRef}
-        url={audioStreamUrl}
-        playing={isPlaying}
-        volume={isMuted ? 0 : volume}
-        width="320px"
-        height="180px"
-        controls={false}
-        playsinline
-        config={{
-          youtube: {
-            playerVars: {
-              autoplay: 1,
-              controls: 0,
-              disablekb: 1,
-              fs: 0,
-              modestbranding: 1,
-              playsinline: 1,
-              rel: 0,
-              origin: originUrl,
-              enablejsapi: 1
+      {targetUrl ? (
+        <PlayerComponent
+          ref={playerRef}
+          url={targetUrl}
+          playing={isPlaying && isFallbackActive}
+          volume={isMuted ? 0 : volume}
+          width="320px"
+          height="180px"
+          controls={false}
+          playsinline
+          config={{
+            youtube: {
+              playerVars: {
+                autoplay: 1,
+                controls: 0,
+                disablekb: 1,
+                fs: 0,
+                modestbranding: 1,
+                playsinline: 1,
+                rel: 0,
+                origin: originUrl,
+                enablejsapi: 1
+              }
+            } as any
+          }}
+          onReady={(player: any) => {
+            if (isPlaying && isFallbackActive && player && typeof player.playVideo === 'function') {
+              try {
+                player.playVideo();
+              } catch {}
             }
-          } as any
-        }}
-        onReady={(player: any) => {
-          if (player && typeof player.getDuration === 'function') {
-            const d = player.getDuration();
-            if (d && d > 0) setDuration(Math.round(d));
-          }
-        }}
-        onProgress={(state: any) => {
-          if (state && typeof state.playedSeconds === 'number') {
-            updatePlaybackTime(state.playedSeconds);
-          }
-        }}
-        onEnded={() => {
-          playNext();
-        }}
-        onError={(err: any) => {
-          console.warn('YouTube Engine playback notice:', err);
-        }}
-      />
+            if (player && typeof player.getDuration === 'function') {
+              const d = player.getDuration();
+              if (d && d > 0) setDuration(Math.round(d));
+            }
+          }}
+          onProgress={(state: any) => {
+            if (state && typeof state.playedSeconds === 'number') {
+              updatePlaybackTime(state.playedSeconds);
+            }
+          }}
+          onEnded={() => {
+            playNext();
+          }}
+          onError={(err: any) => {
+            console.warn('Background playback notice:', err);
+          }}
+        />
+      ) : null}
     </div>
   );
 };
+
