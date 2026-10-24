@@ -16,7 +16,10 @@ const PIPED_SERVER_INSTANCES = [
   'https://api.piped.private.coffee',
   'https://piped-api.lunar.icu',
   'https://pipedapi.tokhmi.xyz',
-  'https://api.piped.projectsegfau.lt'
+  'https://api.piped.projectsegfau.lt',
+  'https://pipedapi.drgns.space',
+  'https://watch.leptons.xyz/api',
+  'https://pipedapi.leptons.xyz'
 ];
 
 // In-memory cache for extracted audio stream manifests (TTL: 4 hours)

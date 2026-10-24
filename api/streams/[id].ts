@@ -6,7 +6,10 @@ const PIPED_SERVER_INSTANCES = [
   'https://api.piped.private.coffee',
   'https://piped-api.lunar.icu',
   'https://pipedapi.tokhmi.xyz',
-  'https://api.piped.projectsegfau.lt'
+  'https://api.piped.projectsegfau.lt',
+  'https://pipedapi.drgns.space',
+  'https://watch.leptons.xyz/api',
+  'https://pipedapi.leptons.xyz'
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -42,8 +45,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue;
       }
 
-      const data: any = await response.json();
-      if (Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.warn(`[Vercel Serverless Stream] ⚠️ Instância ${instance} retornou resposta não-JSON (possível manutenção/shutdown)`);
+        continue;
+      }
+
+      if (data && Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
         const validStreams = data.audioStreams.filter((s: any) => s && s.url);
         if (validStreams.length === 0) continue;
 

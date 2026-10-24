@@ -5,7 +5,10 @@ const PIPED_SERVER_INSTANCES = [
   'https://api.piped.private.coffee',
   'https://piped-api.lunar.icu',
   'https://pipedapi.tokhmi.xyz',
-  'https://api.piped.projectsegfau.lt'
+  'https://api.piped.projectsegfau.lt',
+  'https://pipedapi.drgns.space',
+  'https://watch.leptons.xyz/api',
+  'https://pipedapi.leptons.xyz'
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -110,8 +113,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!response.ok) continue;
 
-      const data: any = await response.json();
-      if (Array.isArray(data.items) && data.items.length > 0) {
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        continue;
+      }
+
+      if (data && Array.isArray(data.items) && data.items.length > 0) {
         const tracks = data.items
           .filter((item: any) => item && item.url && item.title)
           .slice(0, 15)
