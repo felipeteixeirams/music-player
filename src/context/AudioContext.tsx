@@ -4,7 +4,8 @@ import {
   fetchPipedAudioStream,
   getNextTrackIndex,
   getPreviousTrackIndex,
-  resolveAudioDetails
+  resolveAudioDetails,
+  resolveFullTrackVideoIds
 } from '../utils/audioEngine';
 import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 
@@ -38,6 +39,7 @@ interface AudioContextType {
   updatePlaybackTime: (seconds: number) => void;
   setDuration: (seconds: number) => void;
   clearUserSeekRequest: () => void;
+  handleFallbackError: () => void;
   setVolume: (val: number) => void;
   toggleMute: () => void;
   toggleShuffle: () => void;
@@ -92,6 +94,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
+  const loadTokenRef = useRef(0);
+  // Remaining YouTube videos to try for the current track when the embed of one of them fails
+  const alternateVideosRef = useRef<{ trackId: string; videoIds: string[] }>({ trackId: '', videoIds: [] });
 
   useEffect(() => {
     currentTrackRef.current = currentTrack;
@@ -113,6 +118,27 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (shouldPlay) {
       setIsPlaying(true);
     }
+  }, []);
+
+  // Plays the 30s catalog preview; returns false when the track has none.
+  const playPreview = useCallback(async (track: Track, shouldPlay: boolean): Promise<boolean> => {
+    const previewUrl = track.sources.previewUrl;
+    if (!previewUrl || !audioRef.current) return false;
+
+    setActiveEngine('native');
+    setAudioStreamUrl(previewUrl);
+    setPipedStatus({ quality: 'Prévia de 30s', instanceUsed: 'Deezer' });
+    audioRef.current.src = previewUrl;
+    if (shouldPlay) {
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch (err) {
+        console.warn('Preview playback notice:', err);
+      }
+    }
+    setIsBuffering(false);
+    return true;
   }, []);
 
   // Initialize Audio element once
@@ -141,10 +167,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     const onPause = () => setIsPlaying(false);
     const onError = () => {
+      // Clearing the source (switching to the YouTube engine) also raises an error event
+      if (!audio.getAttribute('src')) return;
       console.warn('Native AudioElement playback error, failing over to YouTube fallback engine');
       setIsBuffering(false);
       if (currentTrackRef.current && currentTrackRef.current.sources.youtubeId) {
         triggerFallbackEngine(currentTrackRef.current, true);
+      } else {
+        setIsPlaying(false);
+        setPipedStatus({ error: 'Não foi possível reproduzir o áudio desta faixa.' });
       }
     };
 
@@ -210,6 +241,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
+    const token = ++loadTokenRef.current;
     setIsBuffering(true);
     setCurrentTrack(track);
     setDuration(track.duration);
@@ -237,7 +269,22 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // 2. Online stream resolution (YouTube / Piped)
+    // 2. Full recording of a catalog track: find its YouTube video and play it in the headless engine
+    if (!track.sources.youtubeId && !track.sources.localUrl) {
+      audioRef.current?.pause();
+      const [videoId, ...alternates] = await resolveFullTrackVideoIds(track);
+      if (loadTokenRef.current !== token) return;
+      if (videoId) {
+        alternateVideosRef.current = { trackId: track.id, videoIds: alternates };
+        triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: videoId } }, shouldPlay);
+        return;
+      }
+    }
+
+    // 3. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
+    if (await playPreview(track, shouldPlay)) return;
+
+    // 4. Online stream resolution (YouTube / Piped)
     if (track.sources.youtubeId) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -289,8 +336,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
+    setPipedStatus({ error: 'Esta faixa não tem prévia disponível.' });
+    setIsPlaying(false);
     setIsBuffering(false);
-  }, [triggerFallbackEngine]);
+  }, [triggerFallbackEngine, playPreview]);
 
   // When track finishes (Native audio listener)
   useEffect(() => {
@@ -486,6 +535,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentTime(seconds);
   }, []);
 
+  // The headless YouTube player failed (embedding blocked, unavailable video): use the preview if any
+  const handleFallbackError = useCallback(() => {
+    const track = currentTrackRef.current;
+    const alternates = alternateVideosRef.current;
+    if (track && alternates.trackId === track.id && alternates.videoIds.length > 0) {
+      const [nextVideoId, ...rest] = alternates.videoIds;
+      alternateVideosRef.current = { trackId: track.id, videoIds: rest };
+      triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: nextVideoId } }, true);
+      return;
+    }
+    if (track?.sources.previewUrl) {
+      void playPreview(track, true);
+      return;
+    }
+    setIsPlaying(false);
+    setIsBuffering(false);
+    setPipedStatus({ error: 'Não foi possível reproduzir esta faixa.' });
+  }, [playPreview, triggerFallbackEngine]);
+
   const clearUserSeekRequest = useCallback(() => {
     setUserSeekRequest(null);
   }, []);
@@ -583,6 +651,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updatePlaybackTime,
         setDuration,
         clearUserSeekRequest,
+        handleFallbackError,
         setVolume,
         toggleMute,
         toggleShuffle,

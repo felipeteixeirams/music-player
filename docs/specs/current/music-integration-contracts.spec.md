@@ -19,7 +19,7 @@ Incluído:
 
 Fora de escopo para a primeira implementação:
 
-- Trocar os serviços externos ou adicionar outro catálogo.
+- Trocar os serviços externos ou adicionar outro catálogo, **exceto** pela decisão registrada em "Decisão: troca de provedores" (2026-10-25), que redefine este item.
 - Fazer scraping/extração diretamente no navegador.
 - Garantir disponibilidade de serviços públicos de terceiros.
 - Refatorar visualmente o player.
@@ -68,6 +68,72 @@ Não reverter essas alterações durante a implementação dos contratos. O help
 - Os testes de integração não chamam YouTube Music nem Piped reais. Eles validam handlers, parsing dos payloads-fixture, fallback e o contrato entre o endpoint de stream e o cliente.
 - O smoke live faz chamadas reais e lê no máximo um byte do stream quando há URL direta; se não houver, valida oEmbed para identificar um fallback potencialmente incorporável. Isso não confirma reprodução efetiva no navegador.
 - Não foi feito teste de playback em navegador. A disponibilidade real de streams Piped para outras faixas e o funcionamento de `HeadlessPlayerFallback` permanecem por validar.
+
+## Diagnóstico de 2026-10-25 (integrações atuais degradadas)
+
+Verificação manual com `curl`, `npm test` e `npm run test:integrations:live`:
+
+- **YouTube Music InnerTube:** HTTP 200, mas **0 faixas extraídas**. A resposta inicia com `musicCardShelfRenderer`; o parser só lê `musicShelfRenderer` com `item.videoId` no nível raiz, e o `videoId` real não está nesse campo. Em produção tudo cai para Piped. É defeito do parser, e o endpoint não é uma API oficial.
+- **Piped, busca:** só `pipedapi.ducks.party` e `api.piped.private.coffee` responderam com resultados. `pipedapi.in.projectsegfau.lt` e `api.piped.projectsegfau.lt` estão encerradas; `pipedapi.kavin.rocks` retorna 526; `piped-api.lunar.icu`, `pipedapi.palvelintalo.fi` e `pipedapi.mha.fi` retornam 502 ou não conectam.
+- **Piped, stream:** `pipedapi.ducks.party` responde 200 com `audioStreams` vazio; `api.piped.private.coffee` não conectou no endpoint de stream. Não há stream direto utilizável.
+- **Testes:** `npm test` (20 aprovados, 1 ignorado) usa respostas simuladas e não detecta essas falhas. O smoke live passa porque aceita a verificação oEmbed como sucesso, sem provar áudio.
+
+## Decisão: troca de provedores (aprovada em 2026-10-25)
+
+### Reavaliação de Piped, Invidious e NewPipeExtractor (2026-10-25)
+
+O usuário trouxe uma pesquisa que sugeria Piped (principal), Invidious (alternativa) e NewPipeExtractor (biblioteca) para obter streams de áudio do YouTube. Validação feita antes de descartar:
+
+- **Piped:** é o que o app já usa. Testado com Metallica, Creed e Bon Jovi nas duas instâncias que respondem (`pipedapi.ducks.party`, `api.piped.private.coffee`): `audioStreams` vazio nas 3 faixas e nas 2 instâncias. O erro é `SignInConfirmNotBotException` / `LOGIN_REQUIRED: "Sign in to confirm that you're not a bot"`, ou seja, o YouTube bloqueia o IP das instâncias. A causa raiz não é o nosso código nem a falta de uma API melhor.
+- **NewPipeExtractor:** é o motor do próprio Piped e lança essa mesma exceção; a fonte do bloqueio é o IP de origem. Usá-lo diretamente herda o problema quando roda em IP de datacenter (Vercel incluído). Não foi testado em IP residencial.
+- **Invidious:** a lista oficial (`api.invidious.io`) tinha 4 instâncias HTTPS e todas bloquearam a API (`403 Endpoint disabled`, `403 forbidden`, `403` e `401`). O teste partiu de um IP de datacenter e pode diferir de outro ambiente, mas o mesmo vale para o deploy.
+- **Spotube e Limusic:** só referência de arquitetura; não são bibliotecas para o app web e dependem das mesmas fontes não oficiais.
+- **Hipótese não testada:** hospedar o próprio Piped/Invidious ou rodar o extractor na máquina do usuário, com IP residencial, pode funcionar, mas é frágil, sem garantia e com ressalvas de termos de uso. Seria experimento separado, não base da arquitetura.
+
+Conclusão: as ferramentas da pesquisa não resolvem o bloqueio atual. A decisão abaixo se mantém; o experimento de IP residencial fica como opção futura para áudio completo.
+
+## Decisão (continuação)
+
+Requisitos do usuário: uso pessoal, somente opções gratuitas, catálogo de músicas conhecidas (não amadoras) e reprodução apenas de áudio, sem vídeo visível.
+
+Decisões:
+
+1. **Catálogo e metadados: Deezer API** (`GET https://api.deezer.com/search?q=...`), sem autenticação. Fornece título, artista, álbum, capa, duração real, ISRC e `preview`. Substitui InnerTube e Piped como fonte de catálogo e elimina as durações inventadas (180s/210s).
+2. **Reserva de catálogo/preview: iTunes Search API** (`https://itunes.apple.com/search?term=...&entity=song`), sem chave, com `previewUrl`. Limite documentado de cerca de 20 chamadas por minuto por IP; usar cache.
+3. **Áudio padrão: preview de 30s** (Deezer, ou iTunes como reserva). É a única fonte oficial, gratuita e estável de música conhecida. Nem toda faixa tem preview.
+4. **Áudio completo: YouTube mantido por enquanto**, tocado pelo `HeadlessPlayerFallback` (IFrame Player oculto). O usuário ainda não decidiu a solução definitiva; esta etapa não deve consolidar o YouTube como destino final. Para localizar o vídeo, buscar por "artista + título" do Deezer. Preferir a YouTube Data API v3 oficial a InnerTube/Piped.
+5. **Piped e InnerTube saem do caminho de produção.** Os clients/parsers correspondentes devem ser removidos ou arquivados depois que o novo fluxo estiver testado; não manter instâncias Piped mortas na lista.
+6. `Track` continua canônico. O provider do catálogo passa a ser `deezer | itunes`, e a fonte de reprodução distingue `preview` de `youtube`, conforme as decisões de arquitetura do master.
+
+Fatos confirmados nesta verificação (com ressalvas):
+
+- Deezer: busca respondeu sem autenticação e trouxe `preview` em MP3. A URL do preview é **assinada com expiração** (`hdnea=exp=...`); não cachear por tempo longo e re-resolver ao dar erro de mídia. Limite de requisições e termos de uso do Deezer **não foram confirmados**; verificar em developers.deezer.com antes de uso além de pessoal.
+- iTunes: busca respondeu sem chave com `previewUrl`; o limite de ~20 chamadas/min vem de documentação de parceiros da Apple; a página oficial do campo `previewUrl` não foi localizada.
+- YouTube Data API v3: cota padrão de 10.000 unidades/dia e `search.list` a 100 unidades, ou seja, cerca de 100 buscas por dia por projeto (fontes secundárias divergem sobre alterações recentes). Por isso, só buscar o vídeo quando o usuário pedir reprodução completa, e cachear o resultado por faixa. Exige chave própria do usuário em variável de ambiente, nunca no repositório.
+- Reprodução em navegador, incluindo CORS do `<audio>` para o CDN do Deezer, **não foi testada**.
+
+Estado da implementação (2026-10-25, primeira fatia):
+
+- Feito: `api/_deezer.ts` (mapper `unknown` -> `Track`, deduplicação, descarte de itens inválidos, `previewUrl` omitido quando ausente ou inválido, duração real obrigatória), busca/feed/`server.ts` migrados, `AudioContext` toca a prévia, testes determinísticos (`api/deezer.test.ts` e handlers) e smoke live atualizado.
+- Validação: `npm test` 28 aprovados e 1 ignorado; `npm run lint` e `npm run build` passam; smoke live com Metallica, Creed e Bon Jovi obteve prévias com HTTP 206 e `audio/*`; em Chromium headless o `<audio>` avançou ~5s de uma prévia de ~30s sem erro.
+- Limitações conhecidas: o CDN de prévias não enviou cabeçalho CORS no teste, então o download offline de prévias via `fetch` com `mode: 'cors'` provavelmente falha (não testado; precisaria de proxy no servidor); erros de reprodução vão para `pipedStatus.error`, que nenhum componente exibe; a primeira faixa de "Metallica One" é uma versão ao vivo, pois a busca do Deezer não prioriza a original.
+- Pendente: reserva iTunes; migração dos IDs de favoritos/offline antigos (`ytm-*`, `piped-*`), que não existem mais no catálogo; remoção do código Piped de stream; contrato versionado de resposta.
+
+Áudio completo via YouTube (2026-10-25, segunda fatia):
+
+- Feito: `GET /api/resolve?artist=&title=&duration=` devolve `{ videoIds }` (até 3, melhor primeiro). `api/_youtubeSearch.ts` usa a YouTube Data API v3 quando `YOUTUBE_API_KEY` existe (busca + `videos.list` com duração e `status.embeddable`) e, sem chave, a busca web não oficial do YouTube (frágil, mesma natureza do InnerTube). O ranqueamento exige duração dentro de 15s da faixa do Deezer, penaliza live/cover/remix/karaoke quando a faixa não os tem e prefere canal do artista, "- Topic" e "official audio". `AudioContext` toca o primeiro vídeo no `HeadlessPlayerFallback`, tenta os seguintes em erro do embed e por fim a prévia; cada resolução é cacheada na sessão e no CDN por 1 dia.
+- Defeito corrigido: `HeadlessPlayerFallback` usava a API do react-player v2 (`url`, `onProgress`, `seekTo`) com a v3 instalada (`src`, `onTimeUpdate`, `currentTime`), então o fallback nunca tocou. Também corrigido: o evento `error` do `<audio>` ao limpar `src` derrubava o estado de reprodução ao trocar para o YouTube.
+- Validação: `npm test` 45 aprovados e 2 ignorados (live); smoke live acha vídeos para Creed, Bon Jovi e Queen; no app, com a resposta de `/api/resolve` simulada com um vídeo incorporável, o primeiro candidato bloqueado (150) levou ao segundo, que tocou com duração total de 213s e `currentTime` avançando de 0,3s para 6,4s.
+- **Não confirmado:** a incorporação de vídeos musicais reais. No ambiente de teste (Chromium headless, IP de datacenter) todos os candidatos de 6 faixas do feed deram erro 150, e um vídeo de teste conhecido também; só o vídeo de Rick Astley tocou. Não está claro se é bloqueio dos donos dos vídeos ou do ambiente. O `oEmbed` respondeu OK para vídeos que o player recusou, então não serve de pré-checagem confiável. Validar em navegador comum, com IP residencial, antes de afirmar que o áudio completo funciona para o usuário.
+- Cota: `search.list` custa 100 unidades (cerca de 100 buscas por dia com a chave gratuita) e cada faixa tocada gera uma resolução; a busca web sem chave não tem cota, mas pode ser bloqueada.
+
+Critérios de aceite adicionais para esta troca:
+
+- Busca e feed devolvem `Track` com duração real vinda do provedor, sem passar por Piped/InnerTube.
+- Faixa sem `preview` é sinalizada explicitamente (sem tocar silêncio) e oferece o caminho completo via YouTube.
+- Teste determinístico de mapper Deezer/iTunes com fixtures, incluindo `preview` ausente e vazio; testes continuam sem rede.
+- Smoke live atualizado para exigir áudio direto do preview (ao menos um byte) em vez de aceitar apenas oEmbed.
+- Teste de playback em navegador antes de declarar a reprodução funcionando.
 
 ## Problema central
 
@@ -197,7 +263,7 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 
 ## Sequência sugerida de implementação
 
-1. **Preparar validação**: identificar a ferramenta de teste adotada pelo projeto; instalar dependências conforme lockfile (`bun.lock`) ou configurar um script Node compatível. Não misturar alterações de gerenciador de pacotes sem justificativa.
+1. **Preparar validação**: identificar a ferramenta de teste adotada pelo projeto; instalar dependências com `npm ci`, conforme `package-lock.json`, o único lockfile do projeto. Não reintroduzir outro gerenciador de pacotes sem justificativa.
 2. **Definir contratos**: ajustar `src/types/music.ts` ou criar módulo compartilhado para catálogo, fonte, busca e stream. Decidir a migração de `youtubeId`/`localUrl` com todos os usos localizados.
 3. **Escrever testes de mapper primeiro**: fixtures mínimas inspiradas no formato atual dos payloads, cobrindo válidos, campos ausentes, IDs inválidos, URL relativa/absoluta, duração ruim, artwork ausente, payload não-objeto e deduplicação.
 4. **Implementar mappers puros**: Piped Search, YouTube Music e seleção/resposta de audio stream.
@@ -278,7 +344,7 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - `src/App.tsx`: consumidores HTTP do feed e da busca.
 - `api/feed.ts`, `api/search.ts`, `api/streams/[id].ts`: endpoints serverless, atualmente com parsing/integração próprios.
 - `server.ts`: servidor Express local, também contém clients, parsing e cache Piped.
-- `package.json`, `bun.lock`, `tsconfig.json`: scripts/dependências e configuração; `npm test` roda `tsx --test`. No ambiente usado para a validação, as dependências precisaram ser instaladas sem lockfile npm e com `--legacy-peer-deps` por conflito entre esbuild e o peer opcional do Vite.
+- `package.json`, `package-lock.json`, `tsconfig.json`: scripts/dependências e configuração; `npm test` roda `tsx --test`. O gerenciador adotado é npm (o `bun.lock` foi removido em 2026-10-25, quando a Vercel passou a usar npm). O conflito entre `esbuild` e o peer do Vite 8 foi resolvido alinhando `esbuild` a `^0.28.0`, então `npm ci` funciona sem `--legacy-peer-deps`.
 
 ## Observações para o próximo agente
 

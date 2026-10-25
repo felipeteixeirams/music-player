@@ -62,13 +62,13 @@ export function logPipedAudioExtraction(payload: PipedLogPayload): void {
 
 export function logPipedSearchResults(
   query: string,
-  tracks: Array<{ id: string; title: string; artist: string; sources: { youtubeId?: string } }>,
+  tracks: Array<{ id: string; title: string; artist: string; sources: { youtubeId?: string; previewUrl?: string } }>,
   sourceInstance?: string
 ): void {
   const timestamp = new Date().toLocaleTimeString();
 
   console.group(
-    `%c[Piped Search]%c 🔍 Busca Online: "${query}" (%c${tracks.length} faixas encontradas%c via ${sourceInstance || 'Piped Network'} às ${timestamp})`,
+    `%c[Piped Search]%c 🔍 Busca Online: "${query}" (%c${tracks.length} faixas encontradas%c via ${sourceInstance || 'catálogo'} às ${timestamp})`,
     'background: #0284c7; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;',
     'color: #e2e8f0; font-weight: bold;',
     'color: #34d399;',
@@ -77,7 +77,7 @@ export function logPipedSearchResults(
 
   tracks.forEach((t, index) => {
     console.log(
-      `%c[${index + 1}]%c %c${t.title}%c — ${t.artist} %c(ID: ${t.sources.youtubeId || 'N/A'})%c\n   ↳ URL oficial: https://www.youtube.com/watch?v=${t.sources.youtubeId}`,
+      `%c[${index + 1}]%c %c${t.title}%c — ${t.artist} %c(ID: ${t.id})%c\n   ↳ ${t.sources.previewUrl ? 'Prévia: ' + t.sources.previewUrl : 'Sem prévia disponível'}`,
       'color: #94a3b8; font-weight: bold;',
       '',
       'color: #f8fafc; font-weight: bold;',

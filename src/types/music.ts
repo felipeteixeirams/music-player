@@ -1,6 +1,7 @@
 export interface AudioSource {
   localUrl: string;
-  youtubeId: string;
+  youtubeId?: string;
+  previewUrl?: string;
 }
 
 export interface Track {

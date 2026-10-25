@@ -3,6 +3,7 @@ import { afterEach, test } from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import feedHandler from './feed';
 import searchHandler from './search';
+import resolveHandler from './resolve';
 import streamHandler from './streams/[id]';
 import { fetchPipedAudioStream } from '../src/utils/audioEngine';
 
@@ -56,120 +57,73 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-function youtubeMusicSearchPayload(videoId = 'dQw4w9WgXcQ') {
-  const column = (text: string) => ({
-    musicResponsiveListItemFlexColumnRenderer: {
-      text: { runs: [{ text }] }
-    }
-  });
-
+function deezerItem(id: number, overrides: Record<string, unknown> = {}) {
   return {
-    contents: {
-      tabbedSearchResultsRenderer: {
-        tabs: [{
-          tabRenderer: {
-            content: {
-              sectionListRenderer: {
-                contents: [{
-                  musicShelfRenderer: {
-                    contents: [{
-                      musicResponsiveListItemRenderer: {
-                        videoId,
-                        flexColumns: [
-                          column('Integration Song'),
-                          column('Integration Artist'),
-                          column('Integration Album')
-                        ],
-                        thumbnail: {
-                          musicThumbnailRenderer: {
-                            thumbnail: {
-                              thumbnails: [{ url: 'https://img.example/cover.jpg' }]
-                            }
-                          }
-                        }
-                      }
-                    }]
-                  }
-                }]
-              }
-            }
-          }
-        }]
-      }
-    }
+    id,
+    title: `Song ${id}`,
+    title_short: `Song ${id}`,
+    duration: 248,
+    preview: `https://cdn.example/preview-${id}.mp3`,
+    artist: { name: 'Integration Artist' },
+    album: { title: 'Integration Album', cover_big: 'https://img.example/cover.jpg' },
+    ...overrides
   };
 }
 
-function pipedSearchPayload(videoId = 'M7lc1UVf-VE') {
-  return {
-    items: [{
-      url: `/watch?v=${videoId}`,
-      title: 'Piped Integration Song',
-      uploaderName: 'Piped Artist',
-      duration: 197,
-      thumbnail: 'https://img.example/piped-cover.jpg'
-    }]
-  };
-}
-
-test('search endpoint maps YouTube Music results into playable tracks', async () => {
-  let pipedRequests = 0;
+test('search endpoint maps Deezer results into playable preview tracks', async () => {
+  let requestedUrl = '';
   setFetchMock(async (url) => {
-    if (url.startsWith('https://music.youtube.com/')) {
-      return jsonResponse(youtubeMusicSearchPayload());
-    }
-    pipedRequests += 1;
-    return jsonResponse(pipedSearchPayload());
+    requestedUrl = url;
+    return jsonResponse({ data: [deezerItem(1), deezerItem(2)] });
   });
 
   const response = createResponse();
   await searchHandler(
-    { query: { q: 'Integration Song' } } as unknown as VercelRequest,
+    { query: { q: 'Metallica One' } } as unknown as VercelRequest,
     response
   );
 
   const body = response.body as { tracks: Array<Record<string, any>>; source: string };
   assert.equal(response.statusCode, 200);
-  assert.equal(body.source, 'YouTube Music InnerTube');
-  assert.equal(body.tracks.length, 1);
-  assert.equal(body.tracks[0].title, 'Integration Song');
+  assert.match(requestedUrl, /^https:\/\/api\.deezer\.com\/search\?q=Metallica%20One/);
+  assert.equal(body.source, 'deezer');
+  assert.equal(body.tracks.length, 2);
+  assert.equal(body.tracks[0].id, 'deezer-1');
   assert.equal(body.tracks[0].artist, 'Integration Artist');
-  assert.equal(body.tracks[0].sources.youtubeId, 'dQw4w9WgXcQ');
-  assert.equal(pipedRequests, 0);
+  assert.equal(body.tracks[0].duration, 248);
+  assert.equal(body.tracks[0].sources.previewUrl, 'https://cdn.example/preview-1.mp3');
+  assert.match(response.headers['Cache-Control'], /s-maxage=/);
 });
 
-test('search endpoint falls back to Piped and returns normalized video IDs', async () => {
-  setFetchMock(async (url) => {
-    if (url.startsWith('https://music.youtube.com/')) {
-      return jsonResponse({ error: 'unavailable' }, 503);
-    }
-    if (url.includes('/search?')) return jsonResponse(pipedSearchPayload());
-    throw new Error(`Unexpected integration request: ${url}`);
+test('search endpoint rejects a blank query without calling Deezer', async () => {
+  setFetchMock(async () => {
+    throw new Error('Deezer must not be called');
   });
 
   const response = createResponse();
-  await searchHandler(
-    { query: { q: 'Piped Integration Song' } } as unknown as VercelRequest,
-    response
-  );
+  await searchHandler({ query: { q: '  ' } } as unknown as VercelRequest, response);
+  assert.equal(response.statusCode, 400);
+});
 
-  const body = response.body as { tracks: Array<Record<string, any>>; source: string };
+test('search endpoint returns an empty valid payload when Deezer fails', async () => {
+  setFetchMock(async () => jsonResponse({ error: 'unavailable' }, 503));
+
+  const response = createResponse();
+  await searchHandler({ query: { q: 'anything' } } as unknown as VercelRequest, response);
+
+  const body = response.body as { tracks: unknown[]; source: string };
   assert.equal(response.statusCode, 200);
-  assert.match(body.source, /^https:\/\//);
-  assert.equal(body.tracks.length, 1);
-  assert.equal(body.tracks[0].id, 'piped-M7lc1UVf-VE');
-  assert.equal(body.tracks[0].sources.youtubeId, 'M7lc1UVf-VE');
-  assert.equal(body.tracks[0].duration, 197);
+  assert.deepEqual(body.tracks, []);
+  assert.equal(body.source, 'deezer');
 });
 
 test('feed endpoint returns the expected categories and a playable featured track', async () => {
-  let searchRequests = 0;
+  const requested: string[] = [];
   setFetchMock(async (url) => {
-    if (!url.startsWith('https://music.youtube.com/')) {
-      throw new Error(`Unexpected integration request: ${url}`);
-    }
-    searchRequests += 1;
-    return jsonResponse(youtubeMusicSearchPayload());
+    requested.push(url);
+    return jsonResponse({
+      data: [deezerItem(10, { preview: '' }), deezerItem(11)]
+    });
   });
 
   const response = createResponse();
@@ -177,13 +131,29 @@ test('feed endpoint returns the expected categories and a playable featured trac
 
   const body = response.body as Record<string, any>;
   assert.equal(response.statusCode, 200);
-  assert.equal(searchRequests, 4);
-  assert.equal(body.trending.length, 1);
-  assert.equal(body.rock.length, 1);
-  assert.equal(body.pop.length, 1);
-  assert.equal(body.lofi.length, 1);
-  assert.equal(body.featured.sources.youtubeId, 'dQw4w9WgXcQ');
+  assert.equal(requested.length, 4);
+  assert.ok(requested.some((url) => url.includes('/chart/0/tracks')));
+  assert.ok(requested.some((url) => url.includes('/chart/152/tracks')));
+  for (const key of ['trending', 'rock', 'pop', 'lofi']) {
+    assert.equal(body[key].length, 1, `${key} should drop tracks without preview`);
+  }
+  assert.equal(body.featured.id, 'deezer-11');
   assert.match(response.headers['Cache-Control'], /s-maxage=/);
+});
+
+test('feed endpoint keeps working when one Deezer category fails', async () => {
+  setFetchMock(async (url) =>
+    url.includes('/chart/152/') ? jsonResponse({}, 500) : jsonResponse({ data: [deezerItem(20)] })
+  );
+
+  const response = createResponse();
+  await feedHandler({ query: {} } as unknown as VercelRequest, response);
+
+  const body = response.body as Record<string, any>;
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(body.rock, []);
+  assert.equal(body.pop.length, 1);
+  assert.equal(body.featured.id, 'deezer-20');
 });
 
 test('stream endpoint selects the highest bitrate Piped audio stream', async () => {
@@ -249,4 +219,53 @@ test('audio client consumes the stream endpoint contract and its fallback respon
   const fallback = await fetchPipedAudioStream('dQw4w9WgXcQ');
   assert.equal(fallback.audioUrl, null);
   assert.equal(fallback.instanceUsed, 'YouTube Engine');
+});
+test('resolve endpoint returns the video ids found for a catalog track', async () => {
+  setFetchMock(async (url) =>
+    url.includes('/oembed') ? jsonResponse({}) : jsonResponse({
+      contents: [{
+        videoRenderer: {
+          videoId: 'WM8bTdBs-cw',
+          title: { runs: [{ text: 'Metallica: One (Official Audio)' }] },
+          ownerText: { runs: [{ text: 'Metallica' }] },
+          lengthText: { simpleText: '7:27' }
+        }
+      }]
+    })
+  );
+
+  const response = createResponse();
+  await resolveHandler(
+    { query: { artist: 'Metallica', title: 'One', duration: '447' } } as unknown as VercelRequest,
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, { videoIds: ['WM8bTdBs-cw'] });
+  assert.match(response.headers['Cache-Control'], /s-maxage=/);
+});
+
+test('resolve endpoint validates its parameters without calling YouTube', async () => {
+  setFetchMock(async () => {
+    throw new Error('YouTube must not be called');
+  });
+
+  for (const query of [{}, { artist: 'Metallica', title: 'One' }, { artist: 'Metallica', title: 'One', duration: '-5' }]) {
+    const response = createResponse();
+    await resolveHandler({ query } as unknown as VercelRequest, response);
+    assert.equal(response.statusCode, 400);
+  }
+});
+
+test('resolve endpoint answers an empty list when YouTube fails', async () => {
+  setFetchMock(async () => jsonResponse({}, 429));
+
+  const response = createResponse();
+  await resolveHandler(
+    { query: { artist: 'Metallica', title: 'One', duration: '447' } } as unknown as VercelRequest,
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, { videoIds: [] });
 });

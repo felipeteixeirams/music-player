@@ -8,11 +8,15 @@ A especificação ativa é [Contratos, mappers e testes](../specs/current/music-
 
 ## Estado
 
-**Status: implementação parcial; busca externa e fallback incorporável validados, mas stream direto Piped e playback no navegador não confirmados.**
+**Status: busca, feed e prévia de 30s via Deezer; áudio completo via YouTube oculto implementado e validado no app, mas a incorporação de vídeos musicais reais falhou no ambiente de teste (erro 150); reserva iTunes não implementada.**
 
 Já existem correções parciais de normalização de IDs Piped/YouTube, remoção do player concorrente no painel expandido, testes determinísticos dos handlers e um smoke test contra os serviços reais. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e teste de playback no navegador.
 
 Os testes HTTP simulam respostas dos provedores e validam parsing, fallback e contratos dentro do processo. O smoke executado em 2026-10-24 encontrou busca via `pipedapi.ducks.party`, mas não obteve stream Piped direto para a primeira faixa; o fallback passou na verificação oEmbed do YouTube. Isso comprova a busca e que o vídeo é incorporável, não que áudio tocou. Não afirmar que reprodução está garantida sem teste real no navegador.
+
+## Direção aprovada (2026-10-25)
+
+A verificação de 2026-10-25 mostrou as integrações atuais degradadas: o parser InnerTube extrai 0 faixas, a maioria das instâncias Piped está fora do ar e nenhum stream direto Piped funcionou. A direção aprovada para uso pessoal, gratuito e somente áudio é: catálogo e metadados via **Deezer** (reserva **iTunes**), áudio padrão por **preview de 30s**, e áudio completo por **YouTube oculto**, mantido provisoriamente até o usuário decidir a solução definitiva. Piped e InnerTube saem do caminho de produção. Diagnóstico completo, fatos confirmados, limites e critérios de aceite estão no [satélite](../specs/current/music-integration-contracts.spec.md#decisão-troca-de-provedores-aprovada-em-2026-10-25). **Implementado (2026-10-25):** `api/_deezer.ts` (mapper puro + client, usado por `api/search.ts`, `api/feed.ts` e `server.ts`), tipo `AudioSource` com `previewUrl` e `youtubeId` opcionais, e prioridade de playback offline -> prévia -> Piped/YouTube em `AudioContext`. Busca, feed e prévia foram validados (testes determinísticos, smoke live com Metallica, Creed e Bon Jovi, e reprodução em Chromium headless com `currentTime` avançando). **Áudio completo (2026-10-25):** `api/_youtubeSearch.ts` e `GET /api/resolve` localizam até 3 vídeos por artista + título + duração, e `AudioContext` toca o primeiro no `HeadlessPlayerFallback`; se o embed falhar, tenta o próximo vídeo e depois a prévia. O `HeadlessPlayerFallback` foi reescrito para a API do react-player v3, pois a versão anterior usava a API v2 (`url`, `seekTo`) e nunca tocou. **Pendente:** reserva iTunes, exibição de erros de reprodução na UI, remoção do código Piped de stream e uma solução definitiva para áudio completo (decisão do usuário). As seções abaixo ainda descrevem a arquitetura anterior onde indicado.
 
 ## Domínio coberto
 
@@ -28,18 +32,21 @@ YouTube Music InnerTube / Piped
   -> fallback headless YouTube
 ```
 
-Serviços atuais observados:
+Serviços atuais:
 
-- YouTube Music InnerTube é tentado primeiro para feed e busca.
-- Instâncias públicas Piped são fallback de busca e também tentativas de resolução do stream de áudio.
-- Busca e feed retornam faixas baseadas em YouTube video ID; o áudio direto pode ser obtido separadamente pela rota `/api/streams/:id`.
-- Em falha de stream direto, o cliente ativa `HeadlessPlayerFallback`.
+- Deezer API é a fonte de busca e feed (`/search`, `/chart/{genre}/tracks`); faixas trazem duração real e `previewUrl` de 30s quando existir.
+- O áudio padrão é a faixa completa via YouTube oculto (engine `fallback`), com o vídeo localizado por `/api/resolve`. Sem vídeo ou com embed bloqueado, toca a prévia de 30s por `HTMLAudioElement` (engine `native`). Faixa sem nenhuma fonte mostra erro em `pipedStatus.error`, ainda não exibido na UI.
+- Instâncias Piped continuam apenas na rota `/api/streams/:id`, hoje inativa para faixas Deezer (sem `youtubeId`) e com bloqueio do YouTube observado.
+- YouTube InnerTube/Piped de busca foram removidos das rotas e do `server.ts`.
+- O `HeadlessPlayerFallback` só é acionado para faixas com `youtubeId`.
 
 ## Código proprietário
 
 - `src/types/music.ts`: formato interno atual de `Track` e `AudioSource`.
 - `src/utils/youtubeId.ts`: normalização de IDs para URLs e IDs simples.
-- `api/search.ts`, `api/feed.ts` e `server.ts`: busca, parsing e fallback duplicados entre serverless e servidor local.
+- `api/_deezer.ts`: mapper e client Deezer compartilhados; `api/search.ts`, `api/feed.ts` e `server.ts` só tratam HTTP/cache.
+- `api/deezer.test.ts`: testes do mapper sem rede.
+- `api/_youtubeSearch.ts`, `api/resolve.ts` e `api/youtubeSearch.test.ts`: busca do vídeo da faixa (API oficial com `YOUTUBE_API_KEY`, ou busca web não oficial sem chave), ranqueamento por duração/título/canal e testes sem rede.
 - `api/streams/[id].ts` e `server.ts`: resolução Piped duplicada e contrato de resposta de stream.
 - `src/utils/audioEngine.ts`: chamada client-side à resolução e utilitários de engine.
 - `src/context/AudioContext.tsx`: prioridade offline, stream, engine ativa e controles de playback.
@@ -48,7 +55,7 @@ Serviços atuais observados:
 - `src/App.tsx`: consumo de `/api/feed` e `/api/search`.
 - `src/utils/audioEngine.test.ts`: testes existentes de utilitários e IDs.
 - `api/integrations.test.ts`: testes de integração dos handlers Vercel e do cliente de streams, com respostas HTTP simuladas.
-- `api/integrations.live.test.ts`: smoke test opt-in que consulta provedores reais, tenta resolver stream e verifica áudio direto ou incorporabilidade do fallback.
+- `api/integrations.live.test.ts`: smoke test opt-in que busca três artistas no Deezer e confirma `audio/*` no preview (leitura de 1 byte).
 - `package.json`: `npm test` executa a suíte via `tsx --test`.
 
 A especificação ativa contém o mapa mais completo dos arquivos e os detalhes conhecidos; consulte-a antes de mudar qualquer contrato.
