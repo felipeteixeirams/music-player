@@ -150,7 +150,7 @@ Se falhar: `web-after-official-failure` em série indica cota esgotada. Se isso 
 3. Aquecimento do aparelho e consumo de bateria durante 15 minutos de reprodução com o app aberto.
 4. Abra o app com a rede lenta (limite de velocidade do navegador, se houver) e observe quando a home aparece.
 
-Esperado: som em até 2 a 3 segundos, rolagem fluida, sem aquecimento anormal.
+Esperado: som em até 2 a 3 segundos, rolagem fluida, sem aquecimento anormal. (Desde 2026-10-25 a lista não renderiza de novo a cada tick do relógio e as linhas fora da tela não são desenhadas; confira o efeito numa coleção carregada até o fim, com música tocando.)
 
 Se falhar: rolagem com engasgos indica a frente "desempenho da interface" (dividir o contexto de áudio e renderizar só as linhas visíveis).
 
@@ -197,10 +197,9 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 1. Reprodução com a tela bloqueada (T04): pode mudar a arquitetura do áudio completo.
 2. Qualidade da escolha do vídeo: ranqueamento pode escolher versão errada; opções: mostrar o álbum, deixar o usuário escolher entre os candidatos, registrar nos logs as faixas sem vídeo.
 3. Abuso e cota: rotas públicas e cota de cerca de 100 buscas por dia.
-4. Desempenho da interface: contexto de áudio dividido e janelamento das listas.
-5. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
-6. Playlists criadas pelo usuário.
-7. Integração contínua no GitHub Actions e testes de ponta a ponta com Playwright.
+4. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
+5. Playlists criadas pelo usuário.
+6. Integração contínua no GitHub Actions e testes de ponta a ponta com Playwright.
 
 ## Testes automáticos que já passam
 

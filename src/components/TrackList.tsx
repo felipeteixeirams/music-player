@@ -174,7 +174,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                   else onTrackSelect(track);
                 }
               }}
-              className={`relative flex items-center justify-between py-2 transition-colors cursor-pointer active:bg-fill-tertiary after:absolute after:bottom-0 after:left-[4.5rem] after:right-0 after:h-[0.5px] after:bg-separator`}
+              className={`relative flex items-center justify-between py-2 [content-visibility:auto] [contain-intrinsic-size:auto_72px] transition-colors cursor-pointer active:bg-fill-tertiary after:absolute after:bottom-[0.5px] after:left-[4.5rem] after:right-0 after:h-[0.5px] after:bg-separator`}
             >
               {/* Left Slot: Artwork & Details */}
               <div className="flex items-center gap-3 min-w-0">
