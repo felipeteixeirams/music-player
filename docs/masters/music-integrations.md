@@ -42,6 +42,11 @@ Serviços atuais:
 - YouTube InnerTube/Piped de busca foram removidos das rotas e do `server.ts`.
 - O `HeadlessPlayerFallback` só é acionado para faixas com `youtubeId`.
 
+## Limitações conhecidas
+
+- **Áudio com a tela bloqueada (iPhone):** a faixa completa (YouTube oculto) continua tocando no navegador (testado em 2026-10-25 no Microsoft Edge, iPhone 11), mas para no app instalado na tela inicial (PWA) e o play da tela de bloqueio não religa. O app recomenda o navegador no modal de instalação do iPhone. Detalhes e o que ficou sem teste no [roteiro de validação](../specs/current/validation-checklist.spec.md) (T04).
+- **Widget na tela inicial do iPhone:** não existe para PWA; exigiria um app nativo (WidgetKit), fora do escopo atual.
+
 ## Código proprietário
 
 - `src/types/music.ts`: formato interno atual de `Track` e `AudioSource`.

@@ -92,10 +92,15 @@ export const PWAInstallButton: React.FC = () => {
                     3
                   </div>
                   <p>
-                    Abra o app pelo ícone na tela inicial para desfrutar de áudio em segundo plano com suporte a hardware!
+                    Abra o app pelo ícone na tela inicial para usá-lo em tela cheia.
                   </p>
                 </div>
               </div>
+
+              <p className="mt-4 rounded-card bg-fill-tertiary p-3 text-xs text-label-secondary" role="note">
+                No iPhone, o app instalado pode parar a música quando a tela bloqueia. Para ouvir com a tela
+                bloqueada ou em segundo plano, abra o AuraStream pelo navegador.
+              </p>
 
               <button
                 onClick={() => setShowIOSModal(false)}
