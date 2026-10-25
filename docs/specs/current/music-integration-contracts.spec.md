@@ -170,6 +170,14 @@ Rádio e novo menu (2026-10-25, sétima fatia):
 - Validação: `npm test` 103 aprovados e 5 ignorados (live); lint e build passam; smoke live confere que as 31 estações existem e rendem 20 faixas ou mais, e que duas chamadas seguidas vêm em ordem diferente. No Chromium headless: o menu mostra Início, Rádio, Biblioteca e Buscar; a tela tem 8 grupos e 31 estações com capa; ao tocar "Rock Clássico" a estação fica marcada; avançando 61 faixas seguidas a fila não acabou e a rádio pediu mais faixas uma vez, sem faixa repetida a menos de 23 plays de distância; sair para a home mantém a rádio tocando e tocar uma coleção desmarca a estação; sem vídeos, a rádio real pulou a faixa sem som e tocou a seguinte, sem aviso de erro; com todas as faixas indisponíveis tentou 6 e parou com o aviso, sem laço.
 - Limitações: o conjunto de cada estação é pequeno (50 a 120 faixas), então ouvir por horas repete faixas; cada faixa da rádio é uma busca de vídeo no YouTube (100 unidades da cota diária de 10.000), então a rádio consome a cota rápido e, esgotada, o app usa a busca web não oficial; a rádio da faixa tocando (por artista) não foi feita, porque as faixas não guardam o id do artista; o nome do grupo "Mais estilos" é provisório.
 
+Coerência do menu (2026-10-25, oitava fatia): auditoria das abas Início, Biblioteca e Buscar depois da troca do menu. Defeitos encontrados no navegador e corrigidos:
+
+- O chip de coleção tocado na aba Biblioteca ficava marcado, mas a tela continuava nos favoritos. Agora todo chip leva à tela que mostra o que ele seleciona: "Favoritos" abre a Biblioteca e os demais abrem a home.
+- A aba marcada no menu não seguia a tela: abrir a busca pelo ícone do topo deixava "Início" marcada, e fechá-la deixava "Buscar" marcada sobre a home. Agora a aba marcada é derivada do que está na tela (`navTab`) e o botão ativo ganha `aria-current="page"`.
+- O texto digitado na busca continuava filtrando as outras telas: com "queen" digitado, a home passava a mostrar "Resultados para queen" com o campo de busca escondido, sem como limpar. Agora sair da busca (por outra aba ou pelo ícone do topo) limpa o texto.
+- Os quatro botões do menu tinham larguras diferentes (57, 57, 76 e 63px) e centros espaçados de 94, 102 e 106px. Agora são quatro colunas iguais.
+- Verificado no Chromium headless com 360, 414 e 768px de largura: colunas iguais; chip na Biblioteca abre a coleção com "Início" marcada; chip "Favoritos" abre a Biblioteca; busca aberta e fechada pelo topo marca e desmarca "Buscar"; texto digitado some ao sair; sem erros nem avisos no console.
+
 Critérios de aceite adicionais para esta troca:
 
 - Busca e feed devolvem `Track` com duração real vinda do provedor, sem passar por Piped/InnerTube.
