@@ -80,6 +80,20 @@ Verificação manual com `curl`, `npm test` e `npm run test:integrations:live`:
 
 ## Decisão: troca de provedores (aprovada em 2026-10-25)
 
+### Reavaliação de Piped, Invidious e NewPipeExtractor (2026-10-25)
+
+O usuário trouxe uma pesquisa que sugeria Piped (principal), Invidious (alternativa) e NewPipeExtractor (biblioteca) para obter streams de áudio do YouTube. Validação feita antes de descartar:
+
+- **Piped:** é o que o app já usa. Testado com Metallica, Creed e Bon Jovi nas duas instâncias que respondem (`pipedapi.ducks.party`, `api.piped.private.coffee`): `audioStreams` vazio nas 3 faixas e nas 2 instâncias. O erro é `SignInConfirmNotBotException` / `LOGIN_REQUIRED: "Sign in to confirm that you're not a bot"`, ou seja, o YouTube bloqueia o IP das instâncias. A causa raiz não é o nosso código nem a falta de uma API melhor.
+- **NewPipeExtractor:** é o motor do próprio Piped e lança essa mesma exceção; a fonte do bloqueio é o IP de origem. Usá-lo diretamente herda o problema quando roda em IP de datacenter (Vercel incluído). Não foi testado em IP residencial.
+- **Invidious:** a lista oficial (`api.invidious.io`) tinha 4 instâncias HTTPS e todas bloquearam a API (`403 Endpoint disabled`, `403 forbidden`, `403` e `401`). O teste partiu de um IP de datacenter e pode diferir de outro ambiente, mas o mesmo vale para o deploy.
+- **Spotube e Limusic:** só referência de arquitetura; não são bibliotecas para o app web e dependem das mesmas fontes não oficiais.
+- **Hipótese não testada:** hospedar o próprio Piped/Invidious ou rodar o extractor na máquina do usuário, com IP residencial, pode funcionar, mas é frágil, sem garantia e com ressalvas de termos de uso. Seria experimento separado, não base da arquitetura.
+
+Conclusão: as ferramentas da pesquisa não resolvem o bloqueio atual. A decisão abaixo se mantém; o experimento de IP residencial fica como opção futura para áudio completo.
+
+## Decisão (continuação)
+
 Requisitos do usuário: uso pessoal, somente opções gratuitas, catálogo de músicas conhecidas (não amadoras) e reprodução apenas de áudio, sem vídeo visível.
 
 Decisões:
