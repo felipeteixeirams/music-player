@@ -77,6 +77,8 @@ const MusicAppContent: React.FC = () => {
   // Sync BottomNavBar tabs with TopBar search states
   const handleSelectTab = (tab: AppTab) => {
     setActiveTab(tab);
+    // Text typed in the search box belongs to the search screen; left behind it would filter the others
+    if (tab !== 'search') setSearchQuery('');
     if (tab === 'search') {
       setIsSearchOpen(true);
       setSearchScope('online');
@@ -171,6 +173,8 @@ const MusicAppContent: React.FC = () => {
 
   const featuredTrack = feed?.featured ?? null;
   const isRadioTab = activeTab === 'radio' && !isSearchOpen && !searchQuery;
+  // The tab shown as selected follows what is on screen, also when search is opened or closed from the top bar
+  const navTab: AppTab = isSearchOpen ? 'search' : activeTab === 'search' ? 'home' : activeTab;
 
   return (
     <div className="min-h-screen bg-[#07070d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white">
@@ -185,8 +189,8 @@ const MusicAppContent: React.FC = () => {
           onSelectFilter={(filter) => {
             setActiveFilter(filter);
             setSelectedCategoryId(null);
-            // A collection chip leaves the radio screen
-            if (activeTab === 'radio') setActiveTab('home');
+            // Favorites are the library; everything else is shown on the home screen
+            setActiveTab(filter === 'liked' ? 'library' : 'home');
           }}
           searchQuery={searchQuery}
           onSearchChange={(q) => setSearchQuery(q)}
@@ -194,6 +198,7 @@ const MusicAppContent: React.FC = () => {
           onToggleSearch={() => {
             setIsSearchOpen((prev) => !prev);
             if (!isSearchOpen) setSearchScope('online');
+            else setSearchQuery('');
           }}
           searchScope={searchScope}
           onSearchScopeChange={(scope) => setSearchScope(scope)}
@@ -447,7 +452,7 @@ const MusicAppContent: React.FC = () => {
       <ExpandedPlayer />
 
       {/* Spotify / Apple Music Style Bottom Navigation Bar */}
-      <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} />
+      <BottomNavBar activeTab={navTab} onSelectTab={handleSelectTab} />
 
       {/* Headless Player Redundant Fallback Engine */}
       <HeadlessPlayerFallback />
