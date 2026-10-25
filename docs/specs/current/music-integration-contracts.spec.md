@@ -19,7 +19,7 @@ Incluído:
 
 Fora de escopo para a primeira implementação:
 
-- Trocar os serviços externos ou adicionar outro catálogo.
+- Trocar os serviços externos ou adicionar outro catálogo, **exceto** pela decisão registrada em "Decisão: troca de provedores" (2026-10-25), que redefine este item.
 - Fazer scraping/extração diretamente no navegador.
 - Garantir disponibilidade de serviços públicos de terceiros.
 - Refatorar visualmente o player.
@@ -68,6 +68,43 @@ Não reverter essas alterações durante a implementação dos contratos. O help
 - Os testes de integração não chamam YouTube Music nem Piped reais. Eles validam handlers, parsing dos payloads-fixture, fallback e o contrato entre o endpoint de stream e o cliente.
 - O smoke live faz chamadas reais e lê no máximo um byte do stream quando há URL direta; se não houver, valida oEmbed para identificar um fallback potencialmente incorporável. Isso não confirma reprodução efetiva no navegador.
 - Não foi feito teste de playback em navegador. A disponibilidade real de streams Piped para outras faixas e o funcionamento de `HeadlessPlayerFallback` permanecem por validar.
+
+## Diagnóstico de 2026-10-25 (integrações atuais degradadas)
+
+Verificação manual com `curl`, `npm test` e `npm run test:integrations:live`:
+
+- **YouTube Music InnerTube:** HTTP 200, mas **0 faixas extraídas**. A resposta inicia com `musicCardShelfRenderer`; o parser só lê `musicShelfRenderer` com `item.videoId` no nível raiz, e o `videoId` real não está nesse campo. Em produção tudo cai para Piped. É defeito do parser, e o endpoint não é uma API oficial.
+- **Piped, busca:** só `pipedapi.ducks.party` e `api.piped.private.coffee` responderam com resultados. `pipedapi.in.projectsegfau.lt` e `api.piped.projectsegfau.lt` estão encerradas; `pipedapi.kavin.rocks` retorna 526; `piped-api.lunar.icu`, `pipedapi.palvelintalo.fi` e `pipedapi.mha.fi` retornam 502 ou não conectam.
+- **Piped, stream:** `pipedapi.ducks.party` responde 200 com `audioStreams` vazio; `api.piped.private.coffee` não conectou no endpoint de stream. Não há stream direto utilizável.
+- **Testes:** `npm test` (20 aprovados, 1 ignorado) usa respostas simuladas e não detecta essas falhas. O smoke live passa porque aceita a verificação oEmbed como sucesso, sem provar áudio.
+
+## Decisão: troca de provedores (aprovada em 2026-10-25)
+
+Requisitos do usuário: uso pessoal, somente opções gratuitas, catálogo de músicas conhecidas (não amadoras) e reprodução apenas de áudio, sem vídeo visível.
+
+Decisões:
+
+1. **Catálogo e metadados: Deezer API** (`GET https://api.deezer.com/search?q=...`), sem autenticação. Fornece título, artista, álbum, capa, duração real, ISRC e `preview`. Substitui InnerTube e Piped como fonte de catálogo e elimina as durações inventadas (180s/210s).
+2. **Reserva de catálogo/preview: iTunes Search API** (`https://itunes.apple.com/search?term=...&entity=song`), sem chave, com `previewUrl`. Limite documentado de cerca de 20 chamadas por minuto por IP; usar cache.
+3. **Áudio padrão: preview de 30s** (Deezer, ou iTunes como reserva). É a única fonte oficial, gratuita e estável de música conhecida. Nem toda faixa tem preview.
+4. **Áudio completo: YouTube mantido por enquanto**, tocado pelo `HeadlessPlayerFallback` (IFrame Player oculto). O usuário ainda não decidiu a solução definitiva; esta etapa não deve consolidar o YouTube como destino final. Para localizar o vídeo, buscar por "artista + título" do Deezer. Preferir a YouTube Data API v3 oficial a InnerTube/Piped.
+5. **Piped e InnerTube saem do caminho de produção.** Os clients/parsers correspondentes devem ser removidos ou arquivados depois que o novo fluxo estiver testado; não manter instâncias Piped mortas na lista.
+6. `Track` continua canônico. O provider do catálogo passa a ser `deezer | itunes`, e a fonte de reprodução distingue `preview` de `youtube`, conforme as decisões de arquitetura do master.
+
+Fatos confirmados nesta verificação (com ressalvas):
+
+- Deezer: busca respondeu sem autenticação e trouxe `preview` em MP3. A URL do preview é **assinada com expiração** (`hdnea=exp=...`); não cachear por tempo longo e re-resolver ao dar erro de mídia. Limite de requisições e termos de uso do Deezer **não foram confirmados**; verificar em developers.deezer.com antes de uso além de pessoal.
+- iTunes: busca respondeu sem chave com `previewUrl`; o limite de ~20 chamadas/min vem de documentação de parceiros da Apple; a página oficial do campo `previewUrl` não foi localizada.
+- YouTube Data API v3: cota padrão de 10.000 unidades/dia e `search.list` a 100 unidades, ou seja, cerca de 100 buscas por dia por projeto (fontes secundárias divergem sobre alterações recentes). Por isso, só buscar o vídeo quando o usuário pedir reprodução completa, e cachear o resultado por faixa. Exige chave própria do usuário em variável de ambiente, nunca no repositório.
+- Reprodução em navegador, incluindo CORS do `<audio>` para o CDN do Deezer, **não foi testada**.
+
+Critérios de aceite adicionais para esta troca:
+
+- Busca e feed devolvem `Track` com duração real vinda do provedor, sem passar por Piped/InnerTube.
+- Faixa sem `preview` é sinalizada explicitamente (sem tocar silêncio) e oferece o caminho completo via YouTube.
+- Teste determinístico de mapper Deezer/iTunes com fixtures, incluindo `preview` ausente e vazio; testes continuam sem rede.
+- Smoke live atualizado para exigir áudio direto do preview (ao menos um byte) em vez de aceitar apenas oEmbed.
+- Teste de playback em navegador antes de declarar a reprodução funcionando.
 
 ## Problema central
 
