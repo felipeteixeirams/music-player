@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { resolveYouTubeVideos } from './api/_youtubeSearch';
+import { evaluateRequest, POLICIES, type GuardPolicy } from './api/_guard';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,21 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Same protection as the Vercel functions: same-origin pages only, and a per-address rate limit
+const policyFor = (path: string): GuardPolicy | null =>
+  path.startsWith('/health') ? null
+  : path.startsWith('/resolve') ? POLICIES.resolve
+  : path.startsWith('/audio') ? POLICIES.audio
+  : POLICIES.catalog;
+app.use('/api', (req, res, next) => {
+  const policy = policyFor(req.path);
+  if (!policy) return next();
+  const decision = evaluateRequest(req.headers, policy);
+  if (decision.ok) return next();
+  if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
+  return res.status(decision.status).json({ error: decision.message });
+});
 
 // In-memory cache for the home feed
 let liveFeedCache: { data: unknown; expiresAt: number } | null = null;

@@ -347,7 +347,7 @@ test('resolve endpoint validates its parameters without calling YouTube', async 
     throw new Error('YouTube must not be called');
   });
 
-  for (const query of [{}, { artist: 'Metallica', title: 'One' }, { artist: 'Metallica', title: 'One', duration: '-5' }]) {
+  for (const query of [{}, { artist: 'Metallica', title: 'One' }, { artist: 'Metallica', title: 'One', duration: '-5' }, { artist: 'Metallica', title: 'One', duration: '99999' }]) {
     const response = createResponse();
     await resolveHandler({ query } as unknown as VercelRequest, response);
     assert.equal(response.statusCode, 400);
@@ -365,4 +365,19 @@ test('resolve endpoint answers an empty list when YouTube fails', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.body, { videoIds: [] });
+  assert.equal(response.headers['Cache-Control'], undefined, 'a failure is never cached');
+});
+
+test('resolve endpoint caches a "no video found" answer for an hour so the paid search is not repeated', async () => {
+  setFetchMock(async () => jsonResponse({ contents: [] }));
+
+  const response = createResponse();
+  await resolveHandler(
+    { query: { artist: 'Artista Sem Vídeo', title: 'Faixa', duration: '200' } } as unknown as VercelRequest,
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, { videoIds: [] });
+  assert.equal(response.headers['Cache-Control'], 's-maxage=3600');
 });

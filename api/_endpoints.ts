@@ -36,9 +36,13 @@ export async function categoryEndpoint(query: { id?: unknown; index?: unknown; l
   }
 }
 
+/** Longest search text accepted: real queries are short, and every distinct text is a request the cache cannot answer. */
+const MAX_QUERY_LENGTH = 200;
+
 export async function searchEndpoint(query: { q?: unknown; index?: unknown; limit?: unknown }): Promise<EndpointResult> {
   const text = Array.isArray(query.q) ? query.q[0] : query.q;
   if (typeof text !== 'string' || !text.trim()) return failure(400, 'O parâmetro q é obrigatório');
+  if (text.length > MAX_QUERY_LENGTH) return failure(400, `O parâmetro q aceita até ${MAX_QUERY_LENGTH} caracteres`);
 
   const { index, limit } = readPageParams(query);
   const startTime = Date.now();
