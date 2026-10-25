@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, Sparkles, Globe, Library, Loader2, Database } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
+import { CATEGORIES } from '../data/musicCatalog';
 
 interface TopBarProps {
   activeFilter: string;
@@ -82,9 +83,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2.5 pb-0.5 max-w-5xl mx-auto" aria-label="Filtrar faixas">
           {[
             { id: 'all', label: 'Tudo' },
-            { id: 'classic-rock', label: 'Classic Rock' },
-            { id: 'alternative-pop', label: 'Alternative Pop' },
-            { id: 'lofi-chill', label: 'Lofi Chill' },
+            ...CATEGORIES.map((category) => ({ id: category.id, label: category.name })),
             { id: 'liked', label: 'Favoritos' }
           ].map((item) => {
             const isActive = activeFilter === item.id;

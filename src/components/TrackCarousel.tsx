@@ -9,13 +9,19 @@ interface TrackCarouselProps {
   subtitle?: string;
   tracks: Track[];
   onTrackSelect: (track: Track) => void;
+  /** Size of the whole collection when `tracks` is only its first page. */
+  totalCount?: number;
+  /** Opens the whole collection. */
+  onSeeAll?: () => void;
 }
 
 export const TrackCarousel: React.FC<TrackCarouselProps> = ({
   title,
   subtitle,
   tracks,
-  onTrackSelect
+  onTrackSelect,
+  totalCount,
+  onSeeAll
 }) => {
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked } = useAudio();
 
@@ -33,9 +39,20 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
             <p className="text-[11px] text-white/40 mt-0.5">{subtitle}</p>
           )}
         </div>
-        <span className="text-[11px] text-white/40 tabular-nums">
-          {tracks.length} {tracks.length === 1 ? 'faixa' : 'faixas'}
-        </span>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <span className="text-[11px] text-white/40 tabular-nums">
+            {totalCount ?? tracks.length} {(totalCount ?? tracks.length) === 1 ? 'faixa' : 'faixas'}
+          </span>
+          {onSeeAll && (
+            <button
+              onClick={onSeeAll}
+              aria-label={`Ver todas as faixas de ${title}`}
+              className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 active:scale-95"
+            >
+              Ver tudo
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Smooth Horizontal Carousel */}
@@ -78,10 +95,11 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                   src={track.coverUrl}
                   alt=""
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
                     isThisTrackPlaying ? 'scale-105' : ''
                   }`}
-                  loading="lazy"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80';
                   }}

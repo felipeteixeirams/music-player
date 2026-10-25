@@ -24,7 +24,6 @@ export interface Category {
   description: string;
   gradient: string;
   accentColor: string;
-  searchQuery?: string;
 }
 
 export type AudioEngineType = 'native' | 'piped' | 'fallback';
@@ -50,4 +49,17 @@ export interface PipedAudioStream {
   format: string;
   quality: string;
   mimeType: string;
+}
+
+/** One page of a paginated track list. `nextIndex` is null when there is nothing left to load. */
+export interface TrackPage {
+  tracks: Track[];
+  total: number;
+  nextIndex: number | null;
+}
+
+/** Home feed: the first page of every category, keyed by category id. */
+export interface FeedResponse {
+  categories: Record<string, TrackPage>;
+  featured: Track | null;
 }

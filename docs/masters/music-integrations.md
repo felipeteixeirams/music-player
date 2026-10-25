@@ -8,7 +8,7 @@ A especificação ativa é [Contratos, mappers e testes](../specs/current/music-
 
 ## Estado
 
-**Status: busca, feed, prévia de 30s e faixa completa (YouTube oculto) funcionando em produção; reserva iTunes na busca, download offline de prévias, favoritos com metadados e avisos de reprodução na UI implementados e validados em navegador headless.**
+**Status: busca, coleções da home (playlists editoriais fiéis ao que prometem, paginadas), prévia de 30s e faixa completa (YouTube oculto) funcionando; reserva iTunes na busca, download offline de prévias, favoritos com metadados e avisos de reprodução implementados e validados.**
 
 Já existem correções parciais de normalização de IDs Piped/YouTube, remoção do player concorrente no painel expandido, testes determinísticos dos handlers e um smoke test contra os serviços reais. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e teste de playback no navegador.
 
@@ -34,7 +34,7 @@ YouTube Music InnerTube / Piped
 
 Serviços atuais:
 
-- Deezer API é a fonte de busca e feed (`/search`, `/chart/{genre}/tracks`); faixas trazem duração real e `previewUrl` de 30s quando existir.
+- Deezer API é a fonte de busca (`/search`) e das coleções da home (`/playlist/{id}/tracks`, uma playlist editorial por coleção em `api/_categories.ts`); tudo é paginado por `index`/`limit` e as faixas trazem duração real e `previewUrl` de 30s quando existir.
 - O áudio padrão é a faixa completa via YouTube oculto (engine `fallback`), com o vídeo localizado por `/api/resolve`. Sem vídeo ou com embed bloqueado, toca a prévia de 30s por `HTMLAudioElement` (engine `native`) e `pipedStatus.notice` avisa o usuário. Faixa sem nenhuma fonte define `pipedStatus.error`. `PlaybackNotice` exibe ambos no mini player e no player expandido.
 - Instâncias Piped continuam apenas na rota `/api/streams/:id`, hoje inativa para faixas Deezer (sem `youtubeId`) e com bloqueio do YouTube observado.
 - YouTube InnerTube/Piped de busca foram removidos das rotas e do `server.ts`.
@@ -44,7 +44,7 @@ Serviços atuais:
 
 - `src/types/music.ts`: formato interno atual de `Track` e `AudioSource`.
 - `src/utils/youtubeId.ts`: normalização de IDs para URLs e IDs simples.
-- `api/_deezer.ts`: mapper e client Deezer compartilhados; `api/search.ts`, `api/feed.ts` e `server.ts` só tratam HTTP/cache.
+- `api/_deezer.ts`: mapper e client Deezer compartilhados; `api/_categories.ts`: playlist de cada coleção; `api/_endpoints.ts`: lógica de feed, categoria e busca usada pelas funções da Vercel (`api/feed.ts`, `api/category.ts`, `api/search.ts`) e por `server.ts`, que só tratam HTTP/cache.
 - `api/deezer.test.ts`: testes do mapper sem rede.
 - `api/_itunes.ts`, `api/_catalog.ts`: mapper/client iTunes e `searchCatalog` (Deezer primeiro, iTunes se falhar ou vier vazio), com `api/itunes.test.ts`.
 - `api/_audioProxy.ts`, `api/audio.ts`, `api/audioProxy.test.ts`: cópia same-origin de prévias para o download offline; só HTTPS e hosts `*.dzcdn.net`, `*.mzstatic.com`, `*.itunes.apple.com`, até 4 MB, sem redirecionamentos.
@@ -55,7 +55,7 @@ Serviços atuais:
 - `src/context/AudioContext.tsx`: prioridade offline, stream, engine ativa e controles de playback.
 - `src/components/HeadlessPlayerFallback.tsx`: playback YouTube de fallback.
 - `src/components/ExpandedPlayer.tsx`: UI expandida; não deve iniciar uma engine paralela.
-- `src/App.tsx`: consumo de `/api/feed` e `/api/search`.
+- `src/App.tsx`: consumo de `/api/feed`, `/api/category` e `/api/search` com `src/hooks/usePagedTracks.ts`, `src/utils/catalogClient.ts`, `src/utils/pagedList.ts` e `src/components/LoadMoreSentinel.tsx` (lista paginada com rolagem infinita).
 - `src/utils/audioEngine.test.ts`: testes existentes de utilitários e IDs.
 - `api/integrations.test.ts`: testes de integração dos handlers Vercel e do cliente de streams, com respostas HTTP simuladas.
 - `api/integrations.live.test.ts`: smoke test opt-in que busca três artistas no Deezer e confirma `audio/*` no preview (leitura de 1 byte).

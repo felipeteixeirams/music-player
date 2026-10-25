@@ -29,7 +29,7 @@ Masters e satélites são documentos navegáveis por links, não pontos de entra
 
 | Domínio | Master | Satélites ativos | Estado |
 | --- | --- | --- | --- |
-| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md) | Busca (Deezer + reserva iTunes), prévia e faixa completa via YouTube funcionando em produção (2026-10-25); pendentes: reserva do feed e remoção do código Piped. |
+| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md) | Busca (Deezer + reserva iTunes), coleções fiéis e paginadas, prévia e faixa completa via YouTube (2026-10-25); pendentes: reserva do feed e remoção do código Piped. |
 
 ## Regras de manutenção
 

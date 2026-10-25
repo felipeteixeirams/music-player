@@ -3,6 +3,7 @@ import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2, Aler
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { formatTime } from '../utils/audioEngine';
+import { LoadMoreSentinel } from './LoadMoreSentinel';
 import {
   downloadTrackForOffline,
   removeOfflineTrack,
@@ -14,6 +15,14 @@ interface TrackListProps {
   title?: string;
   onTrackSelect: (track: Track) => void;
   emptyMessage?: string;
+  /** Total in the whole list when it is loaded page by page; shown as "N de TOTAL". */
+  totalCount?: number;
+  /** Pagination: pass `onLoadMore` to load the next page as the end of the list nears the screen. */
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  error?: string | null;
+  onLoadMore?: () => void;
+  onRetry?: () => void;
 }
 
 interface ToastNotice {
@@ -26,7 +35,13 @@ export const TrackList: React.FC<TrackListProps> = ({
   tracks,
   title,
   onTrackSelect,
-  emptyMessage = 'Nenhuma faixa encontrada nesta seção.'
+  emptyMessage = 'Nenhuma faixa encontrada nesta seção.',
+  totalCount,
+  hasMore = false,
+  isLoadingMore = false,
+  error = null,
+  onLoadMore,
+  onRetry
 }) => {
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked, audioStreamUrl } = useAudio();
   const [downloadingTrackId, setDownloadingTrackId] = useState<string | null>(null);
@@ -125,7 +140,9 @@ export const TrackList: React.FC<TrackListProps> = ({
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-bold text-white tracking-tight">{title}</h2>
           <span className="text-[11px] text-white/40 tabular-nums">
-            {tracks.length} {tracks.length === 1 ? 'faixa' : 'faixas'}
+            {totalCount !== undefined && totalCount > tracks.length
+              ? `${tracks.length} de ${totalCount} faixas`
+              : `${tracks.length} ${tracks.length === 1 ? 'faixa' : 'faixas'}`}
           </span>
         </div>
       )}
@@ -255,6 +272,17 @@ export const TrackList: React.FC<TrackListProps> = ({
           );
         })}
       </div>
+
+      {onLoadMore && (
+        <LoadMoreSentinel
+          loadedCount={tracks.length}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
+          error={error}
+          onLoadMore={onLoadMore}
+          onRetry={onRetry ?? onLoadMore}
+        />
+      )}
     </section>
   );
 };

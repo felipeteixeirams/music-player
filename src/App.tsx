@@ -15,30 +15,22 @@ import { HeadlessPlayerFallback } from './components/HeadlessPlayerFallback';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { CacheSettingsModal } from './components/CacheSettingsModal';
 import { BottomNavBar } from './components/BottomNavBar';
-import { CATEGORIES } from './data/musicCatalog';
-import { Play, Sparkles, Globe, Loader2 } from 'lucide-react';
-import { Track } from './types/music';
-import { logPipedSearchResults } from './utils/audioLogger';
+import { CATEGORIES, getCategoryById } from './data/musicCatalog';
+import { Play, Sparkles, Globe, Loader2, AlertCircle } from 'lucide-react';
+import { FeedResponse, Track } from './types/music';
+import { usePagedTracks } from './hooks/usePagedTracks';
+import { fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
 
-interface LiveFeedState {
-  trending: Track[];
-  rock: Track[];
-  pop: Track[];
-  lofi: Track[];
-  featured: Track | null;
-}
+/** How many tracks of each collection go into the mixed list on the home screen. */
+const MIX_TRACKS_PER_CATEGORY = 4;
 
 const MusicAppContent: React.FC = () => {
   const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
 
-  const [feed, setFeed] = useState<LiveFeedState>({
-    trending: [],
-    rock: [],
-    pop: [],
-    lofi: [],
-    featured: null
-  });
+  const [feed, setFeed] = useState<FeedResponse | null>(null);
   const [isLoadingFeed, setIsLoadingFeed] = useState<boolean>(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedAttempt, setFeedAttempt] = useState<number>(0);
 
   const [activeTab, setActiveTab] = useState<'home' | 'search' | 'library' | 'explore'>('home');
   const [activeFilter, setActiveFilter] = useState<string>('all');
@@ -46,9 +38,8 @@ const MusicAppContent: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [searchScope, setSearchScope] = useState<'catalog' | 'online'>('catalog');
-  const [onlineSearchResults, setOnlineSearchResults] = useState<Track[]>([]);
-  const [isSearchingOnline, setIsSearchingOnline] = useState<boolean>(false);
-  const [onlineSearchError, setOnlineSearchError] = useState<string | null>(null);
+  // Each submit starts a new search, even for the same words
+  const [submittedSearch, setSubmittedSearch] = useState<{ query: string; id: number } | null>(null);
   const [isCacheSettingsOpen, setIsCacheSettingsOpen] = useState<boolean>(false);
 
   // Register service worker on mount
@@ -61,35 +52,26 @@ const MusicAppContent: React.FC = () => {
     }
   }, []);
 
-  // Fetch 100% live tracks from backend integrations on boot
+  // First page of every collection, from the backend, on boot (and on retry)
   useEffect(() => {
-    let isMounted = true;
+    const controller = new AbortController();
     setIsLoadingFeed(true);
+    setFeedError(null);
 
-    fetch('/api/feed')
-      .then((res) => res.json())
+    fetchFeed(controller.signal)
       .then((data) => {
-        if (isMounted && data) {
-          const liveData: LiveFeedState = {
-            trending: data.trending || [],
-            rock: data.rock || [],
-            pop: data.pop || [],
-            lofi: data.lofi || [],
-            featured: data.featured || data.trending?.[0] || null
-          };
-          setFeed(liveData);
-          setIsLoadingFeed(false);
-        }
+        setFeed(data);
+        setIsLoadingFeed(false);
       })
       .catch((err) => {
-        console.warn('Erro ao carregar feed ao vivo:', err);
-        if (isMounted) setIsLoadingFeed(false);
+        if (controller.signal.aborted || err?.name === 'AbortError') return;
+        console.warn('Erro ao carregar as coleções:', err);
+        setFeedError(err?.message || 'Não foi possível carregar as coleções agora.');
+        setIsLoadingFeed(false);
       });
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    return () => controller.abort();
+  }, [feedAttempt]);
 
   // Sync BottomNavBar tabs with TopBar search states
   const handleSelectTab = (tab: 'home' | 'search' | 'library' | 'explore') => {
@@ -110,65 +92,70 @@ const MusicAppContent: React.FC = () => {
     }
   };
 
-  // Perform live online music search via Piped/YouTube API backend proxy
-  const performOnlineSearch = useCallback(async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearchingOnline(true);
-    setOnlineSearchError(null);
-    try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      if (!res.ok) throw new Error('Falha na conexão de busca');
-      const data = await res.json();
-      if (Array.isArray(data.tracks) && data.tracks.length > 0) {
-        logPipedSearchResults(searchQuery.trim(), data.tracks, data.source);
-        setOnlineSearchResults(data.tracks);
-      } else {
-        setOnlineSearchResults([]);
-        setOnlineSearchError('Nenhuma faixa encontrada na rede online para esta busca.');
-      }
-    } catch {
-      setOnlineSearchError('Instâncias de streaming temporariamente congestionadas. Tente novamente.');
-    } finally {
-      setIsSearchingOnline(false);
-    }
+  // Collection or filter chip being viewed: the grid wins over the chips
+  const activeCategoryId = useMemo(() => {
+    if (selectedCategoryId && getCategoryById(selectedCategoryId)) return selectedCategoryId;
+    return getCategoryById(activeFilter) ? activeFilter : null;
+  }, [selectedCategoryId, activeFilter]);
+  const activeCategory = activeCategoryId ? getCategoryById(activeCategoryId) : undefined;
+
+  // The collection being viewed, loaded page by page; it starts from the page the home feed already brought
+  const categoryList = usePagedTracks(
+    activeCategoryId ? `category:${activeCategoryId}` : null,
+    (index, signal) => fetchCategoryPage(activeCategoryId as string, index, signal),
+    activeCategoryId ? feed?.categories[activeCategoryId] : undefined
+  );
+
+  // Online search results, loaded page by page
+  const onlineSearch = usePagedTracks(
+    submittedSearch ? `search:${submittedSearch.id}:${submittedSearch.query}` : null,
+    (index, signal) => fetchSearchPage(submittedSearch!.query, index, signal)
+  );
+
+  const performOnlineSearch = useCallback(() => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    setSubmittedSearch((prev) => ({ query, id: (prev?.id ?? 0) + 1 }));
   }, [searchQuery]);
 
-  // Aggregate all live tracks deduplicated by video ID
+  // Everything the home feed brought, without repeats
   const allLiveTracks = useMemo(() => {
     const map = new Map<string, Track>();
-    [...feed.trending, ...feed.rock, ...feed.pop, ...feed.lofi].forEach((t) => {
-      if (t && t.id) map.set(t.id, t);
+    Object.values(feed?.categories ?? {}).forEach((page) => {
+      page.tracks.forEach((t) => map.set(t.id, t));
     });
     return Array.from(map.values());
   }, [feed]);
 
   // Favorites saved before their metadata was stored regain it when the track shows up again
   useEffect(() => {
-    hydrateLikedTracks([...allLiveTracks, ...onlineSearchResults]);
-  }, [allLiveTracks, onlineSearchResults, hydrateLikedTracks]);
+    hydrateLikedTracks([...allLiveTracks, ...onlineSearch.tracks, ...categoryList.tracks]);
+  }, [allLiveTracks, onlineSearch.tracks, categoryList.tracks, hydrateLikedTracks]);
 
-  // Stable identity: a fresh array every render would re-run effects that depend on `tracks`
-  const recommendedTracks = useMemo(() => allLiveTracks.slice(0, 20), [allLiveTracks]);
-
-  // Dynamic Category counts
-  const categoryCounts = useMemo(() => {
-    return {
-      'top-hits': feed.trending.length,
-      'classic-rock': feed.rock.length,
-      'alternative-pop': feed.pop.length,
-      'lofi-chill': feed.lofi.length,
-      'synthwave': feed.lofi.length
-    };
+  // A few tracks of each collection, in the order of the collections
+  const mixTracks = useMemo(() => {
+    const map = new Map<string, Track>();
+    CATEGORIES.forEach((category) => {
+      feed?.categories[category.id]?.tracks.slice(0, MIX_TRACKS_PER_CATEGORY).forEach((t) => map.set(t.id, t));
+    });
+    return Array.from(map.values());
   }, [feed]);
 
-  // Filtered live catalog tracks based on search or category
-  const filteredCatalogTracks = useMemo(() => {
-    let result = [...allLiveTracks];
+  // Size of each collection, as reported by the playlist behind it
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    CATEGORIES.forEach((category) => {
+      const total = feed?.categories[category.id]?.total;
+      if (total) counts[category.id] = total;
+    });
+    return counts;
+  }, [feed]);
 
-    // Filter by search query in catalog
+  // Search inside what is already loaded, and the favorites library
+  const filteredCatalogTracks = useMemo(() => {
     if (searchQuery.trim() && searchScope === 'catalog') {
       const q = searchQuery.toLowerCase().trim();
-      return result.filter(
+      return allLiveTracks.filter(
         (t) =>
           t.title.toLowerCase().includes(q) ||
           t.artist.toLowerCase().includes(q) ||
@@ -176,29 +163,11 @@ const MusicAppContent: React.FC = () => {
           t.style.toLowerCase().includes(q)
       );
     }
+    if (activeFilter === 'liked' || activeTab === 'library') return likedTracks;
+    return allLiveTracks;
+  }, [allLiveTracks, searchQuery, searchScope, activeFilter, likedTracks, activeTab]);
 
-    // Filter by favorites / library
-    if (activeFilter === 'liked' || activeTab === 'library') {
-      return likedTracks;
-    }
-
-    // Filter by top chips
-    if (activeFilter === 'classic-rock') return feed.rock;
-    if (activeFilter === 'alternative-pop') return feed.pop;
-    if (activeFilter === 'lofi-chill') return feed.lofi;
-
-    // Filter by Category Grid selection if active
-    if (selectedCategoryId) {
-      if (selectedCategoryId === 'classic-rock') return feed.rock;
-      if (selectedCategoryId === 'alternative-pop') return feed.pop;
-      if (selectedCategoryId === 'lofi-chill') return feed.lofi;
-      if (selectedCategoryId === 'top-hits') return feed.trending;
-    }
-
-    return result;
-  }, [allLiveTracks, searchQuery, searchScope, activeFilter, selectedCategoryId, likedTracks, activeTab, feed]);
-
-  const featuredTrack = feed.featured;
+  const featuredTrack = feed?.featured ?? null;
 
   return (
     <div className="min-h-screen bg-[#07070d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white">
@@ -224,7 +193,7 @@ const MusicAppContent: React.FC = () => {
           searchScope={searchScope}
           onSearchScopeChange={(scope) => setSearchScope(scope)}
           onSubmitOnlineSearch={performOnlineSearch}
-          isSearchingOnline={isSearchingOnline}
+          isSearchingOnline={onlineSearch.isLoading}
           onOpenCacheSettings={() => setIsCacheSettingsOpen(true)}
         />
 
@@ -238,50 +207,103 @@ const MusicAppContent: React.FC = () => {
           {/* 1. Live Online Search Results View */}
           {isSearchOpen && searchScope === 'online' ? (
             <div className="pt-2 space-y-3">
-              {isSearchingOnline ? (
+              {onlineSearch.isLoading ? (
                 <div className="px-4 py-12 text-center text-white/50 space-y-3">
                   <Loader2 className="w-7 h-7 text-purple-400 animate-spin mx-auto" />
                   <p className="text-xs">Buscando faixas online...</p>
                 </div>
-              ) : onlineSearchResults.length > 0 ? (
+              ) : onlineSearch.tracks.length > 0 ? (
                 <TrackList
-                  tracks={onlineSearchResults}
-                  title={`Músicas Encontradas (${onlineSearchResults.length})`}
-                  onTrackSelect={(track) => playTrack(track, onlineSearchResults)}
+                  tracks={onlineSearch.tracks}
+                  title="Músicas Encontradas"
+                  totalCount={onlineSearch.total}
+                  onTrackSelect={(track) => playTrack(track, onlineSearch.tracks)}
+                  hasMore={onlineSearch.hasMore}
+                  isLoadingMore={onlineSearch.isLoadingMore}
+                  error={onlineSearch.error}
+                  onLoadMore={onlineSearch.loadMore}
+                  onRetry={onlineSearch.retry}
                 />
               ) : (
                 <div className="px-4 py-10 text-center text-white/50 text-xs space-y-2">
                   <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-purple-400">
                     <Globe className="w-6 h-6" />
                   </div>
-                  <p>
-                    {onlineSearchError ||
-                      (searchQuery.trim()
+                  <p role={onlineSearch.error ? 'alert' : undefined}>
+                    {onlineSearch.error ||
+                      (submittedSearch
+                        ? `Nenhuma faixa encontrada para "${submittedSearch.query}".`
+                        : searchQuery.trim()
                         ? `Pressione "Buscar" para encontrar "${searchQuery}" em toda a web.`
                         : 'Digite o nome de qualquer música, artista ou banda e toque em Buscar.')}
                   </p>
+                  {onlineSearch.error && (
+                    <button
+                      onClick={onlineSearch.retry}
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+                    >
+                      Tentar de novo
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           ) : /* 2. Local Catalog Search or Category Filter / Library View */
-          (searchQuery || activeFilter !== 'all' || activeTab === 'library' || (selectedCategoryId && selectedCategoryId !== 'all')) ? (
+          (searchQuery || activeFilter !== 'all' || activeTab === 'library' || activeCategoryId) ? (
             <div className="pt-2 space-y-3">
-              <TrackList
-                tracks={filteredCatalogTracks}
-                title={
-                  searchQuery
-                    ? `Resultados para "${searchQuery}"`
-                    : activeFilter === 'liked' || activeTab === 'library'
-                    ? 'Sua Biblioteca (Favoritos)'
-                    : 'Faixas Selecionadas'
-                }
-                emptyMessage={
-                  activeFilter === 'liked' || activeTab === 'library'
-                    ? 'Nenhuma música favoritada ainda. Toque no ícone de coração em qualquer faixa para salvar!'
-                    : 'Nenhuma música encontrada nesta seção.'
-                }
-                onTrackSelect={(track) => playTrack(track, filteredCatalogTracks)}
-              />
+              {activeCategory && !searchQuery && activeFilter !== 'liked' && activeTab !== 'library' ? (
+                /* One collection, loaded page by page */
+                <>
+                  <p className="px-4 text-[11px] text-white/50">{activeCategory.description}</p>
+                  {categoryList.isLoading ? (
+                    <div className="py-12 text-center text-white/50 space-y-3">
+                      <Loader2 className="w-7 h-7 text-purple-400 animate-spin mx-auto" />
+                      <p className="text-xs">Carregando {activeCategory.name}...</p>
+                    </div>
+                  ) : categoryList.error && categoryList.tracks.length === 0 ? (
+                    <div className="px-4 py-10 text-center text-xs text-rose-300 space-y-2" role="alert">
+                      <AlertCircle className="w-6 h-6 mx-auto" />
+                      <p>{categoryList.error}</p>
+                      <button
+                        onClick={categoryList.retry}
+                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+                      >
+                        Tentar de novo
+                      </button>
+                    </div>
+                  ) : (
+                    <TrackList
+                      tracks={categoryList.tracks}
+                      title={activeCategory.name}
+                      totalCount={categoryList.total}
+                      emptyMessage="Esta coleção está vazia no momento."
+                      onTrackSelect={(track) => playTrack(track, categoryList.tracks)}
+                      hasMore={categoryList.hasMore}
+                      isLoadingMore={categoryList.isLoadingMore}
+                      error={categoryList.error}
+                      onLoadMore={categoryList.loadMore}
+                      onRetry={categoryList.retry}
+                    />
+                  )}
+                </>
+              ) : (
+                <TrackList
+                  tracks={filteredCatalogTracks}
+                  title={
+                    searchQuery
+                      ? `Resultados para "${searchQuery}"`
+                      : activeFilter === 'liked' || activeTab === 'library'
+                      ? 'Sua Biblioteca (Favoritos)'
+                      : 'Faixas Selecionadas'
+                  }
+                  emptyMessage={
+                    activeFilter === 'liked' || activeTab === 'library'
+                      ? 'Nenhuma música favoritada ainda. Toque no ícone de coração em qualquer faixa para salvar!'
+                      : 'Nenhuma música encontrada nesta seção.'
+                  }
+                  onTrackSelect={(track) => playTrack(track, filteredCatalogTracks)}
+                />
+              )}
 
               {/* Fast switch to Web Search */}
               {searchQuery && searchScope === 'catalog' && (
@@ -331,7 +353,7 @@ const MusicAppContent: React.FC = () => {
                     <div className="relative z-10 max-w-[280px]">
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400 mb-1">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>DESTAQUE DA SEMANA</span>
+                        <span>NO TOPO DO BRASIL AGORA</span>
                       </div>
                       <h1 className="text-xl font-black text-white tracking-tight leading-tight">
                         {featuredTrack.title}
@@ -341,7 +363,7 @@ const MusicAppContent: React.FC = () => {
                       </p>
 
                       <button
-                        onClick={() => playTrack(featuredTrack, feed.trending)}
+                        onClick={() => playTrack(featuredTrack, feed?.categories['top-hits']?.tracks ?? [featuredTrack])}
                         aria-label={`Reproduzir ${featuredTrack.title}`}
                         className="mt-3.5 flex items-center gap-2 px-4 py-2 rounded-2xl bg-white text-black font-bold text-xs hover:bg-white/90 active:scale-95 transition-all shadow-lg"
                       >
@@ -360,59 +382,49 @@ const MusicAppContent: React.FC = () => {
                 categoryCounts={categoryCounts}
               />
 
-              {/* Live Trending Carousel */}
-              {feed.trending.length > 0 && (
-                <TrackCarousel
-                  title="Top Tendências Globais"
-                  subtitle="As faixas mais tocadas e virais da atualidade"
-                  tracks={feed.trending}
-                  onTrackSelect={(track) => playTrack(track, feed.trending)}
-                />
-              )}
+              {/* One carousel per collection: first page; "Ver tudo" opens the whole playlist */}
+              {CATEGORIES.map((category) => {
+                const page = feed?.categories[category.id];
+                if (!page || page.tracks.length === 0) return null;
+                return (
+                  <TrackCarousel
+                    key={category.id}
+                    title={category.name}
+                    subtitle={category.description}
+                    tracks={page.tracks}
+                    totalCount={page.total}
+                    onSeeAll={() => setSelectedCategoryId(category.id)}
+                    onTrackSelect={(track) => playTrack(track, page.tracks)}
+                  />
+                );
+              })}
 
-              {/* Live Classic Rock Carousel */}
-              {feed.rock.length > 0 && (
-                <TrackCarousel
-                  title="Clássicos do Rock Atemporal"
-                  subtitle="Grandes lendas do rock internacional"
-                  tracks={feed.rock}
-                  onTrackSelect={(track) => playTrack(track, feed.rock)}
-                />
-              )}
-
-              {/* Live Pop Carousel */}
-              {feed.pop.length > 0 && (
-                <TrackCarousel
-                  title="Alternative Rock & Pop"
-                  subtitle="Grandes sucessos do pop e indie internacional"
-                  tracks={feed.pop}
-                  onTrackSelect={(track) => playTrack(track, feed.pop)}
-                />
-              )}
-
-              {/* Live Chill Beats Carousel */}
-              {feed.lofi.length > 0 && (
-                <TrackCarousel
-                  title="Foco & Relaxamento Sonoro"
-                  subtitle="Batidas suaves, lofi e melodias envolventes"
-                  tracks={feed.lofi}
-                  onTrackSelect={(track) => playTrack(track, feed.lofi)}
-                />
-              )}
-
-              {/* All Live Tracks Feed */}
-              {allLiveTracks.length > 0 && (
+              {/* A few tracks of each collection */}
+              {mixTracks.length > 0 && (
                 <TrackList
-                  title="Músicas Recomendadas"
-                  tracks={recommendedTracks}
-                  onTrackSelect={(track) => playTrack(track, allLiveTracks)}
+                  title="Mix das coleções"
+                  tracks={mixTracks}
+                  onTrackSelect={(track) => playTrack(track, mixTracks)}
                 />
               )}
 
               {isLoadingFeed && allLiveTracks.length === 0 && (
                 <div className="py-20 text-center space-y-3">
                   <Loader2 className="w-8 h-8 text-purple-400 animate-spin mx-auto" />
-                  <p className="text-xs text-white/50">Carregando músicas ao vivo das integrações...</p>
+                  <p className="text-xs text-white/50">Carregando as coleções...</p>
+                </div>
+              )}
+
+              {feedError && !isLoadingFeed && allLiveTracks.length === 0 && (
+                <div className="px-4 py-16 text-center text-xs text-rose-300 space-y-2" role="alert">
+                  <AlertCircle className="w-7 h-7 mx-auto" />
+                  <p>{feedError}</p>
+                  <button
+                    onClick={() => setFeedAttempt((attempt) => attempt + 1)}
+                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+                  >
+                    Tentar de novo
+                  </button>
                 </div>
               )}
             </>

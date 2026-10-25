@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import categoryHandler from './category';
 import feedHandler from './feed';
 import searchHandler from './search';
 import resolveHandler from './resolve';
@@ -70,11 +71,13 @@ function deezerItem(id: number, overrides: Record<string, unknown> = {}) {
   };
 }
 
-test('search endpoint maps Deezer results into playable preview tracks', async () => {
+const page = (items: unknown[], total = items.length) => ({ total, data: items });
+
+test('search endpoint maps Deezer results into a page of playable tracks', async () => {
   let requestedUrl = '';
   setFetchMock(async (url) => {
     requestedUrl = url;
-    return jsonResponse({ data: [deezerItem(1), deezerItem(2)] });
+    return jsonResponse(page([deezerItem(1), deezerItem(2)], 60));
   });
 
   const response = createResponse();
@@ -83,16 +86,32 @@ test('search endpoint maps Deezer results into playable preview tracks', async (
     response
   );
 
-  const body = response.body as { tracks: Array<Record<string, any>>; source: string };
+  const body = response.body as { tracks: Array<Record<string, any>>; source: string; total: number; nextIndex: number | null };
   assert.equal(response.statusCode, 200);
-  assert.match(requestedUrl, /^https:\/\/api\.deezer\.com\/search\?q=Metallica%20One/);
+  assert.match(requestedUrl, /^https:\/\/api\.deezer\.com\/search\?q=Metallica%20One&index=0&limit=20$/);
   assert.equal(body.source, 'deezer');
+  assert.equal(body.total, 60);
+  assert.equal(body.nextIndex, 2);
   assert.equal(body.tracks.length, 2);
   assert.equal(body.tracks[0].id, 'deezer-1');
   assert.equal(body.tracks[0].artist, 'Integration Artist');
   assert.equal(body.tracks[0].duration, 248);
   assert.equal(body.tracks[0].sources.previewUrl, 'https://cdn.example/preview-1.mp3');
   assert.match(response.headers['Cache-Control'], /s-maxage=/);
+});
+
+test('search endpoint forwards the page the client asked for', async () => {
+  let requestedUrl = '';
+  setFetchMock(async (url) => {
+    requestedUrl = url;
+    return jsonResponse(page([deezerItem(41)], 41));
+  });
+
+  const response = createResponse();
+  await searchHandler({ query: { q: 'rock', index: '40', limit: '10' } } as unknown as VercelRequest, response);
+
+  assert.match(requestedUrl, /q=rock&index=40&limit=10$/);
+  assert.equal((response.body as { nextIndex: number | null }).nextIndex, null);
 });
 
 test('search endpoint rejects a blank query without calling Deezer', async () => {
@@ -105,76 +124,128 @@ test('search endpoint rejects a blank query without calling Deezer', async () =>
   assert.equal(response.statusCode, 400);
 });
 
-test('search endpoint returns an empty valid payload when Deezer fails', async () => {
+test('search endpoint answers 502 without cache headers when every catalog fails', async () => {
   setFetchMock(async () => jsonResponse({ error: 'unavailable' }, 503));
 
   const response = createResponse();
   await searchHandler({ query: { q: 'anything' } } as unknown as VercelRequest, response);
 
-  const body = response.body as { tracks: unknown[]; source: string };
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(body.tracks, []);
-  assert.equal(body.source, 'deezer');
+  assert.equal(response.statusCode, 502);
+  assert.ok((response.body as { error: string }).error);
+  assert.equal(response.headers['Cache-Control'], undefined);
 });
 
-test('feed endpoint returns the expected categories and a playable featured track', async () => {
+test('category endpoint pages through the playlist behind the category and keeps tracks without preview', async () => {
+  let requestedUrl = '';
+  setFetchMock(async (url) => {
+    requestedUrl = url;
+    return jsonResponse(page([deezerItem(10, { preview: '' }), deezerItem(11)], 100));
+  });
+
+  const response = createResponse();
+  await categoryHandler({ query: { id: 'classic-rock', index: '20', limit: '2' } } as unknown as VercelRequest, response);
+
+  const body = response.body as { tracks: Array<Record<string, any>>; total: number; nextIndex: number | null };
+  assert.equal(response.statusCode, 200);
+  assert.equal(requestedUrl, 'https://api.deezer.com/playlist/1306931615/tracks?index=20&limit=2');
+  assert.deepEqual(body.tracks.map((t) => t.id), ['deezer-10', 'deezer-11']);
+  assert.equal(body.tracks[0].style, 'Classic Rock');
+  assert.equal('previewUrl' in body.tracks[0].sources, false);
+  assert.equal(body.total, 100);
+  assert.equal(body.nextIndex, 22);
+  assert.match(response.headers['Cache-Control'], /s-maxage=/);
+});
+
+test('category endpoint clamps the page size and rejects unknown categories without calling Deezer', async () => {
   const requested: string[] = [];
   setFetchMock(async (url) => {
     requested.push(url);
-    return jsonResponse({
-      data: [deezerItem(10, { preview: '' }), deezerItem(11)]
-    });
+    return jsonResponse(page([deezerItem(1)]));
+  });
+
+  const big = createResponse();
+  await categoryHandler({ query: { id: 'synthwave', limit: '5000' } } as unknown as VercelRequest, big);
+  assert.match(requested[0], /playlist\/5896949744\/tracks\?index=0&limit=50$/);
+
+  requested.length = 0;
+  for (const id of [undefined, 'nope', '__proto__', 'constructor']) {
+    const response = createResponse();
+    await categoryHandler({ query: { id } } as unknown as VercelRequest, response);
+    assert.equal(response.statusCode, 400);
+  }
+  assert.equal(requested.length, 0);
+});
+
+test('category endpoint answers 502 without cache headers when Deezer fails', async () => {
+  setFetchMock(async () => jsonResponse({}, 500));
+
+  const response = createResponse();
+  await categoryHandler({ query: { id: 'lofi-chill' } } as unknown as VercelRequest, response);
+
+  assert.equal(response.statusCode, 502);
+  assert.equal(response.headers['Cache-Control'], undefined);
+});
+
+test('feed endpoint returns the first page of every category and a featured track from the top list', async () => {
+  const requested: string[] = [];
+  setFetchMock(async (url) => {
+    requested.push(url);
+    const first = 1000 + requested.length * 10;
+    return jsonResponse(page([deezerItem(first), deezerItem(first + 1)], 100));
   });
 
   const response = createResponse();
   await feedHandler({ query: {} } as unknown as VercelRequest, response);
 
-  const body = response.body as Record<string, any>;
+  const body = response.body as { categories: Record<string, { tracks: any[]; total: number; nextIndex: number | null }>; featured: any };
   assert.equal(response.statusCode, 200);
-  assert.equal(requested.length, 4);
-  assert.ok(requested.some((url) => url.includes('/chart/0/tracks')));
-  assert.ok(requested.some((url) => url.includes('/chart/152/tracks')));
-  for (const key of ['trending', 'rock', 'pop', 'lofi']) {
-    assert.equal(body[key].length, 1, `${key} should drop tracks without preview`);
+  assert.deepEqual(Object.keys(body.categories).sort(), ['alternative-pop', 'classic-rock', 'lofi-chill', 'synthwave', 'top-hits']);
+  assert.equal(requested.length, 5);
+  assert.ok(requested.every((url) => /\/playlist\/\d+\/tracks\?index=0&limit=15$/.test(url)), requested.join('\n'));
+  for (const category of Object.values(body.categories)) {
+    assert.equal(category.tracks.length, 2);
+    assert.equal(category.total, 100);
+    assert.equal(category.nextIndex, 2);
   }
-  assert.equal(body.featured.id, 'deezer-11');
+  assert.equal(body.featured.id, body.categories['top-hits'].tracks[0].id);
   assert.match(response.headers['Cache-Control'], /s-maxage=/);
 });
 
-test('feed endpoint logs the category that failed and a summary line', async () => {
+test('feed endpoint logs the category that failed and a summary line, and keeps the others', async () => {
   const warnings: string[] = [];
   const logs: string[] = [];
   const originalWarn = console.warn;
   const originalLog = console.log;
   console.warn = (...args: unknown[]) => void warnings.push(args.join(' '));
   console.log = (...args: unknown[]) => void logs.push(args.join(' '));
+  const response = createResponse();
   try {
     setFetchMock(async (url) =>
-      url.includes('/chart/152/') ? jsonResponse({}, 500) : jsonResponse({ data: [deezerItem(30)] })
+      url.includes('/playlist/1306931615/') ? jsonResponse({}, 500) : jsonResponse(page([deezerItem(30)], 50))
     );
-    await feedHandler({ query: {} } as unknown as VercelRequest, createResponse());
+    await feedHandler({ query: {} } as unknown as VercelRequest, response);
   } finally {
     console.warn = originalWarn;
     console.log = originalLog;
   }
 
-  assert.ok(warnings.some((line) => line.includes('Categoria "rock" falhou')), warnings.join('\n'));
-  assert.ok(logs.some((line) => /\[Feed\] .* trending=1 rock=0 pop=1 lofi=1 em \d+ms/.test(line)), logs.join('\n'));
+  const body = response.body as { categories: Record<string, { tracks: unknown[] }>; featured: { id: string } };
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(body.categories['classic-rock'].tracks, []);
+  assert.equal(body.categories['synthwave'].tracks.length, 1);
+  assert.equal(body.featured.id, 'deezer-30');
+  assert.ok(warnings.some((line) => line.includes('Categoria "classic-rock" falhou')), warnings.join('\n'));
+  assert.ok(logs.some((line) => /\[Feed\] .*classic-rock=0 .*synthwave=1 em \d+ms/.test(line)), logs.join('\n'));
 });
 
-test('feed endpoint keeps working when one Deezer category fails', async () => {
-  setFetchMock(async (url) =>
-    url.includes('/chart/152/') ? jsonResponse({}, 500) : jsonResponse({ data: [deezerItem(20)] })
-  );
+test('feed endpoint answers 502 without cache headers when every category fails', async () => {
+  setFetchMock(async () => jsonResponse({}, 503));
 
   const response = createResponse();
   await feedHandler({ query: {} } as unknown as VercelRequest, response);
 
-  const body = response.body as Record<string, any>;
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(body.rock, []);
-  assert.equal(body.pop.length, 1);
-  assert.equal(body.featured.id, 'deezer-20');
+  assert.equal(response.statusCode, 502);
+  assert.equal(response.headers['Cache-Control'], undefined);
 });
 
 test('stream endpoint selects the highest bitrate Piped audio stream', async () => {

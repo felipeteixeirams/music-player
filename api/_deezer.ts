@@ -1,18 +1,20 @@
-import type { Track } from '../src/types/music';
+import type { FeedResponse, Track, TrackPage } from '../src/types/music';
+import { CATEGORY_IDS, CATEGORY_PLAYLISTS, type CategoryId } from './_categories.js';
 
 const DEEZER_API = 'https://api.deezer.com';
 const FALLBACK_COVER = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500';
 const REQUEST_TIMEOUT_MS = 4000;
 
-export const DEEZER_GENRES = { rock: 152, pop: 132 } as const;
-
 type FetchLike = typeof fetch;
 
 export interface DeezerListOptions {
   style?: string;
-  limit?: number;
-  requirePreview?: boolean;
   fetchImpl?: FetchLike;
+}
+
+export interface DeezerPageOptions extends DeezerListOptions {
+  index?: number;
+  limit?: number;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -74,12 +76,30 @@ export function mapDeezerTracks(payload: unknown, options: DeezerListOptions = {
   for (const entry of data) {
     const track = mapDeezerTrack(entry, options.style);
     if (!track || seen.has(track.id)) continue;
-    if (options.requirePreview && !track.sources.previewUrl) continue;
     seen.add(track.id);
     tracks.push(track);
-    if (tracks.length >= (options.limit ?? 15)) break;
   }
   return tracks;
+}
+
+/**
+ * A page of tracks plus where the next one starts. `nextIndex` counts the items Deezer returned, not the
+ * ones that mapped to a track, so a dropped or duplicated item never shifts the following page.
+ */
+export function mapDeezerPage(payload: unknown, options: DeezerPageOptions = {}): TrackPage {
+  const index = options.index ?? 0;
+  const record = asRecord(payload);
+  const received = Array.isArray(record?.data) ? record.data.length : 0;
+  const reportedTotal = record?.total;
+  const total = typeof reportedTotal === 'number' && Number.isFinite(reportedTotal) && reportedTotal >= 0
+    ? reportedTotal
+    : index + received;
+  const consumed = index + received;
+  return {
+    tracks: mapDeezerTracks(payload, options),
+    total,
+    nextIndex: received > 0 && consumed < total ? consumed : null
+  };
 }
 
 async function requestDeezer(path: string, fetchImpl: FetchLike = fetch): Promise<unknown> {
@@ -95,51 +115,57 @@ async function requestDeezer(path: string, fetchImpl: FetchLike = fetch): Promis
   return payload;
 }
 
-export async function searchDeezerTracks(query: string, options: DeezerListOptions = {}): Promise<Track[]> {
-  // Pede mais itens que o limite para que faixas sem preview descartadas não esvaziem o resultado.
+export async function searchDeezerPage(query: string, options: DeezerPageOptions = {}): Promise<TrackPage> {
+  const index = options.index ?? 0;
   const payload = await requestDeezer(
-    `/search?q=${encodeURIComponent(query)}&limit=${(options.limit ?? 15) * 2}`,
+    `/search?q=${encodeURIComponent(query)}&index=${index}&limit=${options.limit ?? 20}`,
     options.fetchImpl
   );
-  return mapDeezerTracks(payload, options);
+  return mapDeezerPage(payload, { ...options, index });
 }
 
-export async function fetchDeezerChart(genreId: number, options: DeezerListOptions = {}): Promise<Track[]> {
+export async function searchDeezerTracks(query: string, options: DeezerPageOptions = {}): Promise<Track[]> {
+  return (await searchDeezerPage(query, options)).tracks;
+}
+
+export async function fetchDeezerPlaylistPage(playlistId: number, options: DeezerPageOptions = {}): Promise<TrackPage> {
+  const index = options.index ?? 0;
   const payload = await requestDeezer(
-    `/chart/${genreId}/tracks?limit=${(options.limit ?? 15) * 2}`,
+    `/playlist/${playlistId}/tracks?index=${index}&limit=${options.limit ?? 20}`,
     options.fetchImpl
   );
-  return mapDeezerTracks(payload, options);
+  return mapDeezerPage(payload, { ...options, index });
 }
 
-export interface DeezerFeed {
-  trending: Track[];
-  rock: Track[];
-  pop: Track[];
-  lofi: Track[];
-  featured: Track | null;
+/** A page of one home category, read from the playlist that backs it. */
+export async function fetchCategoryPage(
+  categoryId: CategoryId,
+  options: Pick<DeezerPageOptions, 'index' | 'limit' | 'fetchImpl'> = {}
+): Promise<TrackPage> {
+  const { playlistId, style } = CATEGORY_PLAYLISTS[categoryId];
+  return fetchDeezerPlaylistPage(playlistId, { ...options, style });
 }
 
-export async function buildDeezerFeed(fetchImpl?: FetchLike): Promise<DeezerFeed> {
-  const base = { requirePreview: true, fetchImpl };
+const FEED_PAGE_SIZE = 15;
+
+export async function buildDeezerFeed(fetchImpl?: FetchLike): Promise<FeedResponse> {
   const startTime = Date.now();
   const failed: string[] = [];
-  const guarded = (name: string, request: Promise<Track[]>) =>
-    request.catch((err: unknown): Track[] => {
-      failed.push(name);
-      console.warn(`[Feed] ⚠️ Categoria "${name}" falhou: ${(err as Error)?.message || err}`);
-      return [];
-    });
+  const empty: TrackPage = { tracks: [], total: 0, nextIndex: null };
 
-  const [trending, rock, pop, lofi] = await Promise.all([
-    guarded('trending', fetchDeezerChart(0, { ...base, style: 'Top Hits' })),
-    guarded('rock', fetchDeezerChart(DEEZER_GENRES.rock, { ...base, style: 'Rock' })),
-    guarded('pop', fetchDeezerChart(DEEZER_GENRES.pop, { ...base, style: 'Pop' })),
-    guarded('lofi', searchDeezerTracks('lofi chill beats', { ...base, style: 'Lofi Chill' }))
-  ]);
-
-  console.log(
-    `[Feed] ${failed.length > 0 ? '⚠️' : '✅'} trending=${trending.length} rock=${rock.length} pop=${pop.length} lofi=${lofi.length} em ${Date.now() - startTime}ms`
+  const pages = await Promise.all(
+    CATEGORY_IDS.map((id) =>
+      fetchCategoryPage(id, { index: 0, limit: FEED_PAGE_SIZE, fetchImpl }).catch((err: unknown): TrackPage => {
+        failed.push(id);
+        console.warn(`[Feed] ⚠️ Categoria "${id}" falhou: ${(err as Error)?.message || err}`);
+        return empty;
+      })
+    )
   );
-  return { trending, rock, pop, lofi, featured: trending[0] ?? rock[0] ?? null };
+
+  const categories = Object.fromEntries(CATEGORY_IDS.map((id, i) => [id, pages[i]]));
+  console.log(
+    `[Feed] ${failed.length > 0 ? '⚠️' : '✅'} ${CATEGORY_IDS.map((id, i) => `${id}=${pages[i].tracks.length}`).join(' ')} em ${Date.now() - startTime}ms`
+  );
+  return { categories, featured: categories['top-hits'].tracks[0] ?? null };
 }

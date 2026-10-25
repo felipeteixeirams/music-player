@@ -1,8 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildDeezerFeed } from './api/_deezer';
-import { searchCatalog } from './api/_catalog';
+import { categoryEndpoint, feedEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { resolveYouTubeVideos } from './api/_youtubeSearch';
 
@@ -118,43 +117,35 @@ app.get('/api/streams/:id', async (req, res) => {
   }
 });
 
-// In-memory cache for live feed
-let liveFeedCache: { data: any; expiresAt: number } | null = null;
+// In-memory cache for the home feed
+let liveFeedCache: { data: unknown; expiresAt: number } | null = null;
 
 // Endpoint: GET /api/feed
-// Returns 100% live tracks fetched from integrations for the home feed
+// First page of every home category
 app.get('/api/feed', async (req, res) => {
   if (liveFeedCache && liveFeedCache.expiresAt > Date.now()) {
-    return res.json({ ...liveFeedCache.data, cached: true });
+    return res.json(liveFeedCache.data);
   }
 
-  const feedData = await buildDeezerFeed();
-  const { trending, rock } = feedData;
-
-  if (trending.length > 0 || rock.length > 0) {
-    liveFeedCache = {
-      data: feedData,
-      expiresAt: Date.now() + 2 * 60 * 60 * 1000 // 2 hours
-    };
+  const { status, body } = await feedEndpoint();
+  if (status === 200) {
+    liveFeedCache = { data: body, expiresAt: Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
   }
-
-  return res.json({ ...feedData, cached: false });
+  return res.status(status).json(body);
 });
 
-// Endpoint: GET /api/search?q={query}
-// Searches tracks in the Deezer catalog
-app.get('/api/search', async (req, res) => {
-  const query = req.query.q;
-  if (!query || typeof query !== 'string' || !query.trim()) {
-    return res.status(400).json({ error: 'Query parameter q is required' });
-  }
+// Endpoint: GET /api/category?id=&index=&limit=
+// One page of a home category
+app.get('/api/category', async (req, res) => {
+  const { status, body } = await categoryEndpoint(req.query);
+  return res.status(status).json(body);
+});
 
-  try {
-    return res.json(await searchCatalog(query.trim()));
-  } catch (err: any) {
-    console.warn(`[Search] Falha em todos os catálogos: ${err?.message || err}`);
-    return res.json({ tracks: [], source: 'deezer', message: 'Nenhuma faixa online encontrada' });
-  }
+// Endpoint: GET /api/search?q={query}&index=&limit=
+// One page of search results from the catalog
+app.get('/api/search', async (req, res) => {
+  const { status, body } = await searchEndpoint(req.query);
+  return res.status(status).json(body);
 });
 
 // Endpoint: GET /api/audio?url=
