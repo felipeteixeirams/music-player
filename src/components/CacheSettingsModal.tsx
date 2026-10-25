@@ -105,51 +105,51 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in"
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-sm rounded-3xl bg-[#10101b] border border-white/10 p-5 shadow-2xl text-left text-white max-h-[90vh] overflow-y-auto space-y-4">
+      <div className="w-full max-w-sm rounded-sheet material-thick p-5 shadow-2xl text-left text-white max-h-[90vh] overflow-y-auto space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="flex items-center justify-between pb-3 hairline-bottom">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-purple-600/20 text-purple-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-2xl bg-fill-tertiary text-accent flex items-center justify-center">
               <Database className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm font-semibold">Gerenciamento de Cache</h3>
-              <p className="text-[11px] text-white/50">Controle de espaço de armazenamento</p>
+              <p className="text-[11px] text-label-secondary">Controle de espaço de armazenamento</p>
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Fechar configurações de cache"
-            className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10"
+            className="p-1.5 rounded-full text-label-secondary hover:text-label"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Current Usage Card */}
-        <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2">
+        <div className="p-3.5 rounded-card bg-fill-tertiary space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-white/50 flex items-center gap-1.5">
-              <HardDrive className="w-3.5 h-3.5 text-purple-400" />
+            <span className="text-label-secondary flex items-center gap-1.5">
+              <HardDrive className="w-3.5 h-3.5 text-accent" />
               Uso Atual no Aparelho
             </span>
-            <span className="font-mono text-purple-400 font-semibold">
+            <span className="tabular-nums text-accent font-semibold">
               {cacheStats.estimatedSizeMB} MB ({cacheStats.count} arquivos)
             </span>
           </div>
-          <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-fill h-2 rounded-full overflow-hidden">
             <div
-              className="bg-gradient-to-r from-purple-500 to-pink-500 h-full transition-all duration-300"
+              className="bg-accent h-full transition-all duration-300"
               style={{
                 width: `${Math.min(100, (parseFloat(cacheStats.estimatedSizeMB) / selectedLimit) * 100)}%`
               }}
             />
           </div>
-          <span className="text-[10px] text-white/40 block text-right">
+          <span className="text-[10px] text-label-tertiary block text-right">
             Limite configurado: {selectedLimit >= 1024 ? '1 GB' : `${selectedLimit} MB`}
           </span>
         </div>
@@ -164,7 +164,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
 
         {/* Quota Selection Options */}
         <div className="space-y-2">
-          <span className="text-[11px] font-medium text-white/50 block">
+          <span className="text-[11px] font-medium text-label-secondary block">
             ESCOLHER COTA MÁXIMA DE ARMAZENAMENTO
           </span>
           <div className="space-y-1.5">
@@ -174,14 +174,14 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
                 <button
                   key={q.value}
                   onClick={() => handleSaveLimit(q.value)}
-                  className={`w-full p-2.5 rounded-2xl flex items-center justify-between border text-xs transition-all ${
+                  className={`w-full p-3 rounded-card flex items-center justify-between text-[15px] transition-all ${
                     isSelected
-                      ? 'bg-purple-600/30 border-purple-500 text-white font-semibold'
-                      : 'bg-white/[0.02] border-white/10 text-white/70 hover:bg-white/[0.05]'
+                      ? 'bg-fill text-label font-semibold'
+                      : 'bg-fill-tertiary text-label-secondary hover:bg-fill-secondary'
                   }`}
                 >
                   <span>{q.label}</span>
-                  {isSelected && <Check className="w-4 h-4 text-purple-400" />}
+                  {isSelected && <Check className="w-4 h-4 text-accent" />}
                 </button>
               );
             })}
@@ -189,7 +189,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
         </div>
 
         {/* Clear Cache Action */}
-        <div className="pt-2 border-t border-white/15 space-y-2">
+        <div className="pt-2 space-y-2">
           <button
             onClick={handleClearCache}
             disabled={isClearing}
@@ -202,14 +202,14 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
             )}
             <span>Limpar Todo o Cache & Reiniciar</span>
           </button>
-          <p className="text-[10px] text-white/40 text-center">
+          <p className="text-[10px] text-label-tertiary text-center">
             Remove capas em cache, Service Worker offline e libera espaço no seu dispositivo.
           </p>
         </div>
 
         <button
           onClick={onClose}
-          className="w-full py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs active:scale-[0.98] transition-transform"
+          className="w-full py-2.5 rounded-card bg-fill-tertiary hover:bg-fill-secondary text-label font-medium text-[15px] active:scale-[0.98] transition-transform"
         >
           Concluído
         </button>
