@@ -91,6 +91,29 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Native HTML5 Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const currentTrackRef = useRef<Track | null>(null);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
+    setActiveEngine('fallback');
+    const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
+    setAudioStreamUrl(fallbackUrl);
+    setPipedStatus({
+      quality: 'Áudio Original',
+      instanceUsed: 'YouTube Engine (Fallback)'
+    });
+    setIsBuffering(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+    if (shouldPlay) {
+      setIsPlaying(true);
+    }
+  }, []);
 
   // Initialize Audio element once
   useEffect(() => {
@@ -117,12 +140,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsPlaying(true);
     };
     const onPause = () => setIsPlaying(false);
+    const onError = () => {
+      console.warn('Native AudioElement playback error, failing over to YouTube fallback engine');
+      setIsBuffering(false);
+      if (currentTrackRef.current && currentTrackRef.current.sources.youtubeId) {
+        triggerFallbackEngine(currentTrackRef.current, true);
+      }
+    };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('durationchange', onDurationChange);
     audio.addEventListener('waiting', onWaiting);
     audio.addEventListener('playing', onPlaying);
     audio.addEventListener('pause', onPause);
+    audio.addEventListener('error', onError);
 
     return () => {
       audio.pause();
@@ -131,9 +162,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('waiting', onWaiting);
       audio.removeEventListener('playing', onPlaying);
       audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('error', onError);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, []);
+  }, [triggerFallbackEngine]);
 
   // Save liked tracks to localStorage
   useEffect(() => {
@@ -207,8 +239,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // 2. Online stream resolution (YouTube / Piped)
     if (track.sources.youtubeId) {
-      const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
-      
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
@@ -220,6 +250,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (pipedResult.audioUrl && audioRef.current) {
           setActiveEngine('piped');
           setAudioStreamUrl(pipedResult.audioUrl);
+          setPipedStatus({
+            quality: pipedResult.quality || '128kbps',
+            instanceUsed: pipedResult.instanceUsed || 'Piped Direct Stream'
+          });
           audioRef.current.src = pipedResult.audioUrl;
           if (shouldPlay) {
             await audioRef.current.play();
@@ -228,15 +262,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setIsBuffering(false);
           return;
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Direct stream playback failed, using fallback engine:', err);
+      }
 
       // Fallback to official YouTube headless engine player
-      setActiveEngine('fallback');
-      setAudioStreamUrl(fallbackUrl);
-      if (shouldPlay) {
-        setIsPlaying(true);
-      }
-      setIsBuffering(false);
+      triggerFallbackEngine(track, shouldPlay);
       return;
     }
 
@@ -259,21 +290,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setIsBuffering(false);
-  }, []);
-
-  const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
-    setActiveEngine('fallback');
-    const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
-    setAudioStreamUrl(fallbackUrl);
-    setIsBuffering(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-    }
-    if (shouldPlay) {
-      setIsPlaying(true);
-    }
-  }, []);
+  }, [triggerFallbackEngine]);
 
   // When track finishes (Native audio listener)
   useEffect(() => {

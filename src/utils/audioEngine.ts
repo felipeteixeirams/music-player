@@ -8,8 +8,6 @@ import { logPipedAudioExtraction } from './audioLogger';
 export const PIPED_INSTANCES: string[] = [
   'https://api.piped.private.coffee',
   'https://pipedapi.ducks.party',
-  'https://pipedapi.in.projectsegfau.lt',
-  'https://api.piped.projectsegfau.lt',
   'https://pipedapi.kavin.rocks',
   'https://piped-api.lunar.icu',
   'https://pipedapi.palvelintalo.fi',
