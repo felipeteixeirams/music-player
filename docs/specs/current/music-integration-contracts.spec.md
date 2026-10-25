@@ -135,6 +135,13 @@ Estabilização (2026-10-25, terceira fatia):
 - Limitações conhecidas: o feed não tem reserva (se o Deezer cair, as categorias ficam vazias); o download offline guarda só os 30s da prévia, e o aviso diz isso; a busca web do YouTube, usada sem chave ou quando a API recusa, é não oficial e pode ser bloqueada.
 - Pendente: reserva iTunes para o feed; remoção do código Piped de stream (`api/streams/[id].ts` e usos em `audioEngine.ts`); contrato versionado de resposta.
 
+Estabilização (2026-10-25, quarta fatia):
+
+- Player do YouTube: `src/components/youtubePlayer.ts` cria um ReactPlayer só com o provedor do YouTube. O build deixou de gerar os chunks de hls.js, dash.js, Mux, Vimeo e outros (de 17 arquivos para 4) e o aviso de chunks acima de 500 kB sumiu. Depende de exports não documentados do `react-player` 3.x; ver `AGENTS.md`.
+- Laço de renders corrigido: o `console.error` "Maximum update depth exceeded" aparecia em toda reprodução (2 a 4 vezes por faixa, inclusive só com prévia). Causas: `tracks={allLiveTracks.slice(0, 20)}` criava um array novo a cada render do App e o `useEffect([tracks])` do `TrackList` chamava `setState` em toda renderização; além disso o gerador do espectro atualizava o estado do contexto a cada frame (60 por segundo) mesmo com o player recolhido, re-renderizando todos os consumidores. Agora o array é memoizado, o `TrackList` mantém o estado anterior quando nada mudou, e o espectro só roda com a faixa tocando e o player expandido, a cerca de 20 quadros por segundo.
+- Validação: no Chromium headless, o aviso aparece 0 vezes em 5 cenários de reprodução (antes de 2 a 4); o visualizador continua animando com 24 barras quando o player expandido está na aba Frequência; a troca do primeiro vídeo bloqueado (150) para o segundo continua funcionando com o player novo (duração 213s, tempo avançando).
+- Observação: o espectro é simulado (seno com ruído), não vem de análise do áudio, apesar do rótulo "Espectrograma Web Audio API / LIVE STREAMING" no player expandido. Não alterado.
+
 Critérios de aceite adicionais para esta troca:
 
 - Busca e feed devolvem `Track` com duração real vinda do provedor, sem passar por Piped/InnerTube.

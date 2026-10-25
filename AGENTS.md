@@ -38,4 +38,6 @@ Decisão de 2026-10-25: os pacotes abaixo vieram do template do Google AI Studio
 | `motion` | Nenhuma animação usa a biblioteca; as transições são CSS/Tailwind. |
 | `autoprefixer` | O Tailwind v4 roda pelo plugin do Vite (`@tailwindcss/vite`) e não há `postcss.config`. |
 
+`react-player` é usado só para YouTube: `src/components/youtubePlayer.ts` monta um player restrito a ele (importando `react-player/ReactPlayer` e `react-player/patterns`, exports não documentados) para o build não gerar chunks de hls.js, dash.js, Mux, Vimeo etc. Por isso `youtube-video-element` é dependência direta. Ao atualizar o `react-player`, revise esse arquivo e confira se `npm run build` continua sem esses chunks.
+
 `@vercel/node` é devDependency só pelos tipos (`VercelRequest`, `VercelResponse`). O `npm audit` aponta vulnerabilidades apenas nas dependências dele (ferramentas de build, fora do bundle das funções) e a correção sugerida (`npm audit fix --force`) faria downgrade para a v4: não aplique sem avaliar.

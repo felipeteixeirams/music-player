@@ -38,7 +38,12 @@ export const TrackList: React.FC<TrackListProps> = ({
     tracks.forEach((t) => {
       status[t.id] = isTrackOfflineAvailable(t.id);
     });
-    setOfflineStatusMap(status);
+    // Keep the previous object when nothing changed, so an identical status does not re-render
+    setOfflineStatusMap((prev) => {
+      const ids = Object.keys(status);
+      const same = ids.length === Object.keys(prev).length && ids.every((id) => prev[id] === status[id]);
+      return same ? prev : status;
+    });
   }, [tracks]);
 
   // Toast notice timer
