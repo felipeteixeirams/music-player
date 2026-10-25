@@ -18,6 +18,9 @@ import { CacheSettingsModal } from './components/CacheSettingsModal';
 import { BottomNavBar, type AppTab } from './components/BottomNavBar';
 import { RadioView } from './components/RadioView';
 import { PlaybackNotice } from './components/PlaybackNotice';
+import { LibraryScreen } from './components/LibraryScreen';
+import { getOfflineTracks } from './utils/offlineManager';
+import { libraryParent, libraryTitle, type LibraryView } from './utils/library';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useScrollChrome } from './hooks/useScrollChrome';
 import type { QueueSource } from './utils/queueSource';
@@ -58,6 +61,8 @@ const MusicAppContent: React.FC = () => {
   const [submittedSearch, setSubmittedSearch] = useState<{ query: string; id: number } | null>(null);
   const [isCacheSettingsOpen, setIsCacheSettingsOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  // Where the user is inside the Library tab (null: its menu of sections)
+  const [libraryView, setLibraryView] = useState<LibraryView | null>(null);
 
   // Register service worker on mount
   useEffect(() => {
@@ -100,6 +105,8 @@ const MusicAppContent: React.FC = () => {
     setActiveTab(tab);
     // Each tab opens at its own first screen, not inside a collection left open elsewhere
     setSelectedCategoryId(null);
+    // Tapping Library again goes back to its menu
+    setLibraryView(null);
     // Text typed in the search box belongs to the search screen; left behind it would filter the others
     if (tab !== 'search') setSearchQuery('');
     if (tab === 'search') setSearchScope('online');
@@ -172,8 +179,15 @@ const MusicAppContent: React.FC = () => {
   const isRadioTab = activeTab === 'radio' && !activeCategory;
   const isLibraryTab = activeTab === 'library' && !activeCategory;
   const hasTypedQuery = searchQuery.trim().length > 0;
+  // Read again each time the Library screen changes, so a download made meanwhile shows up
+  const downloadedTracks = useMemo(
+    () => (isLibraryTab ? getOfflineTracks(likedTracks) : []),
+    [isLibraryTab, libraryView, likedTracks]
+  );
   const screenTitle = activeCategory
     ? activeCategory.name
+    : isLibraryTab
+    ? libraryTitle(libraryView)
     : { home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab];
 
   return (
@@ -187,8 +201,18 @@ const MusicAppContent: React.FC = () => {
         {/* Large title of the screen, with search on the Search tab */}
         <TopBar
           title={screenTitle}
-          onBack={activeCategory ? () => setSelectedCategoryId(null) : undefined}
-          backLabel={{ home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab]}
+          onBack={
+            activeCategory
+              ? () => setSelectedCategoryId(null)
+              : isLibraryTab && libraryView
+              ? () => setLibraryView(libraryParent(libraryView))
+              : undefined
+          }
+          backLabel={
+            isLibraryTab && libraryView
+              ? libraryTitle(libraryParent(libraryView))
+              : { home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab]
+          }
           showSearch={isSearchTab}
           searchQuery={searchQuery}
           onSearchChange={(q) => {
@@ -255,10 +279,12 @@ const MusicAppContent: React.FC = () => {
           ) : isRadioTab ? (
             <RadioView />
           ) : isLibraryTab ? (
-            <TrackList
-              tracks={likedTracks}
-              emptyMessage="Nenhuma música favoritada ainda. Toque no ícone de coração em qualquer faixa para salvar!"
-              onTrackSelect={(track) => playTrack(track, likedTracks)}
+            <LibraryScreen
+              view={libraryView}
+              onNavigate={setLibraryView}
+              liked={likedTracks}
+              downloads={downloadedTracks}
+              onPlay={(track, queue) => playTrack(track, queue)}
             />
           ) : isSearchTab ? (
             searchScope === 'online' ? (

@@ -9,6 +9,29 @@ import { Track } from '../types/music';
 
 const OFFLINE_CACHE_NAME = 'aurastream_offline_tracks_v1';
 const OFFLINE_TRACKS_KEY = 'aurastream_offline_track_ids';
+/** Metadata of downloaded tracks (id -> Track), so the Downloads screen can list them. */
+const OFFLINE_META_KEY = 'aurastream_offline_track_meta';
+
+function readOfflineMeta(): Record<string, Track> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(OFFLINE_META_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, Track>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * The downloaded tracks, in download order. Downloads made before metadata was stored are listed only when
+ * `known` (favorites, for instance) has the track.
+ */
+export function getOfflineTracks(known: Track[] = []): Track[] {
+  const meta = readOfflineMeta();
+  const byId = new Map(known.map((track) => [track.id, track]));
+  return getOfflineTrackIds()
+    .map((id) => meta[id] ?? byId.get(id))
+    .filter((track): track is Track => Boolean(track));
+}
 
 export function getOfflineTrackIds(): string[] {
   try {
@@ -86,6 +109,7 @@ export async function downloadTrackForOffline(
       offlineIds.push(track.id);
       localStorage.setItem(OFFLINE_TRACKS_KEY, JSON.stringify(offlineIds));
     }
+    localStorage.setItem(OFFLINE_META_KEY, JSON.stringify({ ...readOfflineMeta(), [track.id]: track }));
 
     console.log(`[Offline Manager] ⬇️ Faixa ${track.id} baixada e armazenada para uso offline.`);
     return { success: true, previewOnly: Boolean(previewUrl) };
@@ -127,6 +151,8 @@ export async function removeOfflineTrack(trackId: string): Promise<boolean> {
 
     const offlineIds = getOfflineTrackIds().filter((id) => id !== trackId);
     localStorage.setItem(OFFLINE_TRACKS_KEY, JSON.stringify(offlineIds));
+    const { [trackId]: _removed, ...remainingMeta } = readOfflineMeta();
+    localStorage.setItem(OFFLINE_META_KEY, JSON.stringify(remainingMeta));
 
     console.log(`[Offline Manager] 🗑️ Faixa ${trackId} removida do armazenamento offline.`);
     return true;
