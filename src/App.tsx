@@ -147,6 +147,9 @@ const MusicAppContent: React.FC = () => {
     hydrateLikedTracks([...allLiveTracks, ...onlineSearchResults]);
   }, [allLiveTracks, onlineSearchResults, hydrateLikedTracks]);
 
+  // Stable identity: a fresh array every render would re-run effects that depend on `tracks`
+  const recommendedTracks = useMemo(() => allLiveTracks.slice(0, 20), [allLiveTracks]);
+
   // Dynamic Category counts
   const categoryCounts = useMemo(() => {
     return {
@@ -401,7 +404,7 @@ const MusicAppContent: React.FC = () => {
               {allLiveTracks.length > 0 && (
                 <TrackList
                   title="Músicas Recomendadas"
-                  tracks={allLiveTracks.slice(0, 20)}
+                  tracks={recommendedTracks}
                   onTrackSelect={(track) => playTrack(track, allLiveTracks)}
                 />
               )}

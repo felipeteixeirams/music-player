@@ -231,37 +231,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [likedLibrary]);
 
-  // Audio Visualizer data generator (strictly active during audio playback)
+  // Audio Visualizer data generator. Only the expanded player draws it, and each update re-renders every
+  // consumer of this context, so it runs only while that panel is open and playing, at about 20 frames/s.
   useEffect(() => {
-    let phase = 0;
-    const updateSpectrum = () => {
-      if (isPlaying) {
-        phase += 0.08;
-        const bands = 24;
-        const nextData = new Array(bands).fill(0).map((_, i) => {
-          const base = Math.sin(phase + i * 0.4) * 0.35 + 0.55;
-          const noise = (Math.random() - 0.5) * 0.2;
-          const intensity = Math.max(0.1, Math.min(1.0, base + noise));
-          return Math.round(intensity * 100);
-        });
-        setAudioFrequencyData(nextData);
-        animationFrameRef.current = requestAnimationFrame(updateSpectrum);
-      } else {
-        // Strictly flat zero when paused or stopped
-        setAudioFrequencyData(new Array(24).fill(0));
-      }
-    };
-
-    if (isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(updateSpectrum);
-    } else {
-      setAudioFrequencyData(new Array(24).fill(0));
+    const flat = (prev: number[]) => (prev.every((v) => v === 0) ? prev : new Array(24).fill(0));
+    if (!isPlaying || !isExpanded) {
+      setAudioFrequencyData(flat);
+      return;
     }
 
+    let phase = 0;
+    let lastFrame = 0;
+    const updateSpectrum = (now: number) => {
+      animationFrameRef.current = requestAnimationFrame(updateSpectrum);
+      if (now - lastFrame < 50) return;
+      lastFrame = now;
+
+      phase += 0.08;
+      const bands = 24;
+      setAudioFrequencyData(
+        new Array(bands).fill(0).map((_, i) => {
+          const base = Math.sin(phase + i * 0.4) * 0.35 + 0.55;
+          const noise = (Math.random() - 0.5) * 0.2;
+          return Math.round(Math.max(0.1, Math.min(1.0, base + noise)) * 100);
+        })
+      );
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateSpectrum);
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [isPlaying]);
+  }, [isPlaying, isExpanded]);
 
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
