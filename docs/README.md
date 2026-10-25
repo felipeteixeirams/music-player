@@ -30,7 +30,7 @@ Masters e satélites são documentos navegáveis por links, não pontos de entra
 | Domínio | Master | Satélites ativos | Estado |
 | --- | --- | --- | --- |
 | Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md); [Roteiro de validação em produção](specs/current/validation-checklist.spec.md) | Busca (Deezer + reserva iTunes), coleções fiéis e paginadas, rádio ao vivo e mix por gênero, prévia e faixa completa via YouTube (2026-10-25); pendentes: reserva do feed e remoção do código Piped. |
-| Design system da interface | [Design system](masters/design-system.md) | [Tokens, materiais e fases](specs/current/design-system.spec.md) | Direção Apple Music definida e fundação (tokens, materiais, fonte do sistema) implementada em 2026-10-25; telas migram nas fases 2 a 6. |
+| Design system da interface | [Design system](masters/design-system.md) | [Tokens, materiais e fases](specs/current/design-system.spec.md) | Direção Apple Music definida; fundação e barras (cabeçalho, abas, mini player) implementadas em 2026-10-25; demais telas migram nas fases 3 a 6. |
 
 ## Regras de manutenção
 

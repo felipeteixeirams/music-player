@@ -18,7 +18,7 @@ export const PWAInstallButton: React.FC = () => {
       <button
         onClick={install}
         aria-label="Instalar AuraStream no celular"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-600/80 to-pink-600/80 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold shadow-lg shadow-purple-900/30 backdrop-blur-md border border-white/10 active:scale-95 transition-all whitespace-nowrap shrink-0"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent hover:bg-accent-pressed text-white text-xs font-semibold active:scale-95 transition-all whitespace-nowrap shrink-0"
       >
         <Download className="w-3.5 h-3.5" />
         <span>Instalar App</span>
@@ -33,9 +33,9 @@ export const PWAInstallButton: React.FC = () => {
         <button
           onClick={() => setShowIOSModal(true)}
           aria-label="Instalar no iPhone"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white/90 text-xs font-semibold backdrop-blur-md border border-white/10 active:scale-95 transition-all whitespace-nowrap shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label text-xs font-semibold active:scale-95 transition-all whitespace-nowrap shrink-0"
         >
-          <Download className="w-3.5 h-3.5 text-purple-400" />
+          <Download className="w-3.5 h-3.5 text-accent" />
           <span>Instalar no iOS</span>
         </button>
 
@@ -116,9 +116,9 @@ export const PWAInstallButton: React.FC = () => {
     <button
       onClick={() => alert('Para instalar como PWA nativo, abra este endereço no navegador do celular (Chrome/Safari) e adicione à tela de início.')}
       aria-label="Informações sobre instalação PWA"
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-semibold backdrop-blur-md border border-white/10 active:scale-95 transition-all whitespace-nowrap shrink-0"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label text-xs font-semibold active:scale-95 transition-all whitespace-nowrap shrink-0"
     >
-      <Download className="w-3.5 h-3.5 text-purple-400" />
+      <Download className="w-3.5 h-3.5 text-accent" />
       <span>PWA Ready</span>
     </button>
   );
