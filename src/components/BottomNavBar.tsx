@@ -78,7 +78,23 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
           }`}
           aria-label="Navegação Principal"
         >
-          <div className="grid grid-cols-4 items-center w-full">
+          <div className="relative grid grid-cols-4 items-center w-full">
+            {/*
+              One pill behind the active tab that slides to the next one instead of each tab painting its own:
+              the four columns are equal, so moving by whole widths of itself lands on the chosen tab. A spring-like
+              curve with a slight overshoot, as the selection does in Apple Music; none for people who ask for less motion.
+            */}
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 w-1/4 px-0.5 flex items-center pointer-events-none transition-transform duration-[450ms] ease-[cubic-bezier(0.3,1.25,0.5,1)] motion-reduce:transition-none"
+              style={{ transform: `translateX(${Math.max(0, TABS.findIndex((tab) => tab.id === activeTab)) * 100}%)` }}
+            >
+              <span
+                className={`w-full rounded-full bg-tab-active transition-[height] duration-300 motion-reduce:transition-none ${
+                  compact ? 'h-11' : 'h-[3.25rem]'
+                }`}
+              />
+            </span>
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -89,11 +105,11 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                   onClick={() => select(tab.id)}
                   aria-current={isActive ? 'page' : undefined}
                   aria-label={tab.label}
-                  className={`flex flex-col items-center justify-center rounded-full active:scale-90 transition-all ${
+                  className={`relative flex flex-col items-center justify-center rounded-full active:scale-90 transition-[color,transform,height] duration-300 motion-reduce:transition-none ${
                     compact ? 'h-11' : 'h-[3.25rem]'
-                  } ${isActive ? 'bg-tab-active text-accent font-semibold' : 'text-label hover:text-label-secondary'}`}
+                  } ${isActive ? 'text-accent font-semibold' : 'text-label hover:text-label-secondary'}`}
                 >
-                  <Icon className={`w-6 h-6 ${isActive ? 'fill-current' : ''}`} />
+                  <Icon className={`w-6 h-6 transition-transform duration-300 motion-reduce:transition-none ${isActive ? 'fill-current scale-110' : ''}`} />
                   <span
                     className={`text-[10px] tracking-tight overflow-hidden transition-all duration-300 motion-reduce:transition-none ${
                       compact ? 'max-h-0 opacity-0' : 'max-h-4 opacity-100 mt-0.5'
