@@ -10,7 +10,7 @@ Tomadas com o padrão recomendado, pois o usuário pediu para estabelecer o desi
 | --- | --- | --- |
 | Destaque | Vermelho `#fa243c` (substitui roxo e rosa) | Manter cor própria |
 | Referência de material | Vidro fosco (blur com saturação) no estilo iOS 18; Liquid Glass fica para a fase 6 | Liquid Glass desde já |
-| Tema | Escuro agora; tokens nomeados por função para aceitar o claro depois | Claro e escuro já |
+| Tema | Escuro; claro implementado na fase 5 (segue o sistema, só no navegador) | Chave manual de tema |
 
 ## Tokens (implementados em `src/index.css`)
 
@@ -56,7 +56,7 @@ Títulos grandes 34/700 que encolhem ao rolar, seção 22/700, linha 17/400 com 
 2. **Barras** (feito em 2026-10-25): cabeçalho, filtros e busca, botão de instalar, abas, mini player (sem capa girando, controles de 44 px, progresso fino na base) e aviso de nova versão.
 3. **Listas, carrosséis, categorias, rádio e destaque da home** (feito em 2026-10-25): linhas de 56 px sem cartão, com separador recuado e só título e artista; capas com `radius-cover`, sem borda e com sombra; cartões em `elevated`; faixa em reprodução em vermelho; títulos de seção em 22/700. Erros e avisos mantêm as cores semânticas (rosa e âmbar).
 4. **Player aberto e janelas** (feito em 2026-10-25): fundo em gradiente com a cor dominante da capa (`useCoverColor`: amostra a capa num `canvas` de 24 px, escurece para manter o texto branco legível e cai para um cinza neutro se a capa não permitir leitura por CORS); capa com `radius-card` que encolhe a 86% ao pausar; progresso e volume brancos e finos; controles sem círculo colorido; janelas de cache e instalação em `material-thick`. O visualizador deixou de se chamar "Espectrograma Web Audio API / LIVE STREAMING": é uma animação decorativa e o texto diz isso.
-5. Modo claro, se decidido.
+5. **Modo claro** (feito em 2026-10-25): os tokens de cor valem para os dois esquemas (valores do iOS: fundo branco, `#f2f2f7` nos cartões, texto preto com níveis translúcidos, materiais claros). Segue o sistema e vale só no navegador: no app instalado (`display-mode: standalone`) fica sempre escuro, porque a barra de status do iPhone nesse modo tem texto branco fixo (`black-translucent`) e ficaria ilegível sobre um cabeçalho claro (não verificado no aparelho). O player aberto usa `.theme-dark` e é escuro nos dois esquemas. Não há chave manual de tema. Erros e avisos mantêm cores semânticas (rosa e âmbar).
 6. Extras do iOS 26: barra de abas que encolhe ao rolar e deslizar o mini player para trocar de faixa.
 
 ## Critérios de aceite

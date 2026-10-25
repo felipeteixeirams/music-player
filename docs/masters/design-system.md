@@ -6,7 +6,7 @@ Este é o master do domínio de interface visual: tokens, materiais translúcido
 
 ## Estado
 
-**Status: direção definida; fundação (fase 1), barras (fase 2) listas, carrosséis, categorias, rádio e destaque da home (fase 3), e player aberto e janelas de cache e instalação (fase 4) implementadas em 2026-10-25. Faltam o modo claro (fase 5, se decidido) e os extras do iOS 26 (fase 6).**
+**Status: direção definida; fundação (fase 1), barras (fase 2) listas, carrosséis, categorias, rádio e destaque da home (fase 3), e player aberto e janelas de cache e instalação (fase 4) implementadas em 2026-10-25. O modo claro (fase 5) foi implementado no mesmo dia; falta só a fase 6 (extras do iOS 26).**
 
 ## Direção
 
@@ -21,7 +21,7 @@ O app segue a linguagem visual do Apple Music: fundo preto, texto branco com ní
 
 ## Decisões a manter
 
-1. Cor, transparência e raio vêm de tokens; telas novas não usam hex solto nem `white/NN` avulso.
+1. Cor, transparência e raio vêm de tokens (as cores são redefinidas por esquema nas variáveis `--color-*` de `src/index.css`, nunca por variável intermediária, e `.theme-dark` força o escuro numa área); telas novas não usam hex solto nem `white/NN` avulso.
 2. Cada superfície translúcida usa um dos quatro materiais, nunca `backdrop-blur-*` isolado.
 3. Toda superfície com material precisa de cor opaca de reserva, para não perder legibilidade onde `backdrop-filter` não existe.
 4. Áreas seguras do iPhone continuam obrigatórias (ver `AGENTS.md`).

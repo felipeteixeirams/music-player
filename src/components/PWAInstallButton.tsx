@@ -53,7 +53,7 @@ export const PWAInstallButton: React.FC = () => {
                     A
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Instalar no iPhone / iPad</h3>
+                    <h3 className="text-sm font-semibold text-label">Instalar no iPhone / iPad</h3>
                     <p className="text-[11px] text-label-secondary">Experiência nativa em tela cheia</p>
                   </div>
                 </div>
@@ -72,7 +72,7 @@ export const PWAInstallButton: React.FC = () => {
                     1
                   </div>
                   <p>
-                    No Safari, toque no botão <strong className="text-white">Compartilhar</strong> (ícone{' '}
+                    No Safari, toque no botão <strong className="text-label">Compartilhar</strong> (ícone{' '}
                     <Share className="inline w-3.5 h-3.5 text-accent" /> na barra inferior).
                   </p>
                 </div>
@@ -82,7 +82,7 @@ export const PWAInstallButton: React.FC = () => {
                     2
                   </div>
                   <p>
-                    Role para baixo e selecione <strong className="text-white">Adicionar à Tela de Início</strong>{' '}
+                    Role para baixo e selecione <strong className="text-label">Adicionar à Tela de Início</strong>{' '}
                     (<PlusSquare className="inline w-3.5 h-3.5 text-accent" />).
                   </p>
                 </div>

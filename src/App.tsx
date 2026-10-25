@@ -283,7 +283,7 @@ const MusicAppContent: React.FC = () => {
                       <p className="text-xs">Carregando {activeCategory.name}...</p>
                     </div>
                   ) : categoryList.error && categoryList.tracks.length === 0 ? (
-                    <div className="px-4 py-10 text-center text-xs text-rose-300 space-y-2" role="alert">
+                    <div className="px-4 py-10 text-center text-xs text-rose-500 space-y-2" role="alert">
                       <AlertCircle className="w-6 h-6 mx-auto" />
                       <p>{categoryList.error}</p>
                       <button
@@ -342,7 +342,7 @@ const MusicAppContent: React.FC = () => {
                         <Globe className="w-4 h-4" />
                       </div>
                       <div>
-                        <span className="text-xs font-semibold text-white">
+                        <span className="text-xs font-semibold text-label">
                           Buscar "{searchQuery}" em toda a web
                         </span>
                         <p className="text-[13px] text-label-secondary">
@@ -438,7 +438,7 @@ const MusicAppContent: React.FC = () => {
               )}
 
               {feedError && !isLoadingFeed && allLiveTracks.length === 0 && (
-                <div className="px-4 py-16 text-center text-xs text-rose-300 space-y-2" role="alert">
+                <div className="px-4 py-16 text-center text-xs text-rose-500 space-y-2" role="alert">
                   <AlertCircle className="w-7 h-7 mx-auto" />
                   <p>{feedError}</p>
                   <button

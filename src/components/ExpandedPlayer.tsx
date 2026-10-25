@@ -109,7 +109,7 @@ export const ExpandedPlayer: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-canvas text-label overflow-hidden animate-in slide-in-from-bottom duration-300 select-none"
+      className="fixed inset-0 z-50 flex flex-col theme-dark bg-canvas text-label overflow-hidden animate-in slide-in-from-bottom duration-300 select-none"
       style={{
         paddingTop: 'max(var(--safe-top), 12px)',
         paddingBottom: 'max(var(--safe-bottom), 20px)'

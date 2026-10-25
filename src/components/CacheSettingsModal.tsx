@@ -109,7 +109,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-sm rounded-sheet material-thick p-5 shadow-2xl text-left text-white max-h-[90vh] overflow-y-auto space-y-4">
+      <div className="w-full max-w-sm rounded-sheet material-thick p-5 shadow-2xl text-left text-label max-h-[90vh] overflow-y-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 hairline-bottom">
           <div className="flex items-center gap-2.5">
@@ -193,7 +193,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
           <button
             onClick={handleClearCache}
             disabled={isClearing}
-            className="w-full py-2.5 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 font-medium text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            className="w-full py-2.5 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-500 font-medium text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
           >
             {isClearing ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
