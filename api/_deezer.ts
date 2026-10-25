@@ -1,5 +1,6 @@
-import type { FeedResponse, Track, TrackPage } from '../src/types/music';
+import type { FeedResponse, RadioGenre, Track, TrackPage } from '../src/types/music';
 import { CATEGORY_IDS, CATEGORY_PLAYLISTS, type CategoryId } from './_categories.js';
+import { RADIO_GENRES, type RadioStationConfig } from './_radios.js';
 
 const DEEZER_API = 'https://api.deezer.com';
 const FALLBACK_COVER = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500';
@@ -168,4 +169,46 @@ export async function buildDeezerFeed(fetchImpl?: FetchLike): Promise<FeedRespon
     `[Feed] ${failed.length > 0 ? '⚠️' : '✅'} ${CATEGORY_IDS.map((id, i) => `${id}=${pages[i].tracks.length}`).join(' ')} em ${Date.now() - startTime}ms`
   );
   return { categories, featured: categories['top-hits'].tracks[0] ?? null };
+}
+
+/**
+ * Our curated stations (see api/_radios.ts) with the covers Deezer's `/radio/genres` lists. A station Deezer no
+ * longer lists is left out, and a genre left with no station disappears.
+ */
+export function mapRadioGenres(payload: unknown): RadioGenre[] {
+  // station id -> cover (null when Deezer lists the station without one)
+  const listed = new Map<number, string | null>();
+  const genres = asRecord(payload)?.data;
+  for (const genre of Array.isArray(genres) ? genres : []) {
+    const radios = asRecord(genre)?.radios;
+    for (const radio of Array.isArray(radios) ? radios : []) {
+      const record = asRecord(radio);
+      if (typeof record?.id !== 'number') continue;
+      listed.set(record.id, asHttpUrl(record.picture_medium) ?? asHttpUrl(record.picture));
+    }
+  }
+
+  return RADIO_GENRES
+    .map((genre) => ({
+      id: genre.id,
+      name: genre.name,
+      stations: genre.stations
+        .filter((station) => listed.has(station.id))
+        .map((station) => ({ id: station.id, name: station.name, picture: listed.get(station.id) ?? null }))
+    }))
+    .filter((genre) => genre.stations.length > 0);
+}
+
+export async function fetchRadioGenres(fetchImpl?: FetchLike): Promise<RadioGenre[]> {
+  return mapRadioGenres(await requestDeezer('/radio/genres', fetchImpl));
+}
+
+/**
+ * A batch of tracks from a station. Deezer answers 40 tracks drawn in random order from a fixed pool of
+ * 50 to 120, never paginates, and answers differently on every call: asking again is how a radio goes on.
+ */
+export async function fetchRadioTracks(station: RadioStationConfig, fetchImpl?: FetchLike): Promise<TrackPage> {
+  const payload = await requestDeezer(`/radio/${station.id}/tracks?limit=40`, fetchImpl);
+  const tracks = mapDeezerTracks(payload, { style: station.name });
+  return { tracks, total: tracks.length, nextIndex: null };
 }

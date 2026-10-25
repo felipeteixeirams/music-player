@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import categoryHandler from '../../api/category';
+import radioHandler from '../../api/radio';
 import feedHandler from '../../api/feed';
 import searchHandler from '../../api/search';
 import resolveHandler from '../../api/resolve';
@@ -244,6 +245,76 @@ test('feed endpoint answers 502 without cache headers when every category fails'
   const response = createResponse();
   await feedHandler({ query: {} } as unknown as VercelRequest, response);
 
+  assert.equal(response.statusCode, 502);
+  assert.equal(response.headers['Cache-Control'], undefined);
+});
+
+test('radio endpoint lists the curated stations by genre with their covers, and lets the CDN cache it', async () => {
+  setFetchMock(async (url) => {
+    assert.equal(url, 'https://api.deezer.com/radio/genres');
+    return jsonResponse({
+      data: [{ id: 152, radios: [{ id: 37765, picture_medium: 'https://cdn.example/rock.jpg' }, { id: 1, picture_medium: 'https://cdn.example/x.jpg' }] }]
+    });
+  });
+
+  const response = createResponse();
+  await radioHandler({ query: {} } as unknown as VercelRequest, response);
+
+  const body = response.body as { genres: Array<{ id: string; stations: Array<{ id: number; name: string; picture: string | null }> }> };
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(body.genres.map((g) => g.id), ['rock']);
+  assert.deepEqual(body.genres[0].stations, [{ id: 37765, name: 'Rock Clássico', picture: 'https://cdn.example/rock.jpg' }]);
+  assert.match(response.headers['Cache-Control'], /s-maxage=/);
+});
+
+test('radio endpoint answers 502 without cache headers when Deezer fails or lists none of our stations', async () => {
+  for (const respond of [() => jsonResponse({}, 503), () => jsonResponse({ data: [] })]) {
+    setFetchMock(async () => respond());
+    const response = createResponse();
+    await radioHandler({ query: {} } as unknown as VercelRequest, response);
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.headers['Cache-Control'], undefined);
+  }
+});
+
+test('radio endpoint returns a fresh batch of a station and never lets it be cached', async () => {
+  let requestedUrl = '';
+  setFetchMock(async (url) => {
+    requestedUrl = url;
+    return jsonResponse({ data: [deezerItem(1), deezerItem(2)] });
+  });
+
+  const response = createResponse();
+  await radioHandler({ query: { id: '37765' } } as unknown as VercelRequest, response);
+
+  const body = response.body as { tracks: Array<Record<string, any>>; nextIndex: number | null };
+  assert.equal(response.statusCode, 200);
+  assert.equal(requestedUrl, 'https://api.deezer.com/radio/37765/tracks?limit=40');
+  assert.deepEqual(body.tracks.map((t) => t.id), ['deezer-1', 'deezer-2']);
+  assert.equal(body.tracks[0].style, 'Rock Clássico');
+  assert.equal(body.nextIndex, null);
+  assert.equal(response.headers['Cache-Control'], undefined);
+});
+
+test('radio endpoint rejects stations that are not ours without calling Deezer', async () => {
+  const requested: string[] = [];
+  setFetchMock(async (url) => {
+    requested.push(url);
+    return jsonResponse({ data: [] });
+  });
+
+  for (const id of ['abc', '1', '37765x', '', '99999999999']) {
+    const response = createResponse();
+    await radioHandler({ query: { id } } as unknown as VercelRequest, response);
+    assert.equal(response.statusCode, 400, id);
+  }
+  assert.equal(requested.length, 0);
+});
+
+test('radio endpoint answers 502 when a station fails', async () => {
+  setFetchMock(async () => jsonResponse({}, 500));
+  const response = createResponse();
+  await radioHandler({ query: { id: '37765' } } as unknown as VercelRequest, response);
   assert.equal(response.statusCode, 502);
   assert.equal(response.headers['Cache-Control'], undefined);
 });

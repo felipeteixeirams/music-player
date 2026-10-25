@@ -1,17 +1,19 @@
 import React from 'react';
-import { Home, Search, Library, Compass } from 'lucide-react';
+import { Home, Search, Library, Radio } from 'lucide-react';
+
+export type AppTab = 'home' | 'radio' | 'library' | 'search';
 
 interface BottomNavBarProps {
-  activeTab: 'home' | 'search' | 'library' | 'explore';
-  onSelectTab: (tab: 'home' | 'search' | 'library' | 'explore') => void;
+  activeTab: AppTab;
+  onSelectTab: (tab: AppTab) => void;
 }
 
 export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onSelectTab }) => {
   const tabs = [
     { id: 'home' as const, label: 'Início', icon: Home },
-    { id: 'search' as const, label: 'Buscar', icon: Search },
-    { id: 'explore' as const, label: 'Navegar', icon: Compass },
-    { id: 'library' as const, label: 'Biblioteca', icon: Library }
+    { id: 'radio' as const, label: 'Rádio', icon: Radio },
+    { id: 'library' as const, label: 'Biblioteca', icon: Library },
+    { id: 'search' as const, label: 'Buscar', icon: Search }
   ];
 
   return (

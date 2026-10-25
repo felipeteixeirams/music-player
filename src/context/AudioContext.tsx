@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { AudioEngineType, RepeatMode, Track } from '../types/music';
+import { AudioEngineType, RadioStation, RepeatMode, Track } from '../types/music';
 import {
   fetchPipedAudioStream,
   getNextTrackIndex,
@@ -8,6 +8,11 @@ import {
   resolveFullTrackVideoIds
 } from '../utils/audioEngine';
 import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
+import { fetchRadioTracks } from '../utils/catalogClient';
+import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
+
+/** A radio gives up after this many unplayable tracks in a row. */
+const RADIO_MAX_CONSECUTIVE_SKIPS = 5;
 import {
   LIKED_IDS_KEY,
   LIKED_TRACKS_KEY,
@@ -65,6 +70,10 @@ interface AudioContextType {
   toggleRepeat: () => void;
   setPreferredEngine: (engine: AudioEngineType) => void;
   toggleExpanded: (open?: boolean) => void;
+  /** The station playing as a radio: the queue renews itself and never runs out. Null for ordinary lists. */
+  radioStation: RadioStation | null;
+  /** Starts a station; false when it could not be loaded. */
+  startRadio: (station: RadioStation) => Promise<boolean>;
   toggleLike: (track: Track) => void;
   hydrateLikedTracks: (tracks: Track[]) => void;
   isLiked: (trackId: string) => boolean;
@@ -77,6 +86,12 @@ const AudioContext = createContext<AudioContextType | null>(null);
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [queue, setQueue] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [radioStation, setRadioStation] = useState<RadioStation | null>(null);
+  const queueRef = useRef<Track[]>([]);
+  const radioRefillingRef = useRef(false);
+  const radioStationRef = useRef<RadioStation | null>(null);
+  const radioSkipsRef = useRef(0);
+  const playNextRef = useRef<() => void>(() => {});
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -121,6 +136,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
 
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  useEffect(() => {
+    radioStationRef.current = radioStation;
+  }, [radioStation]);
+
   const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
     setActiveEngine('fallback');
     const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
@@ -137,6 +160,22 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (shouldPlay) {
       setIsPlaying(true);
     }
+  }, []);
+
+  /**
+   * A radio is listened to without touching the screen, so a track that cannot be played (no video, no preview)
+   * is passed over instead of stopping the music. After a few in a row it gives up, so a dead network does
+   * not make it skip forever. Returns true when it moved on.
+   */
+  const skipUnplayableTrack = useCallback((): boolean => {
+    if (!radioStationRef.current) return false;
+    if (radioSkipsRef.current >= RADIO_MAX_CONSECUTIVE_SKIPS) {
+      radioSkipsRef.current = 0;
+      return false;
+    }
+    radioSkipsRef.current += 1;
+    playNextRef.current();
+    return true;
   }, []);
 
   // Plays the 30s catalog preview; returns false when the track has none.
@@ -185,6 +224,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const onWaiting = () => setIsBuffering(true);
     const onPlaying = () => {
+      radioSkipsRef.current = 0;
       setIsBuffering(false);
       setIsPlaying(true);
     };
@@ -196,7 +236,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsBuffering(false);
       if (currentTrackRef.current && currentTrackRef.current.sources.youtubeId) {
         triggerFallbackEngine(currentTrackRef.current, true);
-      } else {
+      } else if (!skipUnplayableTrack()) {
         setIsPlaying(false);
         setPipedStatus({ error: 'Não foi possível reproduzir o áudio desta faixa.' });
       }
@@ -362,10 +402,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
+    if (skipUnplayableTrack()) return;
     setPipedStatus({ error: 'Esta faixa não tem prévia disponível.' });
     setIsPlaying(false);
     setIsBuffering(false);
-  }, [triggerFallbackEngine, playPreview]);
+  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack]);
 
   // When track finishes (Native audio listener)
   useEffect(() => {
@@ -383,7 +424,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     audio.addEventListener('ended', onEnded);
     return () => audio.removeEventListener('ended', onEnded);
-  }, [queue, currentIndex, isShuffle, repeatMode]);
+  }, [queue, currentIndex, isShuffle, repeatMode, radioStation]);
 
   // Predictive Pre-Buffering & Cache Priming for Next Track in Queue
   useEffect(() => {
@@ -481,6 +522,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (customQueue) {
+      setRadioStation(null);
       setQueue(customQueue);
       const foundIdx = customQueue.findIndex((t) => t.id === track.id);
       setCurrentIndex(foundIdx >= 0 ? foundIdx : 0);
@@ -524,7 +566,75 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [currentTrack, activeEngine, audioStreamUrl, isPlaying, queue, playTrack]);
 
+  // Asks the station for another shuffle and adds what was not heard recently; resolves with what was added
+  const refillRadio = useCallback(async (): Promise<Track[]> => {
+    if (!radioStation || radioRefillingRef.current) return [];
+    radioRefillingRef.current = true;
+    try {
+      const incoming = await fetchRadioTracks(radioStation.id);
+      const added = pickRadioRefill(queueRef.current, incoming);
+      if (added.length > 0) {
+        queueRef.current = [...queueRef.current, ...added];
+        setQueue(queueRef.current);
+      }
+      return added;
+    } catch (err) {
+      console.warn('Radio refill notice:', err);
+      return [];
+    } finally {
+      radioRefillingRef.current = false;
+    }
+  }, [radioStation]);
+
+  // Keeps the radio ahead of the listener
+  useEffect(() => {
+    if (radioStation && needsRadioRefill(queue.length, currentIndex)) void refillRadio();
+  }, [radioStation, queue.length, currentIndex, refillRadio]);
+
+  const startRadio = useCallback(async (station: RadioStation): Promise<boolean> => {
+    // Synchronously prime audio gesture permission, before the network wait
+    if (audioRef.current) {
+      audioRef.current.play().then(() => {
+        audioRef.current?.pause();
+      }).catch(() => {});
+    }
+
+    try {
+      const batch = await fetchRadioTracks(station.id);
+      if (batch.length === 0) return false;
+      radioRefillingRef.current = false;
+      queueRef.current = batch;
+      setRadioStation(station);
+      setQueue(batch);
+      setCurrentIndex(0);
+      loadAndPlayTrack(batch[0], preferredEngine, true);
+      return true;
+    } catch (err) {
+      console.warn('Radio start notice:', err);
+      return false;
+    }
+  }, [preferredEngine, loadAndPlayTrack]);
+
   const playNext = useCallback(() => {
+    if (radioStation) {
+      // A radio has no shuffle or end: it moves on, asking for more when the queue runs dry
+      const nextIdx = repeatMode === 'one' ? currentIndex : currentIndex + 1;
+      if (nextIdx < queue.length) {
+        setCurrentIndex(nextIdx);
+        loadAndPlayTrack(queue[nextIdx], preferredEngine, true);
+      } else {
+        void refillRadio().then((added) => {
+          if (added.length === 0) {
+            setIsPlaying(false);
+            return;
+          }
+          setCurrentIndex(nextIdx);
+          loadAndPlayTrack(added[0], preferredEngine, true);
+        });
+      }
+      return;
+    }
+
     const nextIdx = getNextTrackIndex(currentIndex, queue.length, isShuffle, repeatMode);
     if (nextIdx >= 0 && nextIdx < queue.length) {
       setCurrentIndex(nextIdx);
@@ -532,7 +642,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       setIsPlaying(false);
     }
-  }, [currentIndex, queue, isShuffle, repeatMode, preferredEngine, loadAndPlayTrack]);
+  }, [radioStation, refillRadio, currentIndex, queue, isShuffle, repeatMode, preferredEngine, loadAndPlayTrack]);
+
+  playNextRef.current = playNext;
 
   const playPrevious = useCallback(() => {
     if (currentTime > 4) {
@@ -558,6 +670,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [duration, activeEngine]);
 
   const updatePlaybackTime = useCallback((seconds: number) => {
+    if (seconds > 0.5) radioSkipsRef.current = 0;
     setCurrentTime(seconds);
   }, []);
 
@@ -575,10 +688,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       void playPreview(track, true);
       return;
     }
+    if (skipUnplayableTrack()) return;
     setIsPlaying(false);
     setIsBuffering(false);
     setPipedStatus({ error: 'Não foi possível reproduzir esta faixa.' });
-  }, [playPreview, triggerFallbackEngine]);
+  }, [playPreview, triggerFallbackEngine, skipUnplayableTrack]);
 
   const clearUserSeekRequest = useCallback(() => {
     setUserSeekRequest(null);
@@ -687,6 +801,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleRepeat,
         setPreferredEngine,
         toggleExpanded,
+        radioStation,
+        startRadio,
         toggleLike,
         hydrateLikedTracks,
         isLiked,
