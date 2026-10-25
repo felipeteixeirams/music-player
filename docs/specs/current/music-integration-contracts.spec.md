@@ -255,7 +255,7 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 
 ## Sequência sugerida de implementação
 
-1. **Preparar validação**: identificar a ferramenta de teste adotada pelo projeto; instalar dependências conforme lockfile (`bun.lock`) ou configurar um script Node compatível. Não misturar alterações de gerenciador de pacotes sem justificativa.
+1. **Preparar validação**: identificar a ferramenta de teste adotada pelo projeto; instalar dependências com `npm ci`, conforme `package-lock.json`, o único lockfile do projeto. Não reintroduzir outro gerenciador de pacotes sem justificativa.
 2. **Definir contratos**: ajustar `src/types/music.ts` ou criar módulo compartilhado para catálogo, fonte, busca e stream. Decidir a migração de `youtubeId`/`localUrl` com todos os usos localizados.
 3. **Escrever testes de mapper primeiro**: fixtures mínimas inspiradas no formato atual dos payloads, cobrindo válidos, campos ausentes, IDs inválidos, URL relativa/absoluta, duração ruim, artwork ausente, payload não-objeto e deduplicação.
 4. **Implementar mappers puros**: Piped Search, YouTube Music e seleção/resposta de audio stream.
@@ -336,7 +336,7 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - `src/App.tsx`: consumidores HTTP do feed e da busca.
 - `api/feed.ts`, `api/search.ts`, `api/streams/[id].ts`: endpoints serverless, atualmente com parsing/integração próprios.
 - `server.ts`: servidor Express local, também contém clients, parsing e cache Piped.
-- `package.json`, `bun.lock`, `tsconfig.json`: scripts/dependências e configuração; `npm test` roda `tsx --test`. No ambiente usado para a validação, as dependências precisaram ser instaladas sem lockfile npm e com `--legacy-peer-deps` por conflito entre esbuild e o peer opcional do Vite.
+- `package.json`, `package-lock.json`, `tsconfig.json`: scripts/dependências e configuração; `npm test` roda `tsx --test`. O gerenciador adotado é npm (o `bun.lock` foi removido em 2026-10-25, quando a Vercel passou a usar npm). O conflito entre `esbuild` e o peer do Vite 8 foi resolvido alinhando `esbuild` a `^0.28.0`, então `npm ci` funciona sem `--legacy-peer-deps`.
 
 ## Observações para o próximo agente
 
