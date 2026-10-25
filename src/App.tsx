@@ -17,6 +17,7 @@ import { CacheSettingsModal } from './components/CacheSettingsModal';
 import { BottomNavBar, type AppTab } from './components/BottomNavBar';
 import { RadioView } from './components/RadioView';
 import { UpdateBanner } from './components/UpdateBanner';
+import { useScrollChrome } from './hooks/useScrollChrome';
 import { preloadYouTubePlayer } from './components/youtubePlayer';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
 import { Play, Sparkles, Globe, Loader2, AlertCircle } from 'lucide-react';
@@ -29,6 +30,7 @@ const MIX_TRACKS_PER_CATEGORY = 4;
 
 const MusicAppContent: React.FC = () => {
   const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
+  const { compact, expand } = useScrollChrome();
 
   const [feed, setFeed] = useState<FeedResponse | null>(null);
   const [isLoadingFeed, setIsLoadingFeed] = useState<boolean>(true);
@@ -455,13 +457,13 @@ const MusicAppContent: React.FC = () => {
       </div>
 
       {/* Floating Mini Player (iOS Style) */}
-      {currentTrack && <MiniPlayer />}
+      {currentTrack && <MiniPlayer compact={compact} />}
 
       {/* Fullscreen Expanded Player (Modal / Bottom Sheet) */}
       <ExpandedPlayer />
 
       {/* Spotify / Apple Music Style Bottom Navigation Bar */}
-      <BottomNavBar activeTab={navTab} onSelectTab={handleSelectTab} />
+      <BottomNavBar activeTab={navTab} onSelectTab={handleSelectTab} compact={compact} onExpand={expand} />
 
       {/* Headless Player Redundant Fallback Engine */}
       <HeadlessPlayerFallback />

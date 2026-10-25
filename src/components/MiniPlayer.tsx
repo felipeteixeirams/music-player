@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Play, Pause, SkipForward } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { calculateProgress } from '../utils/audioEngine';
 import { PlaybackNotice } from './PlaybackNotice';
+import { swipeAction } from '../utils/scrollChrome';
 
-export const MiniPlayer: React.FC = () => {
+interface MiniPlayerProps {
+  /** The tab bar below is collapsed, so the mini player sits lower. */
+  compact?: boolean;
+}
+
+export const MiniPlayer: React.FC<MiniPlayerProps> = ({ compact = false }) => {
   const {
     currentTrack,
     isPlaying,
@@ -12,24 +18,69 @@ export const MiniPlayer: React.FC = () => {
     duration,
     togglePlayPause,
     playNext,
+    playPrevious,
     toggleExpanded,
     radioStation,
     isLive
   } = useAudio();
 
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const justSwiped = useRef(false);
+  const [dragX, setDragX] = useState(0);
+
   if (!currentTrack) return null;
+
+  // Dragging sideways changes track as in Apple Music: a live broadcast has neither, a station mix only has next
+  const allowed = { next: !isLive, previous: !isLive && !radioStation };
 
   const progress = calculateProgress(currentTime, duration);
 
   return (
     <div
-      className="fixed bottom-[calc(4.25rem+var(--safe-bottom))] left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto"
+      className={`fixed left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto transition-[bottom] duration-300 motion-reduce:transition-none ${
+        compact ? 'bottom-[calc(3rem+var(--safe-bottom))]' : 'bottom-[calc(4.25rem+var(--safe-bottom))]'
+      }`}
     >
       <div className="w-full pointer-events-auto">
         <PlaybackNotice className="mb-1.5" />
         {/* iOS-Style Floating Glassmorphic Container */}
         <div
-          onClick={() => toggleExpanded(true)}
+          onClick={() => {
+            if (justSwiped.current) return;
+            toggleExpanded(true);
+          }}
+          onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest('button')) return;
+            dragStart.current = { x: e.clientX, y: e.clientY };
+          }}
+          onPointerMove={(e) => {
+            const start = dragStart.current;
+            if (!start) return;
+            const dx = e.clientX - start.x;
+            if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(e.clientY - start.y)) {
+              setDragX(Math.max(-80, Math.min(80, dx * 0.5)));
+            }
+          }}
+          onPointerUp={(e) => {
+            const start = dragStart.current;
+            dragStart.current = null;
+            setDragX(0);
+            if (!start) return;
+            const dx = e.clientX - start.x;
+            const action = swipeAction(dx, e.clientY - start.y, allowed);
+            if (Math.abs(dx) > 10) {
+              // The click that follows a drag must not open the full player
+              justSwiped.current = true;
+              window.setTimeout(() => { justSwiped.current = false; }, 0);
+            }
+            if (action === 'next') playNext();
+            else if (action === 'previous') playPrevious();
+          }}
+          onPointerCancel={() => {
+            dragStart.current = null;
+            setDragX(0);
+          }}
+          style={{ transform: dragX ? `translateX(${dragX}px)` : undefined }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
@@ -39,7 +90,7 @@ export const MiniPlayer: React.FC = () => {
             }
           }}
           aria-label={`Abrir player expandido para ${currentTrack.title} por ${currentTrack.artist}`}
-          className="relative overflow-hidden rounded-card material-thin shadow-xl shadow-black/50 cursor-pointer select-none active:scale-[0.99] transition-all"
+          className="relative overflow-hidden rounded-card material-thin shadow-xl shadow-black/50 cursor-pointer select-none touch-pan-y active:scale-[0.99] transition-all"
         >
           {/* Micro Progress Bar on top edge (a radio has no timeline; a live one shows a pulsing line) */}
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fill-tertiary">

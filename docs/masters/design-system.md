@@ -6,7 +6,7 @@ Este é o master do domínio de interface visual: tokens, materiais translúcido
 
 ## Estado
 
-**Status: direção definida; fundação (fase 1), barras (fase 2) listas, carrosséis, categorias, rádio e destaque da home (fase 3), e player aberto e janelas de cache e instalação (fase 4) implementadas em 2026-10-25. O modo claro (fase 5) foi implementado no mesmo dia; falta só a fase 6 (extras do iOS 26).**
+**Status: direção definida; fundação (fase 1), barras (fase 2) listas, carrosséis, categorias, rádio e destaque da home (fase 3), e player aberto e janelas de cache e instalação (fase 4) implementadas em 2026-10-25. O modo claro (fase 5) e os extras do iOS 26 (fase 6: barra de abas que recolhe e deslizar o mini player) foram implementados no mesmo dia; o plano de fases está completo.**
 
 ## Direção
 
@@ -17,6 +17,7 @@ O app segue a linguagem visual do Apple Music: fundo preto, texto branco com ní
 - `src/index.css`: tokens (`@theme static`), materiais (`.material-ultrathin|thin|regular|thick`) e linhas finas (`.hairline-top|bottom`).
 - `index.html`: sem fontes da web.
 - Telas e componentes em `src/components/` e `src/App.tsx`: migrados conforme o satélite.
+- `src/utils/scrollChrome.ts` e `src/hooks/useScrollChrome.ts`: regras de recolher a barra de abas e de deslizar o mini player.
 - `src/utils/coverColor.ts` e `src/hooks/useCoverColor.ts`: cor dominante da capa para o fundo do player aberto.
 
 ## Decisões a manter
