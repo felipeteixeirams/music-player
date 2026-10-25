@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mapDeezerPage, mapDeezerTrack, mapDeezerTracks } from './_deezer';
+import { mapDeezerPage, mapDeezerTrack, mapDeezerTracks } from '../../api/_deezer';
 
 const valid = {
   id: 66609426,

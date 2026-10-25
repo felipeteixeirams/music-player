@@ -41,3 +41,7 @@ Decisão de 2026-10-25: os pacotes abaixo vieram do template do Google AI Studio
 `react-player` é usado só para YouTube: `src/components/youtubePlayer.ts` monta um player restrito a ele (importando `react-player/ReactPlayer` e `react-player/patterns`, exports não documentados) para o build não gerar chunks de hls.js, dash.js, Mux, Vimeo etc. Por isso `youtube-video-element` é dependência direta. Ao atualizar o `react-player`, revise esse arquivo e confira se `npm run build` continua sem esses chunks.
 
 `@vercel/node` é devDependency só pelos tipos (`VercelRequest`, `VercelResponse`). O `npm audit` aponta vulnerabilidades apenas nas dependências dele (ferramentas de build, fora do bundle das funções) e a correção sugerida (`npm audit fix --force`) faria downgrade para a v4: não aplique sem avaliar.
+
+## Funções da Vercel
+
+Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 7: `audio`, `category`, `feed`, `health`, `resolve`, `search` e `streams/[id]`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
