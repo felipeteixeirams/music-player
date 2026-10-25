@@ -21,6 +21,7 @@ import { useAudio } from '../context/AudioContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
 import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
 import { PlaybackNotice } from './PlaybackNotice';
+import { isLiveTrack } from '../utils/liveRadio';
 
 export const ExpandedPlayer: React.FC = () => {
   const {
@@ -44,7 +45,9 @@ export const ExpandedPlayer: React.FC = () => {
     toggleRepeat,
     toggleLike,
     isLiked,
-    audioFrequencyData
+    audioFrequencyData,
+    radioStation,
+    isLive
   } = useAudio();
 
   const [activeTab, setActiveTab] = useState<'artwork' | 'lyrics' | 'visualizer'>('artwork');
@@ -55,6 +58,11 @@ export const ExpandedPlayer: React.FC = () => {
 
   React.useEffect(() => {
     if (!currentTrack) return;
+    if (isLiveTrack(currentTrack)) {
+      setSyncedLyrics([]);
+      setIsFetchingLyrics(false);
+      return;
+    }
     let isMounted = true;
     setIsFetchingLyrics(true);
     setSyncedLyrics([]);
@@ -82,6 +90,9 @@ export const ExpandedPlayer: React.FC = () => {
   const displayTime = isScrubbing ? scrubTime : currentTime;
   const progressPercent = calculateProgress(displayTime, duration);
   const liked = isLiked(currentTrack.id);
+  // A radio (live broadcast or endless station mix) has no timeline, shuffle, repeat or way back
+  const isRadio = isLive || Boolean(radioStation);
+  const shownTab = isLive && activeTab === 'lyrics' ? 'artwork' : activeTab;
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -126,10 +137,10 @@ export const ExpandedPlayer: React.FC = () => {
 
           <div className="text-center">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
-              Reproduzindo Agora
+              {isLive ? 'Rádio ao vivo' : radioStation ? 'Rádio' : 'Reproduzindo Agora'}
             </span>
             <p className="text-xs font-medium text-white/90 truncate max-w-[180px]">
-              {currentTrack.album}
+              {isLive ? currentTrack.title : radioStation ? radioStation.name : currentTrack.album}
             </p>
           </div>
 
@@ -159,6 +170,7 @@ export const ExpandedPlayer: React.FC = () => {
             <Activity className="w-3 h-3" />
             <span>Frequência</span>
           </button>
+          {!isLive && (
           <button
             onClick={() => setActiveTab('lyrics')}
             className={`px-3 py-1 rounded-xl text-[11px] font-medium transition-all flex items-center gap-1 ${
@@ -170,11 +182,12 @@ export const ExpandedPlayer: React.FC = () => {
             <FileText className="w-3 h-3" />
             <span>Letra</span>
           </button>
+          )}
         </div>
 
         {/* 2. Central Display (Artwork / Spectrum / Lyrics) */}
         <div className="flex-1 flex items-center justify-center my-2 max-h-[360px]">
-          {activeTab === 'artwork' && (
+          {shownTab === 'artwork' && (
             <div className="relative w-full max-w-[290px] aspect-square mx-auto">
               {/* Drop-Shadow Projected Behind */}
               <div
@@ -201,7 +214,7 @@ export const ExpandedPlayer: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'visualizer' && (
+          {shownTab === 'visualizer' && (
             <div className="w-full max-w-sm h-64 rounded-3xl bg-white/[0.03] border border-white/10 p-5 flex flex-col justify-between backdrop-blur-xl">
               <div className="flex items-center justify-between text-xs text-white/50">
                 <span className="flex items-center gap-1.5">
@@ -233,7 +246,7 @@ export const ExpandedPlayer: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'lyrics' && (
+          {shownTab === 'lyrics' && (
             <div className="w-full max-w-sm h-72 rounded-3xl bg-white/[0.03] border border-white/10 p-4 overflow-y-auto backdrop-blur-xl text-left no-scrollbar">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-xs font-semibold text-purple-400">Letra Sincronizada</h4>
@@ -290,6 +303,9 @@ export const ExpandedPlayer: React.FC = () => {
             </div>
           </div>
 
+          {isLive ? (
+            <div className="w-11 h-11 shrink-0" aria-hidden="true" />
+          ) : (
           <button
             onClick={() => toggleLike(currentTrack)}
             aria-label={liked ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
@@ -301,9 +317,25 @@ export const ExpandedPlayer: React.FC = () => {
               }`}
             />
           </button>
+          )}
         </div>
 
-        {/* 4. Timeline Progress Slider */}
+        {/* 4. Timeline Progress Slider (a radio shows what it is instead) */}
+        {isRadio ? (
+          <div className="my-2 flex items-center justify-center h-[42px]" role="status">
+            {isLive ? (
+              <span className="flex items-center gap-2 rounded-full bg-rose-500/15 border border-rose-500/40 px-3 py-1 text-[11px] font-bold tracking-widest text-rose-300">
+                <span className={`w-2 h-2 rounded-full bg-rose-500 ${isPlaying ? 'animate-pulse' : 'opacity-50'}`} aria-hidden="true" />
+                AO VIVO
+              </span>
+            ) : (
+              <span className="flex items-center gap-2 rounded-full bg-purple-500/15 border border-purple-400/40 px-3 py-1 text-[11px] font-semibold text-purple-200">
+                <Radio className="w-3.5 h-3.5" aria-hidden="true" />
+                Rádio {radioStation?.name}
+              </span>
+            )}
+          </div>
+        ) : (
         <div className="space-y-1.5 my-2">
           <div className="relative flex items-center">
             <input
@@ -330,10 +362,12 @@ export const ExpandedPlayer: React.FC = () => {
             <span>{formatRemainingTime(displayTime, duration)}</span>
           </div>
         </div>
+        )}
 
         {/* 5. Centralized Geometric Media Controls */}
         <div className="flex items-center justify-between px-2 my-2">
           {/* Shuffle Button */}
+          {isRadio ? <div className="w-11 h-11" aria-hidden="true" /> : (
           <button
             onClick={toggleShuffle}
             aria-label={isShuffle ? 'Desativar modo aleatório' : 'Ativar modo aleatório'}
@@ -343,8 +377,10 @@ export const ExpandedPlayer: React.FC = () => {
           >
             <Shuffle className="w-5 h-5" />
           </button>
+          )}
 
           {/* Previous Track Button */}
+          {isRadio ? <div className="w-12 h-12" aria-hidden="true" /> : (
           <button
             onClick={playPrevious}
             aria-label="Faixa anterior"
@@ -352,6 +388,7 @@ export const ExpandedPlayer: React.FC = () => {
           >
             <SkipBack className="w-6 h-6 fill-current" />
           </button>
+          )}
 
           {/* Prominent Play/Pause Button (68px Circular) */}
           <button
@@ -366,7 +403,8 @@ export const ExpandedPlayer: React.FC = () => {
             )}
           </button>
 
-          {/* Next Track Button */}
+          {/* Next Track Button (a live broadcast has no next) */}
+          {isLive ? <div className="w-12 h-12" aria-hidden="true" /> : (
           <button
             onClick={playNext}
             aria-label="Próxima faixa"
@@ -374,8 +412,10 @@ export const ExpandedPlayer: React.FC = () => {
           >
             <SkipForward className="w-6 h-6 fill-current" />
           </button>
+          )}
 
           {/* Repeat Button */}
+          {isRadio ? <div className="w-11 h-11" aria-hidden="true" /> : (
           <button
             onClick={toggleRepeat}
             aria-label={
@@ -397,6 +437,7 @@ export const ExpandedPlayer: React.FC = () => {
               <Repeat className="w-5 h-5" />
             )}
           </button>
+          )}
         </div>
 
         {/* 6. Volume Scrub Bar */}

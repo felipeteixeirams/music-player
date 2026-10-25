@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Loader2, Radio } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
-import type { RadioGenre, RadioStation } from '../types/music';
+import type { LiveStation, RadioGenre, RadioStation } from '../types/music';
+import { LIVE_RADIO_GROUPS } from '../data/liveRadios';
 import { fetchRadioGenres } from '../utils/catalogClient';
 
 /** Stations by genre. Tapping one starts a radio: the queue renews itself, so the music does not stop. */
 export const RadioView: React.FC = () => {
-  const { radioStation, startRadio, isPlaying } = useAudio();
+  const { radioStation, startRadio, isPlaying, isLive, currentTrack, startLiveRadio } = useAudio();
   const [genres, setGenres] = useState<RadioGenre[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +49,56 @@ export const RadioView: React.FC = () => {
           Rádio
         </h1>
         <p className="text-[11px] text-white/50 mt-0.5">
-          Escolha uma estação e a música não para: a fila se renova sozinha.
+          Rádios de verdade, ao vivo, ou um mix por gênero que não para.
         </p>
+      </div>
+
+      {/* Live broadcasts: what is on the air now, with no timeline and nothing to skip */}
+      <div aria-labelledby="live-heading" role="region" className="space-y-3">
+        <div>
+          <h2 id="live-heading" className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" aria-hidden="true" />
+            Ao vivo
+          </h2>
+          <p className="text-[11px] text-white/50 mt-0.5">Você ouve o que está no ar agora, como no rádio.</p>
+        </div>
+        {LIVE_RADIO_GROUPS.map((group) => (
+          <div key={group.id} role="group" aria-label={`Ao vivo: ${group.name}`}>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1.5">{group.name}</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {group.stations.map((station: LiveStation) => {
+                const isCurrent = isLive && currentTrack?.id === `live-${station.id}`;
+                return (
+                  <button
+                    key={station.id}
+                    onClick={() => startLiveRadio(station)}
+                    aria-label={`Ouvir ${station.name} ao vivo`}
+                    aria-pressed={isCurrent}
+                    className={`text-left rounded-2xl border px-3 py-2.5 transition-all active:scale-[0.97] ${
+                      isCurrent
+                        ? 'border-rose-400/60 bg-rose-950/30 ring-1 ring-rose-400/40'
+                        : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    <span className="block text-xs font-bold text-white truncate">{station.name}</span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-white/50">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${isCurrent && isPlaying ? 'bg-rose-500 animate-pulse' : 'bg-white/30'}`}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{isCurrent ? (isPlaying ? 'No ar agora' : 'Pausada') : station.location}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <h2 className="text-sm font-bold text-white tracking-tight">Mix por gênero</h2>
+        <p className="text-[11px] text-white/50 mt-0.5">Uma fila de músicas que se renova sozinha, sem acabar.</p>
       </div>
 
       {startError && (

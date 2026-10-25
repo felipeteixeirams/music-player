@@ -2,6 +2,8 @@ export interface AudioSource {
   localUrl: string;
   youtubeId?: string;
   previewUrl?: string;
+  /** `localUrl` is a live broadcast: no length, nothing to seek, never ends. */
+  isLive?: boolean;
 }
 
 export interface Track {
@@ -75,4 +77,17 @@ export interface RadioGenre {
   id: string;
   name: string;
   stations: RadioStation[];
+}
+
+export interface LiveStation {
+  id: string;
+  name: string;
+  location: string;
+  streamUrl: string;
+}
+
+export interface LiveRadioGroup {
+  id: string;
+  name: string;
+  stations: LiveStation[];
 }

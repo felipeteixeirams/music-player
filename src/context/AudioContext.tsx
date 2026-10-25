@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { AudioEngineType, RadioStation, RepeatMode, Track } from '../types/music';
+import { AudioEngineType, LiveStation, RadioStation, RepeatMode, Track } from '../types/music';
 import {
   fetchPipedAudioStream,
   getNextTrackIndex,
@@ -10,6 +10,7 @@ import {
 import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
+import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
 
 /** A radio gives up after this many unplayable tracks in a row. */
 const RADIO_MAX_CONSECUTIVE_SKIPS = 5;
@@ -74,6 +75,9 @@ interface AudioContextType {
   radioStation: RadioStation | null;
   /** Starts a station; false when it could not be loaded. */
   startRadio: (station: RadioStation) => Promise<boolean>;
+  /** The current track is a live broadcast: no length, no seeking, no previous or next. */
+  isLive: boolean;
+  startLiveRadio: (station: LiveStation) => void;
   toggleLike: (track: Track) => void;
   hydrateLikedTracks: (tracks: Track[]) => void;
   isLiked: (trackId: string) => boolean;
@@ -131,6 +135,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loadTokenRef = useRef(0);
   // Remaining YouTube videos to try for the current track when the embed of one of them fails
   const alternateVideosRef = useRef<{ trackId: string; videoIds: string[] }>({ trackId: '', videoIds: [] });
+
+  const isLive = isLiveTrack(currentTrack);
 
   useEffect(() => {
     currentTrackRef.current = currentTrack;
@@ -217,7 +223,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const onDurationChange = () => {
-      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
       }
     };
@@ -414,6 +420,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!audio) return;
 
     const onEnded = () => {
+      if (isLiveTrack(currentTrackRef.current)) {
+        setIsPlaying(false);
+        setPipedStatus({ error: 'A transmissão foi interrompida. Toque em reproduzir para sintonizar de novo.' });
+        return;
+      }
       if (repeatMode === 'one') {
         audio.currentTime = 0;
         audio.play().catch(() => {});
@@ -469,26 +480,28 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         togglePlayPause();
       });
 
-      navigator.mediaSession.setActionHandler('previoustrack', () => {
+      const live = isLiveTrack(currentTrack);
+
+      navigator.mediaSession.setActionHandler('previoustrack', live ? null : () => {
         playPrevious();
       });
 
-      navigator.mediaSession.setActionHandler('nexttrack', () => {
+      navigator.mediaSession.setActionHandler('nexttrack', live ? null : () => {
         playNext();
       });
 
-      navigator.mediaSession.setActionHandler('seekto', (details) => {
+      navigator.mediaSession.setActionHandler('seekto', live ? null : (details) => {
         if (details.seekTime !== undefined && details.seekTime !== null) {
           seekTo(details.seekTime);
         }
       });
 
-      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+      navigator.mediaSession.setActionHandler('seekbackward', live ? null : (details) => {
         const offset = details.seekOffset || 10;
         seekTo(Math.max(0, currentTime - offset));
       });
 
-      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+      navigator.mediaSession.setActionHandler('seekforward', live ? null : (details) => {
         const offset = details.seekOffset || 10;
         seekTo(Math.min(duration, currentTime + offset));
       });
@@ -553,7 +566,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        if (!audioRef.current.src && currentTrack.sources.localUrl) {
+        // Live: whatever was buffered while paused is old, so tune in again
+        if (currentTrack.sources.localUrl && (isLiveTrack(currentTrack) || !audioRef.current.src)) {
           audioRef.current.src = currentTrack.sources.localUrl;
         }
         audioRef.current.play().then(() => {
@@ -591,6 +605,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (radioStation && needsRadioRefill(queue.length, currentIndex)) void refillRadio();
   }, [radioStation, queue.length, currentIndex, refillRadio]);
 
+  const startLiveRadio = useCallback((station: LiveStation) => {
+    const track = liveStationToTrack(station);
+    // A live broadcast is not a queue: no radio mode, no list around it
+    setRadioStation(null);
+    queueRef.current = [track];
+    setQueue([track]);
+    setCurrentIndex(0);
+    loadAndPlayTrack(track, preferredEngine, true);
+  }, [preferredEngine, loadAndPlayTrack]);
+
   const startRadio = useCallback(async (station: RadioStation): Promise<boolean> => {
     // Synchronously prime audio gesture permission, before the network wait
     if (audioRef.current) {
@@ -616,6 +640,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [preferredEngine, loadAndPlayTrack]);
 
   const playNext = useCallback(() => {
+    if (isLiveTrack(currentTrackRef.current)) return;
     if (radioStation) {
       // A radio has no shuffle or end: it moves on, asking for more when the queue runs dry
       const nextIdx = repeatMode === 'one' ? currentIndex : currentIndex + 1;
@@ -647,6 +672,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   playNextRef.current = playNext;
 
   const playPrevious = useCallback(() => {
+    if (isLiveTrack(currentTrackRef.current)) return;
     if (currentTime > 4) {
       seekTo(0);
       return;
@@ -659,6 +685,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [currentTime, currentIndex, queue, preferredEngine, loadAndPlayTrack]);
 
   const seekTo = useCallback((seconds: number) => {
+    if (isLiveTrack(currentTrackRef.current)) return;
     const target = Math.max(0, Math.min(seconds, duration));
     setCurrentTime(target);
     if (audioRef.current && activeEngine !== 'fallback') {
@@ -803,6 +830,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleExpanded,
         radioStation,
         startRadio,
+        isLive,
+        startLiveRadio,
         toggleLike,
         hydrateLikedTracks,
         isLiked,
