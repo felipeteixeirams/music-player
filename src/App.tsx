@@ -18,6 +18,7 @@ import { BottomNavBar, type AppTab } from './components/BottomNavBar';
 import { RadioView } from './components/RadioView';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useScrollChrome } from './hooks/useScrollChrome';
+import type { QueueSource } from './utils/queueSource';
 import { preloadYouTubePlayer } from './components/youtubePlayer';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
 import { Play, Sparkles, Globe, Loader2, AlertCircle } from 'lucide-react';
@@ -27,6 +28,16 @@ import { fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogCl
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
 const MIX_TRACKS_PER_CATEGORY = 4;
+
+/** Where playback goes on after the loaded part of a collection or of a search. */
+const categorySource = (categoryId: string, nextIndex: number): QueueSource => ({
+  nextIndex,
+  load: (index) => fetchCategoryPage(categoryId, index)
+});
+const searchSource = (query: string, nextIndex: number): QueueSource => ({
+  nextIndex,
+  load: (index) => fetchSearchPage(query, index)
+});
 
 const MusicAppContent: React.FC = () => {
   const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
@@ -241,7 +252,7 @@ const MusicAppContent: React.FC = () => {
                   tracks={onlineSearch.tracks}
                   title="Músicas Encontradas"
                   totalCount={onlineSearch.total}
-                  onTrackSelect={(track) => playTrack(track, onlineSearch.tracks)}
+                  onTrackSelect={(track) => playTrack(track, onlineSearch.tracks, onlineSearch.nextIndex !== null && submittedSearch ? searchSource(submittedSearch.query, onlineSearch.nextIndex) : undefined)}
                   hasMore={onlineSearch.hasMore}
                   isLoadingMore={onlineSearch.isLoadingMore}
                   error={onlineSearch.error}
@@ -301,7 +312,7 @@ const MusicAppContent: React.FC = () => {
                       title={activeCategory.name}
                       totalCount={categoryList.total}
                       emptyMessage="Esta coleção está vazia no momento."
-                      onTrackSelect={(track) => playTrack(track, categoryList.tracks)}
+                      onTrackSelect={(track) => playTrack(track, categoryList.tracks, activeCategoryId && categoryList.nextIndex !== null ? categorySource(activeCategoryId, categoryList.nextIndex) : undefined)}
                       hasMore={categoryList.hasMore}
                       isLoadingMore={categoryList.isLoadingMore}
                       error={categoryList.error}
@@ -387,7 +398,10 @@ const MusicAppContent: React.FC = () => {
                       </p>
 
                       <button
-                        onClick={() => playTrack(featuredTrack, feed?.categories['top-hits']?.tracks ?? [featuredTrack])}
+                        onClick={() => {
+                          const topHits = feed?.categories['top-hits'];
+                          playTrack(featuredTrack, topHits?.tracks ?? [featuredTrack], topHits && topHits.nextIndex !== null ? categorySource('top-hits', topHits.nextIndex) : undefined);
+                        }}
                         aria-label={`Reproduzir ${featuredTrack.title}`}
                         className="mt-3.5 flex items-center gap-2 px-5 py-2 rounded-full bg-accent text-white font-semibold text-[15px] hover:bg-accent-pressed active:scale-95 transition-all"
                       >
@@ -418,7 +432,7 @@ const MusicAppContent: React.FC = () => {
                     tracks={page.tracks}
                     totalCount={page.total}
                     onSeeAll={() => setSelectedCategoryId(category.id)}
-                    onTrackSelect={(track) => playTrack(track, page.tracks)}
+                    onTrackSelect={(track) => playTrack(track, page.tracks, page.nextIndex !== null ? categorySource(category.id, page.nextIndex) : undefined)}
                   />
                 );
               })}

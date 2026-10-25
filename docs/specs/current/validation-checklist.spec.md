@@ -159,12 +159,12 @@ Se falhar: rolagem com engasgos indica a frente "desempenho da interface" (divid
 ### T11: controles de reprodução e fila
 
 1. Próxima e anterior: tocam as faixas esperadas da lista de onde você partiu?
-2. Chegue ao fim da lista carregada de uma coleção tocando até o fim: o app para ou continua? (O comportamento atual conhecido é parar, porque a fila só tem o que já foi carregado.)
+2. Toque uma faixa perto do fim da primeira página de uma coleção (a 13ª de 15 num carrossel, por exemplo) e deixe tocar: o app deve buscar a página seguinte sozinho e continuar, sem parar nem voltar ao início da lista. (Implementado em 2026-10-25; antes parava no fim do que estava carregado.)
 3. Aleatório e repetir (uma, todas) funcionam?
 4. Buscar no tempo (arrastar a barra de progresso) funciona nas faixas completas e nas prévias?
 5. Volume e mudo.
 
-Esperado: tudo funciona dentro do que já foi carregado; o fim da lista é uma limitação conhecida a tratar.
+Esperado: tudo funciona e a fila continua além da primeira página. Só não continua em listas sem origem paginada (Biblioteca, Mix das coleções e a busca no catálogo local), que acabam no fim do que mostram.
 
 ### T12: instalação como app (PWA) e atualização
 
@@ -198,11 +198,9 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 3. Abuso e cota: rotas públicas e cota de cerca de 100 buscas por dia.
 4. Limpeza do código Piped (`api/streams/[id].ts`, funções do `audioEngine.ts`, `pipedStatus`).
 5. Desempenho da interface: contexto de áudio dividido e janelamento das listas.
-6. Fila: carregar a próxima página ao chegar ao fim da lista.
-7. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
-8. Playlists criadas pelo usuário.
-9. Visualizador simulado com rótulo enganoso ("Espectrograma Web Audio API").
-10. Integração contínua no GitHub Actions e testes de ponta a ponta com Playwright.
+6. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
+7. Playlists criadas pelo usuário.
+8. Integração contínua no GitHub Actions e testes de ponta a ponta com Playwright.
 
 ## Testes automáticos que já passam
 
