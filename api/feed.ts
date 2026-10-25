@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { extractYouTubeId } from '../src/utils/youtubeId';
+import { extractYouTubeId } from './_youtubeId.js';
 
 const PIPED_SERVER_INSTANCES = [
   'https://api.piped.private.coffee',
