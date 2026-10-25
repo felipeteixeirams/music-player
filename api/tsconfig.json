@@ -1,0 +1,16 @@
+{
+  // Used by @vercel/node when it compiles the serverless functions. It copies the nearest tsconfig into a
+  // temp directory, where "types": ["vite/client"] (root tsconfig) cannot be resolved and logs TS2688 for
+  // every function. The functions need no ambient types: type checking runs from the root (npm run lint).
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": [],
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}

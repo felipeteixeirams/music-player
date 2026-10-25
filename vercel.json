@@ -1,6 +1,11 @@
 {
   "version": 2,
   "framework": "vite",
+  "functions": {
+    "api/resolve.ts": {
+      "maxDuration": 20
+    }
+  },
   "rewrites": [
     {
       "source": "/api/streams/:id",
