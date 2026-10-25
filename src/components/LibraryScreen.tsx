@@ -30,7 +30,7 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; round?: boolean; t
 }) => (
   <button
     onClick={onClick}
-    className="relative w-full flex items-center gap-3 py-2.5 text-left active:bg-fill-tertiary transition-colors after:absolute after:bottom-0 after:left-[3.75rem] after:right-0 after:h-[0.5px] after:bg-separator"
+    className="relative w-full min-h-[52px] flex items-center gap-3 py-1.5 text-left active:bg-fill-tertiary transition-colors after:absolute after:bottom-0 after:left-[3.75rem] after:right-0 after:h-[0.5px] after:bg-separator"
   >
     {icon ? (
       <span className="w-12 flex justify-center text-accent shrink-0">{icon}</span>
@@ -40,8 +40,8 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; round?: boolean; t
       </span>
     )}
     <span className="min-w-0 flex-1">
-      <span className="block text-[20px] text-label truncate">{title}</span>
-      {detail && <span className="block text-[15px] text-label-secondary truncate">{detail}</span>}
+      <span className="block text-[17px] text-label truncate">{title}</span>
+      {detail && <span className="block text-[13px] text-label-secondary truncate">{detail}</span>}
     </span>
     <span className="text-[15px] text-label-secondary tabular-nums">{count}</span>
     <ChevronRight className="w-5 h-5 text-label-tertiary shrink-0" aria-hidden="true" />

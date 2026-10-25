@@ -60,6 +60,25 @@ Comparação com capturas do Apple Music (iOS 26) no iPhone 11 mostrou que a dif
 
 Fora do alcance: ícones SF Symbols, artes e fotos do Apple Music e a refração do Liquid Glass.
 
+## Calibragem com medidas do Apple Music (2026-10-25)
+
+Medida em capturas do Apple Music (iOS 26, tema escuro, iPhone 11, 828×1792 px) e conferida no nosso app com as mesmas dimensões:
+
+| Item | Apple Music | AuraStream depois da calibragem |
+| --- | --- | --- |
+| Fundo | `#000000` | `#000000` |
+| Separador de linhas | `#2a2a2b` | `#2a2a2c` (`rgb(84 84 88 / .5)` sobre o preto) |
+| Destaque (tema escuro) | `#e6434e` nos ícones, `#eb4854` na aba ativa | `#eb4854` (tema claro: `#fa233b`) |
+| Vidro da cápsula e do mini player sobre o preto | `#202020` | `#202021` (cinza neutro `64 64 66` com 50% de opacidade no material regular) |
+| Pílula da aba ativa (escura, abaixo do vidro) | `#0a0a0a` | `#0b0b0b` (`--color-tab-active`, preto a 65%; no claro, preto a 7%) |
+| Cápsula | 62 pt de altura, 21 pt de margem lateral, 21 pt da borda de baixo | 62 pt, 21 px, 21 px (`max(0.5rem, safe-bottom - 0.8rem)`) |
+| Mini player | 48 pt de altura, 8 pt de espaço até a cápsula | 48 px, 8 px |
+| Blocos da Rádio | raio de 17,5 pt | `--radius-tile` de 17,5 px |
+| Blocos da Buscar | raio de 13,5 pt | `--radius-card` de 14 px |
+| Texto das linhas da Biblioteca | cerca de 17 pt | 17 px |
+
+As opacidades dos quatro materiais (`--ma-ultrathin|thin|regular|thick`) são 0,32, 0,42, 0,50 e 0,60 no escuro e 0,45, 0,60, 0,72 e 0,85 no claro. O desfoque, a saturação e o brilho de borda do Liquid Glass não saem de uma captura plana e seguem como aproximação: ajustar olhando o vidro sobre conteúdo colorido no aparelho.
+
 ## Fases (um PR por fase)
 
 1. **Fundação** (feito): tokens, materiais, fonte do sistema.

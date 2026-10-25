@@ -15,8 +15,9 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --color-accent: #fa243c;
-  --color-accent-pressed: #d91c32;
+  /* Dark scheme: Apple Music's red sampled from a dark screenshot (#e6434e icons, #eb4854 active tab) */
+  --color-accent: #eb4854;
+  --color-accent-pressed: #cf3a45;
 
   --color-canvas: #000000;
   --color-elevated: #1c1c1e;
@@ -30,14 +31,22 @@
   --color-fill-secondary: rgb(120 120 128 / 0.32);
   --color-fill-tertiary: rgb(118 118 128 / 0.24);
   --color-segment: rgb(99 99 102);
+  /* Pill behind the active tab: darker than the capsule in the dark scheme, as in Apple Music */
+  --color-tab-active: rgb(0 0 0 / 0.65);
 
   --radius-cover: 0.625rem;
   --radius-card: 0.875rem;
   --radius-sheet: 1.25rem;
+  --radius-tile: 1.0938rem;
 }
 
 :root {
-  --material-rgb: 28 28 30;
+  /* Dark glass: neutral, light enough that regular glass over black reads about #202020 */
+  --material-rgb: 64 64 66;
+  --ma-ultrathin: 0.32;
+  --ma-thin: 0.42;
+  --ma-regular: 0.5;
+  --ma-thick: 0.6;
   color-scheme: dark;
 }
 
@@ -54,7 +63,14 @@
     --color-fill-secondary: rgb(120 120 128 / 0.16);
     --color-fill-tertiary: rgb(118 118 128 / 0.12);
     --color-segment: #ffffff;
+    --color-tab-active: rgb(0 0 0 / 0.07);
+    --color-accent: #fa233b;
+    --color-accent-pressed: #d91c32;
     --material-rgb: 249 249 249;
+    --ma-ultrathin: 0.45;
+    --ma-thin: 0.6;
+    --ma-regular: 0.72;
+    --ma-thick: 0.85;
     color-scheme: light;
   }
 }
@@ -71,7 +87,14 @@
   --color-fill-secondary: rgb(120 120 128 / 0.32);
   --color-fill-tertiary: rgb(118 118 128 / 0.24);
   --color-segment: rgb(99 99 102);
-  --material-rgb: 28 28 30;
+  --color-tab-active: rgb(0 0 0 / 0.65);
+  --color-accent: #eb4854;
+  --color-accent-pressed: #cf3a45;
+  --material-rgb: 64 64 66;
+  --ma-ultrathin: 0.32;
+  --ma-thin: 0.42;
+  --ma-regular: 0.5;
+  --ma-thick: 0.6;
   color-scheme: dark;
 }
 
@@ -148,10 +171,10 @@ input[type='range']::-moz-range-thumb {
 }
 
 @supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
-  .material-ultrathin { background-color: rgb(var(--material-rgb) / 0.45); -webkit-backdrop-filter: blur(12px) saturate(180%); backdrop-filter: blur(12px) saturate(180%); }
-  .material-thin { background-color: rgb(var(--material-rgb) / 0.6); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
-  .material-regular { background-color: rgb(var(--material-rgb) / 0.72); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); }
-  .material-thick { background-color: rgb(var(--material-rgb) / 0.85); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%); }
+  .material-ultrathin { background-color: rgb(var(--material-rgb) / var(--ma-ultrathin)); -webkit-backdrop-filter: blur(12px) saturate(180%); backdrop-filter: blur(12px) saturate(180%); }
+  .material-thin { background-color: rgb(var(--material-rgb) / var(--ma-thin)); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
+  .material-regular { background-color: rgb(var(--material-rgb) / var(--ma-regular)); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); }
+  .material-thick { background-color: rgb(var(--material-rgb) / var(--ma-thick)); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%); }
 }
 
 /* Hairline that separates a bar from the content: half a point, as on iOS */
