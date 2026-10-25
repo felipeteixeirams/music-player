@@ -70,7 +70,9 @@ export const TrackList: React.FC<TrackListProps> = ({
         setOfflineStatusMap((prev) => ({ ...prev, [track.id]: true }));
         setToast({
           id: Date.now().toString(),
-          message: `"${track.title}" baixada com sucesso para ouvir offline!`,
+          message: result.previewOnly
+            ? `Prévia de 30s de "${track.title}" salva para ouvir offline.`
+            : `"${track.title}" baixada com sucesso para ouvir offline!`,
           type: 'success'
         });
       } else {
@@ -232,7 +234,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleLike(track.id);
+                    toggleLike(track);
                   }}
                   aria-label={liked ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                   className="p-1.5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-transform active:scale-75"

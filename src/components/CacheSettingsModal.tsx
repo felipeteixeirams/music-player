@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { LIKED_IDS_KEY, LIKED_TRACKS_KEY } from '../utils/likedTracks';
 import { Database, Trash2, HardDrive, Settings, X, Check, RefreshCw } from 'lucide-react';
 
 const CACHE_SIZE_KEY = 'aurastream_cache_limit_mb';
@@ -77,7 +78,8 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
         const keys = await caches.keys();
         await Promise.all(keys.map((key) => caches.delete(key)));
       }
-      localStorage.removeItem('aurastream_liked_tracks');
+      localStorage.removeItem(LIKED_IDS_KEY);
+      localStorage.removeItem(LIKED_TRACKS_KEY);
       await calculateCacheUsage();
       setSuccessMessage('Cache local limpo e redefinido com sucesso!');
       setTimeout(() => {

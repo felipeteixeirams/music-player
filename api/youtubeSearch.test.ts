@@ -205,6 +205,22 @@ test('rankCandidates orders acceptable videos best first', () => {
   assert.deepEqual(rankCandidates([okay, best], query).map((c) => c.videoId), ['BEST0000001', 'OKAY0000001']);
 });
 
+test('resolveYouTubeVideoIds falls back to the web search when the official API refuses the key', async () => {
+  const requested: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    requested.push(String(url));
+    if (String(url).includes('googleapis.com')) return new Response('quotaExceeded', { status: 403 });
+    if (String(url).includes('/oembed')) return Response.json({});
+    return Response.json(webPayload([
+      { id: 'WM8bTdBs-cw', title: 'Metallica: One (Official Audio)', channel: 'Metallica', length: '7:27' }
+    ]));
+  }) as unknown as typeof fetch;
+
+  assert.deepEqual(await resolveYouTubeVideoIds(query, { apiKey: 'bad-key', fetchImpl }), ['WM8bTdBs-cw']);
+  assert.ok(requested.some((url) => url.includes('googleapis.com')));
+  assert.ok(requested.some((url) => url.includes('/youtubei/v1/search')));
+});
+
 test('resolveYouTubeVideoIds rejects on HTTP errors so callers can fall back to the preview', async () => {
   const fetchImpl = (async () => new Response('forbidden', { status: 403 })) as unknown as typeof fetch;
   await assert.rejects(resolveYouTubeVideoIds(query, { fetchImpl }), /HTTP 403/);

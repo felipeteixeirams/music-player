@@ -1,7 +1,9 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildDeezerFeed, searchDeezerTracks } from './api/_deezer';
+import { buildDeezerFeed } from './api/_deezer';
+import { searchCatalog } from './api/_catalog';
+import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { resolveYouTubeVideoIds } from './api/_youtubeSearch';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -148,11 +150,23 @@ app.get('/api/search', async (req, res) => {
   }
 
   try {
-    const tracks = await searchDeezerTracks(query.trim(), { style: 'Deezer' });
-    return res.json({ tracks, source: 'deezer' });
+    return res.json(await searchCatalog(query.trim()));
   } catch (err: any) {
-    console.warn(`[Search] Falha na busca Deezer: ${err?.message || err}`);
+    console.warn(`[Search] Falha em todos os catálogos: ${err?.message || err}`);
     return res.json({ tracks: [], source: 'deezer', message: 'Nenhuma faixa online encontrada' });
+  }
+});
+
+// Endpoint: GET /api/audio?url=
+// Same-origin copy of a catalog preview, so the browser can store it for offline playback
+app.get('/api/audio', async (req, res) => {
+  try {
+    const { contentType, body } = await fetchAllowedAudio(req.query.url);
+    res.setHeader('Content-Type', contentType);
+    return res.send(body);
+  } catch (err: any) {
+    const status = err instanceof AudioProxyError ? err.status : 502;
+    return res.status(status).json({ error: err?.message || 'Falha ao obter o áudio' });
   }
 });
 

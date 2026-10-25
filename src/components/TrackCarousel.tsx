@@ -127,7 +127,7 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleLike(track.id);
+                    toggleLike(track);
                   }}
                   aria-label={liked ? `Desfavoritar ${track.title}` : `Favoritar ${track.title}`}
                   className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 backdrop-blur-md text-white/70 hover:text-white border border-white/10 transition-transform active:scale-80"

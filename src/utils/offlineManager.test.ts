@@ -125,4 +125,53 @@ describe('Offline Manager Unit Tests', () => {
     assert.strictEqual(result.success, true);
     assert.strictEqual(isTrackOfflineAvailable(sampleTrack.id), true);
   });
+
+  test('downloadTrackForOffline stores a catalog preview through the same-origin audio proxy', async () => {
+    const previewTrack: Track = {
+      id: 'deezer-1',
+      title: 'Preview Song',
+      artist: 'Artist',
+      album: 'Album',
+      duration: 200,
+      coverUrl: 'https://cdn.example/cover.jpg',
+      style: 'Deezer',
+      categoryId: 'web',
+      sources: { localUrl: '', previewUrl: 'https://cdnt-preview.dzcdn.net/a.mp3?hdnea=x' }
+    };
+
+    const requested: string[] = [];
+    (global as any).fetch = async (url: string) => {
+      requested.push(url);
+      return { ok: true, status: 200 };
+    };
+
+    // The player is on the YouTube engine, so the "current stream" is a watch URL that must be ignored
+    const result = await downloadTrackForOffline(previewTrack, 'https://www.youtube.com/watch?v=abcdefghijk');
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.previewOnly, true);
+    assert.strictEqual(requested[0], '/api/audio?url=' + encodeURIComponent(previewTrack.sources.previewUrl!));
+    assert.strictEqual(isTrackOfflineAvailable('deezer-1'), true);
+  });
+
+  test('downloadTrackForOffline explains that YouTube full tracks cannot be downloaded', async () => {
+    const fullTrack: Track = {
+      id: 'deezer-2',
+      title: 'No Preview Song',
+      artist: 'Artist',
+      album: 'Album',
+      duration: 200,
+      coverUrl: 'https://cdn.example/cover.jpg',
+      style: 'Deezer',
+      categoryId: 'web',
+      sources: { localUrl: '' }
+    };
+    (global as any).fetch = async () => {
+      throw new Error('no request expected');
+    };
+
+    const result = await downloadTrackForOffline(fullTrack, 'https://www.youtube.com/watch?v=abcdefghijk');
+    assert.strictEqual(result.success, false);
+    assert.match(result.error ?? '', /YouTube/);
+    assert.strictEqual(isTrackOfflineAvailable('deezer-2'), false);
+  });
 });

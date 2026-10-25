@@ -29,7 +29,7 @@ interface LiveFeedState {
 }
 
 const MusicAppContent: React.FC = () => {
-  const { playTrack, likedTrackIds, currentTrack } = useAudio();
+  const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
 
   const [feed, setFeed] = useState<LiveFeedState>({
     trending: [],
@@ -142,6 +142,11 @@ const MusicAppContent: React.FC = () => {
     return Array.from(map.values());
   }, [feed]);
 
+  // Favorites saved before their metadata was stored regain it when the track shows up again
+  useEffect(() => {
+    hydrateLikedTracks([...allLiveTracks, ...onlineSearchResults]);
+  }, [allLiveTracks, onlineSearchResults, hydrateLikedTracks]);
+
   // Dynamic Category counts
   const categoryCounts = useMemo(() => {
     return {
@@ -171,7 +176,7 @@ const MusicAppContent: React.FC = () => {
 
     // Filter by favorites / library
     if (activeFilter === 'liked' || activeTab === 'library') {
-      return result.filter((t) => likedTrackIds.includes(t.id));
+      return likedTracks;
     }
 
     // Filter by top chips
@@ -188,7 +193,7 @@ const MusicAppContent: React.FC = () => {
     }
 
     return result;
-  }, [allLiveTracks, searchQuery, searchScope, activeFilter, selectedCategoryId, likedTrackIds, activeTab, feed]);
+  }, [allLiveTracks, searchQuery, searchScope, activeFilter, selectedCategoryId, likedTracks, activeTab, feed]);
 
   const featuredTrack = feed.featured;
 
