@@ -45,10 +45,10 @@ export const RadioView: React.FC = () => {
     <section className="px-4 py-3 space-y-5" aria-labelledby="radio-heading">
       <div>
         <h1 id="radio-heading" className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-          <Radio className="w-5 h-5 text-purple-400" />
+          <Radio className="w-5 h-5 text-accent" />
           Rádio
         </h1>
-        <p className="text-[11px] text-white/50 mt-0.5">
+        <p className="text-[13px] text-label-secondary mt-0.5">
           Rádios de verdade, ao vivo, ou um mix por gênero que não para.
         </p>
       </div>
@@ -56,15 +56,15 @@ export const RadioView: React.FC = () => {
       {/* Live broadcasts: what is on the air now, with no timeline and nothing to skip */}
       <div aria-labelledby="live-heading" role="region" className="space-y-3">
         <div>
-          <h2 id="live-heading" className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" aria-hidden="true" />
+          <h2 id="live-heading" className="text-[22px] font-bold text-label tracking-tight flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" aria-hidden="true" />
             Ao vivo
           </h2>
-          <p className="text-[11px] text-white/50 mt-0.5">Você ouve o que está no ar agora, como no rádio.</p>
+          <p className="text-[13px] text-label-secondary mt-0.5">Você ouve o que está no ar agora, como no rádio.</p>
         </div>
         {LIVE_RADIO_GROUPS.map((group) => (
           <div key={group.id} role="group" aria-label={`Ao vivo: ${group.name}`}>
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1.5">{group.name}</h3>
+            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-label-secondary mb-1.5">{group.name}</h3>
             <div className="grid grid-cols-2 gap-2">
               {group.stations.map((station: LiveStation) => {
                 const isCurrent = isLive && currentTrack?.id === `live-${station.id}`;
@@ -74,16 +74,16 @@ export const RadioView: React.FC = () => {
                     onClick={() => startLiveRadio(station)}
                     aria-label={`Ouvir ${station.name} ao vivo`}
                     aria-pressed={isCurrent}
-                    className={`text-left rounded-2xl border px-3 py-2.5 transition-all active:scale-[0.97] ${
+                    className={`text-left rounded-card px-3 py-2.5 transition-all active:scale-[0.97] ${
                       isCurrent
-                        ? 'border-rose-400/60 bg-rose-950/30 ring-1 ring-rose-400/40'
-                        : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
+                        ? 'bg-elevated-2 ring-2 ring-accent'
+                        : 'bg-elevated hover:bg-elevated-2'
                     }`}
                   >
-                    <span className="block text-xs font-bold text-white truncate">{station.name}</span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-white/50">
+                    <span className="block text-[15px] font-semibold text-label truncate">{station.name}</span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-label-secondary">
                       <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${isCurrent && isPlaying ? 'bg-rose-500 animate-pulse' : 'bg-white/30'}`}
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${isCurrent && isPlaying ? 'bg-accent animate-pulse' : 'bg-label-tertiary'}`}
                         aria-hidden="true"
                       />
                       <span className="truncate">{isCurrent ? (isPlaying ? 'No ar agora' : 'Pausada') : station.location}</span>
@@ -97,8 +97,8 @@ export const RadioView: React.FC = () => {
       </div>
 
       <div>
-        <h2 className="text-sm font-bold text-white tracking-tight">Mix por gênero</h2>
-        <p className="text-[11px] text-white/50 mt-0.5">Uma fila de músicas que se renova sozinha, sem acabar.</p>
+        <h2 className="text-[22px] font-bold text-label tracking-tight">Mix por gênero</h2>
+        <p className="text-[13px] text-label-secondary mt-0.5">Uma fila de músicas que se renova sozinha, sem acabar.</p>
       </div>
 
       {startError && (
@@ -109,8 +109,8 @@ export const RadioView: React.FC = () => {
       )}
 
       {isLoading && (
-        <div className="py-16 text-center text-white/50 space-y-3" role="status">
-          <Loader2 className="w-7 h-7 text-purple-400 animate-spin mx-auto" />
+        <div className="py-16 text-center text-label-secondary space-y-3" role="status">
+          <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />
           <p className="text-xs">Carregando estações...</p>
         </div>
       )}
@@ -121,7 +121,7 @@ export const RadioView: React.FC = () => {
           <p>{error}</p>
           <button
             onClick={() => setAttempt((n) => n + 1)}
-            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+            className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label font-medium active:scale-95"
           >
             Tentar de novo
           </button>
@@ -130,7 +130,7 @@ export const RadioView: React.FC = () => {
 
       {genres.map((genre) => (
         <div key={genre.id} aria-label={genre.name} role="group">
-          <h2 className="text-sm font-bold text-white tracking-tight mb-2.5">{genre.name}</h2>
+          <h2 className="text-[22px] font-bold text-label tracking-tight mb-2.5">{genre.name}</h2>
           <div className="grid grid-cols-3 gap-2.5">
             {genre.stations.map((station) => {
               const isCurrent = radioStation?.id === station.id;
@@ -142,13 +142,13 @@ export const RadioView: React.FC = () => {
                   disabled={startingId !== null && !isStarting}
                   aria-label={`Tocar a rádio ${station.name}`}
                   aria-pressed={isCurrent}
-                  className={`relative overflow-hidden rounded-3xl text-left border transition-all active:scale-[0.97] disabled:opacity-60 ${
+                  className={`relative overflow-hidden rounded-card text-left transition-all active:scale-[0.97] disabled:opacity-60 ${
                     isCurrent
-                      ? 'border-purple-400/70 ring-1 ring-purple-400/50 bg-purple-950/30'
-                      : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
+                      ? 'bg-elevated-2 ring-2 ring-accent'
+                      : 'bg-elevated hover:bg-elevated-2'
                   }`}
                 >
-                  <div className="aspect-square w-full bg-gradient-to-tr from-purple-900/50 to-pink-900/40 flex items-center justify-center">
+                  <div className="aspect-square w-full bg-elevated-2 flex items-center justify-center">
                     {station.picture ? (
                       <img
                         src={station.picture}
@@ -159,12 +159,12 @@ export const RadioView: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <Radio className="w-8 h-8 text-white/40" />
+                      <Radio className="w-8 h-8 text-label-tertiary" />
                     )}
                   </div>
                   <div className="p-2">
-                    <span className="block text-xs font-bold text-white truncate">{station.name}</span>
-                    <span className="block text-[10px] text-white/50 mt-0.5">
+                    <span className="block text-[15px] font-semibold text-label truncate">{station.name}</span>
+                    <span className="block text-[13px] text-label-secondary mt-0.5">
                       {isStarting ? 'Iniciando...' : isCurrent ? (isPlaying ? 'Tocando agora' : 'Pausada') : 'Rádio'}
                     </span>
                   </div>

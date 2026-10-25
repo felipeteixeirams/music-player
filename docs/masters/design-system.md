@@ -6,7 +6,7 @@ Este é o master do domínio de interface visual: tokens, materiais translúcido
 
 ## Estado
 
-**Status: direção definida; fundação (fase 1) e barras (fase 2: cabeçalho, abas, mini player) implementadas em 2026-10-25. Listas, carrosséis, categorias, player aberto e modais ainda usam o visual antigo (roxo, bordas) e migram nas fases 3 a 6.**
+**Status: direção definida; fundação (fase 1), barras (fase 2) e listas, carrosséis, categorias, rádio e destaque da home (fase 3) implementadas em 2026-10-25. Player aberto e modais (cache, instalação) ainda usam o visual antigo (roxo, bordas) e migram nas fases 4 a 6.**
 
 ## Direção
 

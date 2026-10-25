@@ -17,25 +17,25 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
   const getCategoryIcon = (id: string) => {
     switch (id) {
       case 'classic-rock':
-        return <Disc3 className="w-5 h-5 text-amber-400" />;
+        return <Disc3 className="w-5 h-5 text-accent" />;
       case 'alternative-pop':
-        return <Flame className="w-5 h-5 text-pink-400" />;
+        return <Flame className="w-5 h-5 text-accent" />;
       case 'lofi-chill':
-        return <Moon className="w-5 h-5 text-blue-400" />;
+        return <Moon className="w-5 h-5 text-accent" />;
       case 'synthwave':
-        return <Radio className="w-5 h-5 text-cyan-400" />;
+        return <Radio className="w-5 h-5 text-accent" />;
       default:
-        return <Disc3 className="w-5 h-5 text-purple-400" />;
+        return <Disc3 className="w-5 h-5 text-accent" />;
     }
   };
 
   return (
     <section className="px-4 py-3" aria-labelledby="categories-heading">
       <div className="flex items-center justify-between mb-3">
-        <h2 id="categories-heading" className="text-sm font-bold text-white tracking-tight">
+        <h2 id="categories-heading" className="text-[22px] font-bold text-label tracking-tight">
           Explorar Categorias
         </h2>
-        <span className="text-xs text-white/40">
+        <span className="text-[13px] text-label-secondary">
           {CATEGORIES.length} coleções
         </span>
       </div>
@@ -49,32 +49,32 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
             <button
               key={category.id}
               onClick={() => onSelectCategory(isSelected ? 'all' : category.id)}
-              className={`relative overflow-hidden p-4 rounded-3xl text-left border transition-all active:scale-[0.97] group ${
+              className={`relative overflow-hidden p-4 rounded-card text-left transition-all active:scale-[0.97] group ${
                 isSelected
-                  ? 'bg-gradient-to-br from-purple-600/40 via-pink-600/20 to-purple-900/40 border-purple-400/60 shadow-lg shadow-purple-950/40 ring-1 ring-purple-400/50'
-                  : 'bg-white/[0.03] hover:bg-white/[0.06] border-white/[0.08]'
+                  ? 'bg-elevated-2 ring-2 ring-accent'
+                  : 'bg-elevated hover:bg-elevated-2'
               }`}
             >
               {/* Subtle ambient background glow */}
               <div
-                className={`absolute -right-4 -bottom-4 w-20 h-20 rounded-full blur-2xl opacity-40 bg-gradient-to-br ${category.gradient}`}
+                className={`absolute -right-4 -bottom-4 w-20 h-20 rounded-full blur-2xl opacity-25 bg-gradient-to-br ${category.gradient}`}
               />
 
               <div className="relative z-10 flex flex-col justify-between h-20">
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:scale-105 transition-transform">
+                  <div className="w-8 h-8 rounded-lg bg-fill-tertiary flex items-center justify-center group-hover:scale-105 transition-transform">
                     {getCategoryIcon(category.id)}
                   </div>
-                  <span className="text-[11px] text-white/50 tabular-nums">
+                  <span className="text-[13px] text-label-secondary tabular-nums">
                     {trackCount ? `${trackCount} faixas` : 'Em alta'}
                   </span>
                 </div>
 
                 <div>
-                  <h3 className="text-xs font-bold text-white tracking-tight">
+                  <h3 className="text-[15px] font-semibold text-label tracking-tight">
                     {category.name}
                   </h3>
-                  <p className="text-[10px] text-white/50 line-clamp-1 mt-0.5">
+                  <p className="text-[13px] text-label-secondary line-clamp-1 mt-0.5">
                     {category.description}
                   </p>
                 </div>

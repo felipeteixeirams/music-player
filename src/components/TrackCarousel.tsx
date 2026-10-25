@@ -32,22 +32,22 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
       {/* Header */}
       <div className="px-4 flex items-baseline justify-between mb-2.5">
         <div>
-          <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
+          <h2 className="text-[22px] font-bold text-label tracking-tight flex items-center gap-1.5">
             <span>{title}</span>
           </h2>
           {subtitle && (
-            <p className="text-[11px] text-white/40 mt-0.5">{subtitle}</p>
+            <p className="text-[13px] text-label-secondary mt-0.5">{subtitle}</p>
           )}
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
-          <span className="text-[11px] text-white/40 tabular-nums">
+          <span className="text-[13px] text-label-secondary tabular-nums">
             {totalCount ?? tracks.length} {(totalCount ?? tracks.length) === 1 ? 'faixa' : 'faixas'}
           </span>
           {onSeeAll && (
             <button
               onClick={onSeeAll}
               aria-label={`Ver todas as faixas de ${title}`}
-              className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 active:scale-95"
+              className="text-[15px] text-accent hover:text-accent-pressed active:scale-95"
             >
               Ver tudo
             </button>
@@ -85,10 +85,8 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                     else onTrackSelect(track);
                   }
                 }}
-                className={`relative aspect-square w-full rounded-3xl overflow-hidden cursor-pointer border transition-all active:scale-95 shadow-lg ${
-                  isThisTrackActive
-                    ? 'border-purple-500 shadow-purple-900/40 ring-2 ring-purple-500/40'
-                    : 'border-white/10 group-hover:border-white/20'
+                className={`relative aspect-square w-full rounded-cover overflow-hidden cursor-pointer transition-all active:scale-95 shadow-lg shadow-black/50 ${
+                  isThisTrackActive ? 'ring-2 ring-accent' : ''
                 }`}
               >
                 <img
@@ -106,17 +104,17 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                 />
 
                 {/* Gradient Scrim */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
                 {/* Quick Play Trigger Button */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md shadow-xl transition-all duration-200 ${
+                    className={`w-11 h-11 rounded-full flex items-center justify-center shadow-xl transition-all duration-200 ${
                       isThisTrackPlaying
-                        ? 'bg-purple-600 text-white scale-100 opacity-100 ring-4 ring-purple-500/30'
+                        ? 'bg-accent text-white scale-100 opacity-100'
                         : isThisTrackActive
                         ? 'bg-white text-black scale-100 opacity-100'
-                        : 'bg-black/60 text-white group-hover:scale-100 group-hover:opacity-100 opacity-0 sm:group-hover:opacity-100 active:scale-90'
+                        : 'material-thin text-white group-hover:scale-100 group-hover:opacity-100 opacity-0 sm:group-hover:opacity-100 active:scale-90'
                     }`}
                   >
                     {isThisTrackPlaying ? (
@@ -128,15 +126,15 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                 </div>
 
                 {/* Duration Tag & Style Pill */}
-                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] text-white/80 font-medium">
-                  <span className="tabular-nums bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-white/10">
+                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] text-white font-medium">
+                  <span className="tabular-nums material-ultrathin px-1.5 py-0.5 rounded-md">
                     {formatTime(track.duration)}
                   </span>
                   {isThisTrackPlaying && (
-                    <span className="flex items-center gap-0.5 text-purple-400">
-                      <span className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" />
-                      <span className="w-1 h-2 bg-pink-400 rounded-full animate-pulse delay-75" />
-                      <span className="w-1 h-3.5 bg-cyan-400 rounded-full animate-pulse delay-150" />
+                    <span className="flex items-center gap-0.5">
+                      <span className="w-1 h-3 bg-white rounded-full animate-pulse" />
+                      <span className="w-1 h-2 bg-white rounded-full animate-pulse delay-75" />
+                      <span className="w-1 h-3.5 bg-white rounded-full animate-pulse delay-150" />
                     </span>
                   )}
                 </div>
@@ -148,11 +146,11 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                     toggleLike(track);
                   }}
                   aria-label={liked ? `Desfavoritar ${track.title}` : `Favoritar ${track.title}`}
-                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 backdrop-blur-md text-white/70 hover:text-white border border-white/10 transition-transform active:scale-80"
+                  className="absolute top-2 right-2 p-1.5 rounded-full material-ultrathin text-white transition-transform active:scale-80"
                 >
                   <Heart
                     className={`w-3.5 h-3.5 ${
-                      liked ? 'fill-pink-500 text-pink-500' : 'text-white/80'
+                      liked ? 'fill-accent text-accent' : 'text-white'
                     }`}
                   />
                 </button>
@@ -161,13 +159,13 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
               {/* Title & Artist Info */}
               <div className="mt-2 text-left">
                 <h3
-                  className={`text-xs font-semibold truncate ${
-                    isThisTrackActive ? 'text-purple-400' : 'text-white'
+                  className={`text-[15px] font-medium truncate ${
+                    isThisTrackActive ? 'text-accent' : 'text-label'
                   }`}
                 >
                   {track.title}
                 </h3>
-                <p className="text-[11px] text-white/50 truncate">
+                <p className="text-[13px] text-label-secondary truncate">
                   {track.artist}
                 </p>
               </div>
