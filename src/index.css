@@ -2,6 +2,13 @@
 
 @layer base {
   :root {
+    /*
+     * Safe areas: the PWA runs full-bleed (viewport-fit=cover and a translucent status bar), so on iPhones with a
+     * notch or home indicator the content reaches under them. Fixed and sticky bars add these insets to their
+     * padding. Kept as variables (0 where the device has no inset) so they can be overridden to test layouts.
+     */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
