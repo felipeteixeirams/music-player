@@ -83,12 +83,12 @@ Resultado de 2026-10-25: no navegador funcionou; só o app instalado (PWA) pausa
 ### T05: favoritos e Biblioteca
 
 1. Curta uma faixa de uma coleção, uma da busca e uma do player expandido.
-2. Recarregue a página e abra a Biblioteca: as três devem estar lá, com capa, título e artista.
+2. Recarregue a página e abra a Biblioteca (menu de seções) e depois "Músicas favoritas": as três devem estar lá, com capa, título e artista. Confira também "Artistas" e "Álbuns" (agrupam os favoritos; tocar numa linha abre as faixas, e "‹" volta) e que tocar na aba Biblioteca de novo volta ao menu.
 3. Mude de coleção ou espere o feed mudar e confira que os favoritos continuam na Biblioteca.
 4. Descurta uma e recarregue de novo.
 5. Se você tinha favoritos de antes das últimas versões, confira se eles aparecem quando a faixa reaparece em uma lista.
 
-Esperado: favoritos persistem entre recargas e não dependem do que o feed trouxe.
+Esperado: favoritos persistem entre recargas e não dependem do que o feed trouxe. "Downloads" lista as faixas baixadas (os downloads feitos antes desta versão só aparecem se a faixa também estiver nos favoritos).
 
 Se falhar: favorito que some indica problema em `src/utils/likedTracks.ts` ou limpeza do armazenamento do navegador (conferir se o modo anônimo ou a limpeza de cache não está ativo).
 
@@ -182,7 +182,7 @@ Se falhar: versão antiga persistente indica a política de cache do service wor
 1. Na aba Rádio, toque uma rádio da seção "Ao vivo": começa a tocar, o player não mostra linha do tempo, aleatório, repetir nem anterior, e o mini player indica transmissão ao vivo.
 2. Toque um "Mix por gênero": a fila segue sozinha, sem parar ao fim do primeiro lote de faixas.
 3. Se alguma faixa do mix não tocar, o app pula para a próxima em vez de travar.
-4. Menu inferior: Início, Rádio, Biblioteca e Buscar. O item destacado acompanha a tela em que você está, inclusive depois de abrir uma coleção ou uma busca.
+4. Na Rádio, as estações são quadrados em grade de 3 colunas (as de mix com a imagem do Deezer, as ao vivo com iniciais sobre uma cor); a que está tocando ganha um anel vermelho e a etiqueta TOCANDO. Menu inferior: Início, Rádio, Biblioteca e Buscar. O item destacado acompanha a tela em que você está, inclusive depois de abrir uma coleção ou uma busca.
 5. Em iPhone com recorte (PWA instalado): o título grande e o menu não ficam colados na borda e o texto da barra de status continua legível ao rolar.
 6. Botão de ajustes (engrenagem no canto do título): abre "Gerenciar cache local" e o botão de instalar o app.
 

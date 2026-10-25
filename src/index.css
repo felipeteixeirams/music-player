@@ -31,8 +31,8 @@
   --color-fill-tertiary: rgb(118 118 128 / 0.24);
   --color-segment: rgb(99 99 102);
 
-  --radius-cover: 0.5rem;
-  --radius-card: 0.75rem;
+  --radius-cover: 0.625rem;
+  --radius-card: 0.875rem;
   --radius-sheet: 1.25rem;
 }
 
