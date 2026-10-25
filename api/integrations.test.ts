@@ -141,6 +141,27 @@ test('feed endpoint returns the expected categories and a playable featured trac
   assert.match(response.headers['Cache-Control'], /s-maxage=/);
 });
 
+test('feed endpoint logs the category that failed and a summary line', async () => {
+  const warnings: string[] = [];
+  const logs: string[] = [];
+  const originalWarn = console.warn;
+  const originalLog = console.log;
+  console.warn = (...args: unknown[]) => void warnings.push(args.join(' '));
+  console.log = (...args: unknown[]) => void logs.push(args.join(' '));
+  try {
+    setFetchMock(async (url) =>
+      url.includes('/chart/152/') ? jsonResponse({}, 500) : jsonResponse({ data: [deezerItem(30)] })
+    );
+    await feedHandler({ query: {} } as unknown as VercelRequest, createResponse());
+  } finally {
+    console.warn = originalWarn;
+    console.log = originalLog;
+  }
+
+  assert.ok(warnings.some((line) => line.includes('Categoria "rock" falhou')), warnings.join('\n'));
+  assert.ok(logs.some((line) => /\[Feed\] .* trending=1 rock=0 pop=1 lofi=1 em \d+ms/.test(line)), logs.join('\n'));
+});
+
 test('feed endpoint keeps working when one Deezer category fails', async () => {
   setFetchMock(async (url) =>
     url.includes('/chart/152/') ? jsonResponse({}, 500) : jsonResponse({ data: [deezerItem(20)] })

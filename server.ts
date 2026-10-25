@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { buildDeezerFeed } from './api/_deezer';
 import { searchCatalog } from './api/_catalog';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
-import { resolveYouTubeVideoIds } from './api/_youtubeSearch';
+import { resolveYouTubeVideos } from './api/_youtubeSearch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -181,10 +181,12 @@ app.get('/api/resolve', async (req, res) => {
   }
 
   try {
-    const videoIds = await resolveYouTubeVideoIds(
+    const startTime = Date.now();
+    const { videoIds, via } = await resolveYouTubeVideos(
       { artist: artist.trim(), title: title.trim(), duration },
       { apiKey: process.env.YOUTUBE_API_KEY }
     );
+    console.log(`[Resolve] ${videoIds.length > 0 ? '✅' : '⚠️'} "${artist} - ${title}" → ${videoIds.length} vídeo(s) via ${via} em ${Date.now() - startTime}ms`);
     return res.json({ videoIds });
   } catch (err: any) {
     console.warn(`[Resolve] Falha ao localizar vídeo: ${err?.message || err}`);

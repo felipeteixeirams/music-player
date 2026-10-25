@@ -142,6 +142,13 @@ Estabilização (2026-10-25, quarta fatia):
 - Validação: no Chromium headless, o aviso aparece 0 vezes em 5 cenários de reprodução (antes de 2 a 4); o visualizador continua animando com 24 barras quando o player expandido está na aba Frequência; a troca do primeiro vídeo bloqueado (150) para o segundo continua funcionando com o player novo (duração 213s, tempo avançando).
 - Observação: o espectro é simulado (seno com ruído), não vem de análise do áudio, apesar do rótulo "Espectrograma Web Audio API / LIVE STREAMING" no player expandido. Não alterado.
 
+Observabilidade (2026-10-25, quinta fatia):
+
+- Primeiro uso em produção (deploy da `main` em 6712eb1, janela de 30 minutos): `/api/feed`, `/api/search` e `/api/resolve` responderam 200 em todas as chamadas; a busca devolveu 15 faixas via Deezer em 383ms. As respostas apareciam com `cache MISS`, esperado nas primeiras chamadas.
+- Aviso `DEP0169 url.parse()` com nível `error`: aparece uma vez por instância de função (partida a frio). Nenhum código do projeto usa `url.parse` e as funções não importam pacotes externos, então a origem é o runtime Node da Vercel. Não afeta o funcionamento e não há correção no repositório; para tirá-lo do filtro de erros, a opção é definir `NODE_OPTIONS=--no-deprecation` nas variáveis do projeto na Vercel.
+- Lacuna encontrada: `/api/resolve` não registrava nada quando funcionava (impossível saber se a `YOUTUBE_API_KEY` estava em uso) e o feed engolia falhas de categoria sem log. Agora cada resolução registra uma linha `[Resolve] ✅|⚠️ "artista - título" → N vídeo(s) via official|web|web-after-official-failure em Xms`, e o feed registra `[Feed] ✅|⚠️ trending=N rock=N pop=N lofi=N em Xms` mais um aviso por categoria que falhou. A chave nunca é registrada.
+- Como ler: `via web` com a chave configurada indica que a chave não está chegando à função; `via web-after-official-failure` indica cota esgotada ou chave recusada (a causa aparece no aviso `[YouTube] API oficial indisponível`); `0 vídeo(s)` quer dizer que a faixa só toca em prévia.
+
 Critérios de aceite adicionais para esta troca:
 
 - Busca e feed devolvem `Track` com duração real vinda do provedor, sem passar por Piped/InnerTube.

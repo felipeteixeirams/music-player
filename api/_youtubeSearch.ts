@@ -222,15 +222,27 @@ async function searchWeb(searchText: string, fetchImpl: FetchLike): Promise<Vide
   return parseWebSearchCandidates(payload);
 }
 
+/** Which search produced the candidates: the official API, the web search, or the web search after the API refused. */
+export type ResolveVia = 'official' | 'web' | 'web-after-official-failure';
+
+export interface ResolvedVideos {
+  videoIds: string[];
+  via: ResolveVia;
+}
+
 /** Official API when a key exists; the unofficial search when there is no key or the API refuses (quota, bad key). */
-async function searchCandidates(searchText: string, options: ResolveOptions, fetchImpl: FetchLike): Promise<VideoCandidate[]> {
-  if (!options.apiKey) return searchWeb(searchText, fetchImpl);
+async function searchCandidates(
+  searchText: string,
+  options: ResolveOptions,
+  fetchImpl: FetchLike
+): Promise<{ candidates: VideoCandidate[]; via: ResolveVia }> {
+  if (!options.apiKey) return { candidates: await searchWeb(searchText, fetchImpl), via: 'web' };
 
   try {
-    return await searchOfficial(searchText, options.apiKey, fetchImpl);
+    return { candidates: await searchOfficial(searchText, options.apiKey, fetchImpl), via: 'official' };
   } catch (err) {
     console.warn(`[YouTube] API oficial indisponível (${(err as Error)?.message || err}); usando a busca web.`);
-    return searchWeb(searchText, fetchImpl);
+    return { candidates: await searchWeb(searchText, fetchImpl), via: 'web-after-official-failure' };
   }
 }
 
@@ -238,12 +250,20 @@ async function searchCandidates(searchText: string, options: ResolveOptions, fet
  * Finds embeddable YouTube videos of a catalog track, best match first. Uses the official Data API when a key is
  * configured and the unofficial web search otherwise (fragile; see the integration spec).
  */
-export async function resolveYouTubeVideoIds(query: TrackQuery, options: ResolveOptions = {}): Promise<string[]> {
+export async function resolveYouTubeVideos(query: TrackQuery, options: ResolveOptions = {}): Promise<ResolvedVideos> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const searchText = `${query.artist} ${query.title} official audio`;
-  const candidates = await searchCandidates(searchText, options, fetchImpl);
+  const { candidates, via } = await searchCandidates(searchText, options, fetchImpl);
   // oEmbed only catches some blocked videos; the player reports the rest and the caller tries the next id.
   const ranked = rankCandidates(candidates, query).slice(0, MAX_RESOLVED_VIDEOS + 1);
   const checks = await Promise.all(ranked.map((candidate) => isEmbeddable(candidate.videoId, fetchImpl)));
-  return ranked.filter((_, index) => checks[index]).map((candidate) => candidate.videoId).slice(0, MAX_RESOLVED_VIDEOS);
+  const videoIds = ranked
+    .filter((_, index) => checks[index])
+    .map((candidate) => candidate.videoId)
+    .slice(0, MAX_RESOLVED_VIDEOS);
+  return { videoIds, via };
+}
+
+export async function resolveYouTubeVideoIds(query: TrackQuery, options: ResolveOptions = {}): Promise<string[]> {
+  return (await resolveYouTubeVideos(query, options)).videoIds;
 }
