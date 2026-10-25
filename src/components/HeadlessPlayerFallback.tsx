@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import ReactPlayer from 'react-player';
+import { YouTubePlayer } from './youtubePlayer';
 import { useAudio } from '../context/AudioContext';
 
 /**
@@ -8,7 +8,7 @@ import { useAudio } from '../context/AudioContext';
  * browser off-screen throttling and iframe miniaturization blocks (Error 150/151),
  * ensuring continuous and authentic audio playback behind the scenes.
  */
-const PlayerComponent = ReactPlayer as any;
+const PlayerComponent = YouTubePlayer as any;
 
 export const HeadlessPlayerFallback: React.FC = () => {
   const {
