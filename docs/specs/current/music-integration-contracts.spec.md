@@ -413,3 +413,11 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - Não considerar o trabalho anterior completo: os testes atuais simulam provedores e não substituem contratos/mappers compartilhados, smoke test real ou validação de playback no navegador.
 - Não alegar reprodução garantida com base em testes unitários, no smoke oEmbed ou na resolução da API isoladamente. Serviços públicos podem ficar indisponíveis, mudar payload, bloquear tráfego, limitar taxa ou devolver URLs expiradas.
 - Priorizar a cadeia reproduzível e observável de ponta a ponta, mantendo testes sem rede e deixando o smoke test externo como evidência complementar.
+
+## Atualização de sessões abertas (2026-10-25)
+
+- Cada build grava `version.json` (`{ "version": "<sha ou timestamp>" }`) e injeta o mesmo valor como `__APP_VERSION__`. `useAppUpdate` consulta o arquivo (`cache: 'no-store'`) ao voltar ao primeiro plano e a cada 10 minutos; se a versão publicada difere da carregada, `UpdateBanner` mostra "Nova versão disponível" com o botão "Atualizar" (recarrega a página). Nada recarrega sozinho.
+- O chunk do player do YouTube é baixado 2 s depois da abertura (`preloadYouTubePlayer`). Sem isso, uma sessão anterior a um deploy pedia um chunk inexistente (a rewrite devolve HTML com status 200) e tocava só a prévia até recarregar.
+- Regra de compatibilidade da API com o cliente anterior: ver `AGENTS.md`.
+- Critério: com a versão 1 aberta e a 2 publicada, o banner aparece, e "Atualizar" carrega a 2 e o esconde (verificado em Chromium com um segundo build; não verificado em iPhone real). Testes: `tests/appVersion.test.ts`.
+

@@ -39,6 +39,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.ogg') ||
     url.pathname.endsWith('.webm') ||
     url.pathname.includes('/streams/') ||
+    url.pathname === '/version.json' ||
     url.hostname.includes('piped') ||
     url.hostname.includes('googlevideo') ||
     url.hostname.includes('youtube')
