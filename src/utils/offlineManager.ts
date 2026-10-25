@@ -31,16 +31,20 @@ export function isTrackOfflineAvailable(trackId: string): boolean {
 export async function downloadTrackForOffline(
   track: Track,
   currentAudioStreamUrl?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; previewOnly?: boolean }> {
   if (!('caches' in window)) {
     return { success: false, error: 'O seu navegador não suporta armazenamento offline.' };
   }
 
   try {
     let resolvedAudioUrl = currentAudioStreamUrl || '';
+    const previewUrl = track.sources.previewUrl;
 
-    // If audio URL is not available or is a YouTube watch URL, resolve stream URL from Piped
-    if (!resolvedAudioUrl || resolvedAudioUrl.includes('youtube.com/watch')) {
+    // Catalog previews: the CDN sends no CORS headers, so the copy goes through the same-origin proxy.
+    // A full track playing from YouTube cannot be downloaded; only the 30s preview is stored.
+    if (previewUrl) {
+      resolvedAudioUrl = `/api/audio?url=${encodeURIComponent(previewUrl)}`;
+    } else if (!resolvedAudioUrl || resolvedAudioUrl.includes('youtube.com/watch')) {
       if (track.sources.localUrl) {
         resolvedAudioUrl = track.sources.localUrl;
       } else if (track.sources.youtubeId) {
@@ -51,8 +55,11 @@ export async function downloadTrackForOffline(
       }
     }
 
+    // A YouTube watch page is a player, not an audio file
+    if (resolvedAudioUrl.includes('youtube.com/watch')) resolvedAudioUrl = '';
+
     if (!resolvedAudioUrl) {
-      return { success: false, error: 'Não foi possível obter o fluxo de áudio para download.' };
+      return { success: false, error: 'Esta faixa não pode ser baixada: o áudio completo vem do YouTube.' };
     }
 
     const cache = await caches.open(OFFLINE_CACHE_NAME);
@@ -81,7 +88,7 @@ export async function downloadTrackForOffline(
     }
 
     console.log(`[Offline Manager] ⬇️ Faixa ${track.id} baixada e armazenada para uso offline.`);
-    return { success: true };
+    return { success: true, previewOnly: Boolean(previewUrl) };
   } catch (err: any) {
     console.warn(`[Offline Manager] ⚠️ Não foi possível baixar a faixa ${track.id}:`, err);
     return { success: false, error: err?.message || 'Erro inesperado ao baixar faixa.' };

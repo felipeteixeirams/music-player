@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { searchDeezerTracks } from './_deezer.js';
+import { searchCatalog } from './_catalog.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const query = req.query.q;
@@ -13,12 +13,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log(`[Vercel Serverless Search] 🔍 Buscando músicas para: "${cleanQuery}"`);
 
   try {
-    const tracks = await searchDeezerTracks(cleanQuery, { style: 'Deezer' });
-    console.log(`[Vercel Serverless Search] ✅ ${tracks.length} faixas via Deezer em ${Date.now() - startTime}ms`);
-    res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
-    return res.status(200).json({ tracks, source: 'deezer' });
+    const result = await searchCatalog(cleanQuery);
+    console.log(`[Vercel Serverless Search] ✅ ${result.tracks.length} faixas via ${result.source} em ${Date.now() - startTime}ms`);
+    if (result.tracks.length > 0) res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
+    return res.status(200).json(result);
   } catch (err: any) {
-    console.warn(`[Vercel Serverless Search] ⚠️ Falha na busca Deezer: ${err?.message || err}`);
+    console.warn(`[Vercel Serverless Search] ⚠️ Falha em todos os catálogos: ${err?.message || err}`);
     return res.status(200).json({ tracks: [], source: 'deezer', message: 'Nenhuma faixa online encontrada' });
   }
 }

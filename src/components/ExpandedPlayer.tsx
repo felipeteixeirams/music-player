@@ -20,6 +20,7 @@ import {
 import { useAudio } from '../context/AudioContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
 import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
+import { PlaybackNotice } from './PlaybackNotice';
 
 export const ExpandedPlayer: React.FC = () => {
   const {
@@ -268,6 +269,8 @@ export const ExpandedPlayer: React.FC = () => {
           )}
         </div>
 
+        <PlaybackNotice className="mb-2" />
+
         {/* 3. Metadata Row with Favorite Heart Button */}
         <div className="flex items-center justify-between my-2">
           <div className="min-w-0 pr-3 text-left">
@@ -288,7 +291,7 @@ export const ExpandedPlayer: React.FC = () => {
           </div>
 
           <button
-            onClick={() => toggleLike(currentTrack.id)}
+            onClick={() => toggleLike(currentTrack)}
             aria-label={liked ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             className="w-11 h-11 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center shrink-0 active:scale-75 transition-all"
           >

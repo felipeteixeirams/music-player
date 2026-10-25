@@ -222,6 +222,18 @@ async function searchWeb(searchText: string, fetchImpl: FetchLike): Promise<Vide
   return parseWebSearchCandidates(payload);
 }
 
+/** Official API when a key exists; the unofficial search when there is no key or the API refuses (quota, bad key). */
+async function searchCandidates(searchText: string, options: ResolveOptions, fetchImpl: FetchLike): Promise<VideoCandidate[]> {
+  if (!options.apiKey) return searchWeb(searchText, fetchImpl);
+
+  try {
+    return await searchOfficial(searchText, options.apiKey, fetchImpl);
+  } catch (err) {
+    console.warn(`[YouTube] API oficial indisponível (${(err as Error)?.message || err}); usando a busca web.`);
+    return searchWeb(searchText, fetchImpl);
+  }
+}
+
 /**
  * Finds embeddable YouTube videos of a catalog track, best match first. Uses the official Data API when a key is
  * configured and the unofficial web search otherwise (fragile; see the integration spec).
@@ -229,9 +241,7 @@ async function searchWeb(searchText: string, fetchImpl: FetchLike): Promise<Vide
 export async function resolveYouTubeVideoIds(query: TrackQuery, options: ResolveOptions = {}): Promise<string[]> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const searchText = `${query.artist} ${query.title} official audio`;
-  const candidates = options.apiKey
-    ? await searchOfficial(searchText, options.apiKey, fetchImpl)
-    : await searchWeb(searchText, fetchImpl);
+  const candidates = await searchCandidates(searchText, options, fetchImpl);
   // oEmbed only catches some blocked videos; the player reports the rest and the caller tries the next id.
   const ranked = rankCandidates(candidates, query).slice(0, MAX_RESOLVED_VIDEOS + 1);
   const checks = await Promise.all(ranked.map((candidate) => isEmbeddable(candidate.videoId, fetchImpl)));

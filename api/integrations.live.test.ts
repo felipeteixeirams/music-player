@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { searchDeezerTracks } from './_deezer';
 import { resolveYouTubeVideoIds } from './_youtubeSearch';
+import { searchItunesTracks } from './_itunes';
 
 test(
   'live Deezer search returns tracks whose preview is real audio',
@@ -41,5 +42,25 @@ test(
       // Finding a video does not prove the owner allows embedding: that is only known when the player loads it.
       console.info(`Live smoke: ${track.artist} - ${track.title} -> ${videoIds.join(', ')}`);
     }
+  }
+);
+
+test(
+  'live iTunes fallback returns tracks whose preview is real audio',
+  { skip: process.env.RUN_LIVE_INTEGRATION_TESTS !== '1', timeout: 30000 },
+  async () => {
+    const tracks = await searchItunesTracks('Bon Jovi Livin on a Prayer');
+    const track = tracks.find((t) => t.sources.previewUrl);
+    assert.ok(track, 'iTunes returned no track with a preview');
+    assert.ok(track.duration > 0);
+
+    const audio = await fetch(track.sources.previewUrl!, {
+      headers: { Range: 'bytes=0-0' },
+      signal: AbortSignal.timeout(8000)
+    });
+    await audio.body?.cancel();
+    assert.ok(audio.ok, `iTunes preview returned HTTP ${audio.status}`);
+    assert.match(audio.headers.get('content-type') ?? '', /^(audio|video)\//);
+    console.info(`Live smoke: iTunes -> ${track.artist} - ${track.title} (${track.duration}s), preview HTTP ${audio.status}`);
   }
 );

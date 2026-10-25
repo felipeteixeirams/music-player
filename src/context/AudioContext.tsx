@@ -8,6 +8,24 @@ import {
   resolveFullTrackVideoIds
 } from '../utils/audioEngine';
 import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
+import {
+  LIKED_IDS_KEY,
+  LIKED_TRACKS_KEY,
+  hydrateLikedLibrary,
+  likedIds,
+  loadLikedLibrary,
+  toggleLikedTrack,
+  type LikedLibrary
+} from '../utils/likedTracks';
+
+export interface PlaybackStatus {
+  instanceUsed?: string;
+  quality?: string;
+  /** The track cannot be played. */
+  error?: string;
+  /** The track plays, but not in the best way (for example only the 30s preview). */
+  notice?: string;
+}
 
 interface AudioContextType {
   currentTrack: Track | null;
@@ -24,9 +42,10 @@ interface AudioContextType {
   preferredEngine: AudioEngineType;
   isBuffering: boolean;
   isExpanded: boolean;
-  pipedStatus: { instanceUsed?: string; quality?: string; error?: string };
+  pipedStatus: PlaybackStatus;
   audioStreamUrl: string;
   likedTrackIds: string[];
+  likedTracks: Track[];
   audioFrequencyData: number[];
   userSeekRequest: number | null;
   
@@ -46,14 +65,14 @@ interface AudioContextType {
   toggleRepeat: () => void;
   setPreferredEngine: (engine: AudioEngineType) => void;
   toggleExpanded: (open?: boolean) => void;
-  toggleLike: (trackId: string) => void;
+  toggleLike: (track: Track) => void;
+  hydrateLikedTracks: (tracks: Track[]) => void;
   isLiked: (trackId: string) => boolean;
   switchEngineManually: (engine: AudioEngineType) => Promise<void>;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
 
-const LIKED_STORAGE_KEY = 'aurastream_liked_tracks';
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [queue, setQueue] = useState<Track[]>([]);
@@ -72,21 +91,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [preferredEngine, setPreferredEngineState] = useState<AudioEngineType>('fallback');
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [pipedStatus, setPipedStatus] = useState<{ instanceUsed?: string; quality?: string; error?: string }>({
+  const [pipedStatus, setPipedStatus] = useState<PlaybackStatus>({
     quality: 'Áudio Original',
     instanceUsed: 'YouTube / Piped'
   });
   const [audioStreamUrl, setAudioStreamUrl] = useState<string>('');
   const [userSeekRequest, setUserSeekRequest] = useState<number | null>(null);
   
-  const [likedTrackIds, setLikedTrackIds] = useState<string[]>(() => {
+  const [likedLibrary, setLikedLibrary] = useState<LikedLibrary>(() => {
     try {
-      const saved = localStorage.getItem(LIKED_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      return loadLikedLibrary(localStorage);
     } catch {
-      return [];
+      return { tracks: [], pendingIds: [] };
     }
   });
+  const likedTrackIds = likedIds(likedLibrary);
 
   const [audioFrequencyData, setAudioFrequencyData] = useState<number[]>(new Array(24).fill(12));
 
@@ -127,7 +146,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setActiveEngine('native');
     setAudioStreamUrl(previewUrl);
-    setPipedStatus({ quality: 'Prévia de 30s', instanceUsed: 'Deezer' });
+    setPipedStatus({
+      quality: 'Prévia de 30s',
+      instanceUsed: 'Catálogo',
+      notice: 'Faixa completa indisponível, tocando a prévia de 30s.'
+    });
     audioRef.current.src = previewUrl;
     if (shouldPlay) {
       try {
@@ -198,14 +221,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [triggerFallbackEngine]);
 
-  // Save liked tracks to localStorage
+  // Save liked tracks (with metadata) to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(LIKED_STORAGE_KEY, JSON.stringify(likedTrackIds));
+      localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedLibrary.tracks));
+      localStorage.setItem(LIKED_IDS_KEY, JSON.stringify(likedLibrary.pendingIds));
     } catch {
       // quota or private mode fallback
     }
-  }, [likedTrackIds]);
+  }, [likedLibrary]);
 
   // Audio Visualizer data generator (strictly active during audio playback)
   useEffect(() => {
@@ -242,6 +266,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
     const token = ++loadTokenRef.current;
+    setPipedStatus((prev) => (prev.error || prev.notice ? { ...prev, error: undefined, notice: undefined } : prev));
     setIsBuffering(true);
     setCurrentTrack(track);
     setDuration(track.duration);
@@ -611,10 +636,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsExpanded((prev) => (open !== undefined ? open : !prev));
   }, []);
 
-  const toggleLike = useCallback((trackId: string) => {
-    setLikedTrackIds((prev) =>
-      prev.includes(trackId) ? prev.filter((id) => id !== trackId) : [...prev, trackId]
-    );
+  const toggleLike = useCallback((track: Track) => {
+    setLikedLibrary((prev) => toggleLikedTrack(prev, track));
+  }, []);
+
+  const hydrateLikedTracks = useCallback((tracks: Track[]) => {
+    setLikedLibrary((prev) => hydrateLikedLibrary(prev, tracks));
   }, []);
 
   const isLiked = useCallback((trackId: string) => {
@@ -641,6 +668,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         pipedStatus,
         audioStreamUrl,
         likedTrackIds,
+        likedTracks: likedLibrary.tracks,
         audioFrequencyData,
         userSeekRequest,
         playTrack,
@@ -659,6 +687,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setPreferredEngine,
         toggleExpanded,
         toggleLike,
+        hydrateLikedTracks,
         isLiked,
         switchEngineManually
       }}

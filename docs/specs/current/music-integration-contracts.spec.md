@@ -116,8 +116,8 @@ Estado da implementação (2026-10-25, primeira fatia):
 
 - Feito: `api/_deezer.ts` (mapper `unknown` -> `Track`, deduplicação, descarte de itens inválidos, `previewUrl` omitido quando ausente ou inválido, duração real obrigatória), busca/feed/`server.ts` migrados, `AudioContext` toca a prévia, testes determinísticos (`api/deezer.test.ts` e handlers) e smoke live atualizado.
 - Validação: `npm test` 28 aprovados e 1 ignorado; `npm run lint` e `npm run build` passam; smoke live com Metallica, Creed e Bon Jovi obteve prévias com HTTP 206 e `audio/*`; em Chromium headless o `<audio>` avançou ~5s de uma prévia de ~30s sem erro.
-- Limitações conhecidas: o CDN de prévias não enviou cabeçalho CORS no teste, então o download offline de prévias via `fetch` com `mode: 'cors'` provavelmente falha (não testado; precisaria de proxy no servidor); erros de reprodução vão para `pipedStatus.error`, que nenhum componente exibe; a primeira faixa de "Metallica One" é uma versão ao vivo, pois a busca do Deezer não prioriza a original.
-- Pendente: reserva iTunes; migração dos IDs de favoritos/offline antigos (`ytm-*`, `piped-*`), que não existem mais no catálogo; remoção do código Piped de stream; contrato versionado de resposta.
+- Limitações conhecidas desta fatia (resolvidas na terceira): download offline de prévias sem CORS, erro de reprodução invisível e a primeira faixa de "Metallica One" ser uma versão ao vivo (a busca do Deezer não prioriza a original; segue em aberto).
+- Pendente: ver a seção "Estabilização" abaixo.
 
 Áudio completo via YouTube (2026-10-25, segunda fatia):
 
@@ -126,6 +126,14 @@ Estado da implementação (2026-10-25, primeira fatia):
 - Validação: `npm test` 45 aprovados e 2 ignorados (live); smoke live acha vídeos para Creed, Bon Jovi e Queen; no app, com a resposta de `/api/resolve` simulada com um vídeo incorporável, o primeiro candidato bloqueado (150) levou ao segundo, que tocou com duração total de 213s e `currentTime` avançando de 0,3s para 6,4s.
 - **Não confirmado:** a incorporação de vídeos musicais reais. No ambiente de teste (Chromium headless, IP de datacenter) todos os candidatos de 6 faixas do feed deram erro 150, e um vídeo de teste conhecido também; só o vídeo de Rick Astley tocou. Não está claro se é bloqueio dos donos dos vídeos ou do ambiente. O `oEmbed` respondeu OK para vídeos que o player recusou, então não serve de pré-checagem confiável. Validar em navegador comum, com IP residencial, antes de afirmar que o áudio completo funciona para o usuário.
 - Cota: `search.list` custa 100 unidades (cerca de 100 buscas por dia com a chave gratuita) e cada faixa tocada gera uma resolução; a busca web sem chave não tem cota, mas pode ser bloqueada.
+
+Estabilização (2026-10-25, terceira fatia):
+
+- **Confirmado pelo usuário em produção:** a faixa completa tocou no celular (IP residencial/móvel). Isso indica que os erros 150 do ambiente de teste vinham do IP de datacenter.
+- Feito: busca com reserva iTunes (`searchCatalog`); `GET /api/audio` para baixar prévias offline sem CORS, restrito a CDNs de catálogo; favoritos guardam a faixa (migração dos ids `deezer-*`/`itunes-*` antigos quando a faixa reaparece, descarte dos ids `ytm-*`/`piped-*`); `PlaybackNotice` mostra erro ou aviso de prévia; falha da API oficial do YouTube (cota, chave) cai na busca web; faixas completas do YouTube não podem ser baixadas e a UI explica.
+- Validação: `npm test` 65 aprovados e 3 ignorados (live); smoke live inclui iTunes; no Chromium headless, favorito salvo aparece na biblioteca com o feed vazio, a prévia toca com o aviso quando `/api/resolve` não acha vídeo, e o download offline guarda a prévia pelo proxy e mostra o aviso de 30s; o proxy devolve 400 para hosts fora da lista (incluindo `169.254.169.254`).
+- Limitações conhecidas: o feed não tem reserva (se o Deezer cair, as categorias ficam vazias); o download offline guarda só os 30s da prévia, e o aviso diz isso; a busca web do YouTube, usada sem chave ou quando a API recusa, é não oficial e pode ser bloqueada.
+- Pendente: reserva iTunes para o feed; remoção do código Piped de stream (`api/streams/[id].ts` e usos em `audioEngine.ts`); contrato versionado de resposta.
 
 Critérios de aceite adicionais para esta troca:
 
