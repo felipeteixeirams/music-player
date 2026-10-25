@@ -3,6 +3,7 @@ import { afterEach, test } from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import feedHandler from './feed';
 import searchHandler from './search';
+import resolveHandler from './resolve';
 import streamHandler from './streams/[id]';
 import { fetchPipedAudioStream } from '../src/utils/audioEngine';
 
@@ -218,4 +219,53 @@ test('audio client consumes the stream endpoint contract and its fallback respon
   const fallback = await fetchPipedAudioStream('dQw4w9WgXcQ');
   assert.equal(fallback.audioUrl, null);
   assert.equal(fallback.instanceUsed, 'YouTube Engine');
+});
+test('resolve endpoint returns the video ids found for a catalog track', async () => {
+  setFetchMock(async (url) =>
+    url.includes('/oembed') ? jsonResponse({}) : jsonResponse({
+      contents: [{
+        videoRenderer: {
+          videoId: 'WM8bTdBs-cw',
+          title: { runs: [{ text: 'Metallica: One (Official Audio)' }] },
+          ownerText: { runs: [{ text: 'Metallica' }] },
+          lengthText: { simpleText: '7:27' }
+        }
+      }]
+    })
+  );
+
+  const response = createResponse();
+  await resolveHandler(
+    { query: { artist: 'Metallica', title: 'One', duration: '447' } } as unknown as VercelRequest,
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, { videoIds: ['WM8bTdBs-cw'] });
+  assert.match(response.headers['Cache-Control'], /s-maxage=/);
+});
+
+test('resolve endpoint validates its parameters without calling YouTube', async () => {
+  setFetchMock(async () => {
+    throw new Error('YouTube must not be called');
+  });
+
+  for (const query of [{}, { artist: 'Metallica', title: 'One' }, { artist: 'Metallica', title: 'One', duration: '-5' }]) {
+    const response = createResponse();
+    await resolveHandler({ query } as unknown as VercelRequest, response);
+    assert.equal(response.statusCode, 400);
+  }
+});
+
+test('resolve endpoint answers an empty list when YouTube fails', async () => {
+  setFetchMock(async () => jsonResponse({}, 429));
+
+  const response = createResponse();
+  await resolveHandler(
+    { query: { artist: 'Metallica', title: 'One', duration: '447' } } as unknown as VercelRequest,
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, { videoIds: [] });
 });

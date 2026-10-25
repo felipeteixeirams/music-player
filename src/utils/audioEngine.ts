@@ -218,3 +218,35 @@ export function resolveAudioDetails(
     fallbackAvailable: false
   };
 }
+
+const resolvedVideoIds = new Map<string, string[]>();
+
+/**
+ * Finds the YouTube videos that play the full recording of a catalog track (Deezer), best first.
+ * Answers, including empty ones, are cached for the session to spare the daily search quota;
+ * failures are not cached.
+ */
+export async function resolveFullTrackVideoIds(track: Track, timeoutMs = 6000): Promise<string[]> {
+  const cached = resolvedVideoIds.get(track.id);
+  if (cached) return cached;
+
+  try {
+    const params = new URLSearchParams({
+      artist: track.artist,
+      title: track.title,
+      duration: String(track.duration)
+    });
+    const response = await fetch(`/api/resolve?${params}`, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!response.ok) return [];
+
+    const data: unknown = await response.json();
+    const videoIds = (data as { videoIds?: unknown } | null)?.videoIds;
+    const resolved = Array.isArray(videoIds)
+      ? videoIds.filter((id): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id))
+      : [];
+    resolvedVideoIds.set(track.id, resolved);
+    return resolved;
+  } catch {
+    return [];
+  }
+}

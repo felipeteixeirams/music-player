@@ -8,7 +8,7 @@ A especificação ativa é [Contratos, mappers e testes](../specs/current/music-
 
 ## Estado
 
-**Status: busca, feed e prévia de 30s migrados para Deezer e validados em navegador headless; áudio completo (YouTube) e reserva iTunes ainda não implementados.**
+**Status: busca, feed e prévia de 30s via Deezer; áudio completo via YouTube oculto implementado e validado no app, mas a incorporação de vídeos musicais reais falhou no ambiente de teste (erro 150); reserva iTunes não implementada.**
 
 Já existem correções parciais de normalização de IDs Piped/YouTube, remoção do player concorrente no painel expandido, testes determinísticos dos handlers e um smoke test contra os serviços reais. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e teste de playback no navegador.
 
@@ -16,7 +16,7 @@ Os testes HTTP simulam respostas dos provedores e validam parsing, fallback e co
 
 ## Direção aprovada (2026-10-25)
 
-A verificação de 2026-10-25 mostrou as integrações atuais degradadas: o parser InnerTube extrai 0 faixas, a maioria das instâncias Piped está fora do ar e nenhum stream direto Piped funcionou. A direção aprovada para uso pessoal, gratuito e somente áudio é: catálogo e metadados via **Deezer** (reserva **iTunes**), áudio padrão por **preview de 30s**, e áudio completo por **YouTube oculto**, mantido provisoriamente até o usuário decidir a solução definitiva. Piped e InnerTube saem do caminho de produção. Diagnóstico completo, fatos confirmados, limites e critérios de aceite estão no [satélite](../specs/current/music-integration-contracts.spec.md#decisão-troca-de-provedores-aprovada-em-2026-10-25). **Implementado (2026-10-25):** `api/_deezer.ts` (mapper puro + client, usado por `api/search.ts`, `api/feed.ts` e `server.ts`), tipo `AudioSource` com `previewUrl` e `youtubeId` opcionais, e prioridade de playback offline -> prévia -> Piped/YouTube em `AudioContext`. Busca, feed e prévia foram validados (testes determinísticos, smoke live com Metallica, Creed e Bon Jovi, e reprodução em Chromium headless com `currentTime` avançando). **Pendente:** reserva iTunes, resolução de áudio completo via YouTube para faixas Deezer (exige buscar o vídeo por artista + título), exibição de erros de reprodução na UI e remoção do código Piped de stream, hoje sem uso para faixas Deezer. As seções abaixo ainda descrevem a arquitetura anterior onde indicado.
+A verificação de 2026-10-25 mostrou as integrações atuais degradadas: o parser InnerTube extrai 0 faixas, a maioria das instâncias Piped está fora do ar e nenhum stream direto Piped funcionou. A direção aprovada para uso pessoal, gratuito e somente áudio é: catálogo e metadados via **Deezer** (reserva **iTunes**), áudio padrão por **preview de 30s**, e áudio completo por **YouTube oculto**, mantido provisoriamente até o usuário decidir a solução definitiva. Piped e InnerTube saem do caminho de produção. Diagnóstico completo, fatos confirmados, limites e critérios de aceite estão no [satélite](../specs/current/music-integration-contracts.spec.md#decisão-troca-de-provedores-aprovada-em-2026-10-25). **Implementado (2026-10-25):** `api/_deezer.ts` (mapper puro + client, usado por `api/search.ts`, `api/feed.ts` e `server.ts`), tipo `AudioSource` com `previewUrl` e `youtubeId` opcionais, e prioridade de playback offline -> prévia -> Piped/YouTube em `AudioContext`. Busca, feed e prévia foram validados (testes determinísticos, smoke live com Metallica, Creed e Bon Jovi, e reprodução em Chromium headless com `currentTime` avançando). **Áudio completo (2026-10-25):** `api/_youtubeSearch.ts` e `GET /api/resolve` localizam até 3 vídeos por artista + título + duração, e `AudioContext` toca o primeiro no `HeadlessPlayerFallback`; se o embed falhar, tenta o próximo vídeo e depois a prévia. O `HeadlessPlayerFallback` foi reescrito para a API do react-player v3, pois a versão anterior usava a API v2 (`url`, `seekTo`) e nunca tocou. **Pendente:** reserva iTunes, exibição de erros de reprodução na UI, remoção do código Piped de stream e uma solução definitiva para áudio completo (decisão do usuário). As seções abaixo ainda descrevem a arquitetura anterior onde indicado.
 
 ## Domínio coberto
 
@@ -35,7 +35,7 @@ YouTube Music InnerTube / Piped
 Serviços atuais:
 
 - Deezer API é a fonte de busca e feed (`/search`, `/chart/{genre}/tracks`); faixas trazem duração real e `previewUrl` de 30s quando existir.
-- O áudio padrão é a prévia, tocada por `HTMLAudioElement` (engine `native`). Faixa sem prévia nem outra fonte mostra erro em `pipedStatus.error`, ainda não exibido na UI.
+- O áudio padrão é a faixa completa via YouTube oculto (engine `fallback`), com o vídeo localizado por `/api/resolve`. Sem vídeo ou com embed bloqueado, toca a prévia de 30s por `HTMLAudioElement` (engine `native`). Faixa sem nenhuma fonte mostra erro em `pipedStatus.error`, ainda não exibido na UI.
 - Instâncias Piped continuam apenas na rota `/api/streams/:id`, hoje inativa para faixas Deezer (sem `youtubeId`) e com bloqueio do YouTube observado.
 - YouTube InnerTube/Piped de busca foram removidos das rotas e do `server.ts`.
 - O `HeadlessPlayerFallback` só é acionado para faixas com `youtubeId`.
@@ -46,6 +46,7 @@ Serviços atuais:
 - `src/utils/youtubeId.ts`: normalização de IDs para URLs e IDs simples.
 - `api/_deezer.ts`: mapper e client Deezer compartilhados; `api/search.ts`, `api/feed.ts` e `server.ts` só tratam HTTP/cache.
 - `api/deezer.test.ts`: testes do mapper sem rede.
+- `api/_youtubeSearch.ts`, `api/resolve.ts` e `api/youtubeSearch.test.ts`: busca do vídeo da faixa (API oficial com `YOUTUBE_API_KEY`, ou busca web não oficial sem chave), ranqueamento por duração/título/canal e testes sem rede.
 - `api/streams/[id].ts` e `server.ts`: resolução Piped duplicada e contrato de resposta de stream.
 - `src/utils/audioEngine.ts`: chamada client-side à resolução e utilitários de engine.
 - `src/context/AudioContext.tsx`: prioridade offline, stream, engine ativa e controles de playback.

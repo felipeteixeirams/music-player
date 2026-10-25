@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildDeezerFeed, searchDeezerTracks } from './api/_deezer';
+import { resolveYouTubeVideoIds } from './api/_youtubeSearch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -152,6 +153,28 @@ app.get('/api/search', async (req, res) => {
   } catch (err: any) {
     console.warn(`[Search] Falha na busca Deezer: ${err?.message || err}`);
     return res.json({ tracks: [], source: 'deezer', message: 'Nenhuma faixa online encontrada' });
+  }
+});
+
+// Endpoint: GET /api/resolve?artist=&title=&duration=
+// Finds the YouTube videos that play the full recording of a catalog track
+app.get('/api/resolve', async (req, res) => {
+  const { artist, title } = req.query;
+  const duration = Number(req.query.duration);
+  if (typeof artist !== 'string' || !artist.trim() || typeof title !== 'string' || !title.trim()
+    || !Number.isFinite(duration) || duration <= 0) {
+    return res.status(400).json({ error: 'artist, title and duration are required' });
+  }
+
+  try {
+    const videoIds = await resolveYouTubeVideoIds(
+      { artist: artist.trim(), title: title.trim(), duration },
+      { apiKey: process.env.YOUTUBE_API_KEY }
+    );
+    return res.json({ videoIds });
+  } catch (err: any) {
+    console.warn(`[Resolve] Falha ao localizar vídeo: ${err?.message || err}`);
+    return res.json({ videoIds: [] });
   }
 });
 

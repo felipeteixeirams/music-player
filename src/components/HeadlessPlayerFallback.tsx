@@ -21,15 +21,16 @@ export const HeadlessPlayerFallback: React.FC = () => {
     updatePlaybackTime,
     setDuration,
     userSeekRequest,
-    clearUserSeekRequest
+    clearUserSeekRequest,
+    handleFallbackError
   } = useAudio();
 
   const playerRef = useRef<any>(null);
 
   // Sync seek when user moves timeline slider
   useEffect(() => {
-    if (userSeekRequest !== null && playerRef.current && typeof playerRef.current.seekTo === 'function') {
-      playerRef.current.seekTo(userSeekRequest, 'seconds');
+    if (userSeekRequest !== null && playerRef.current) {
+      playerRef.current.currentTime = userSeekRequest;
       clearUserSeekRequest();
     }
   }, [userSeekRequest, clearUserSeekRequest]);
@@ -57,13 +58,13 @@ export const HeadlessPlayerFallback: React.FC = () => {
       {targetUrl ? (
         <PlayerComponent
           ref={playerRef}
-          url={targetUrl}
+          src={targetUrl}
           playing={isPlaying && isFallbackActive}
           volume={isMuted ? 0 : volume}
           width="320px"
           height="180px"
           controls={false}
-          playsinline
+          playsInline
           config={{
             youtube: {
               playerVars: {
@@ -79,27 +80,19 @@ export const HeadlessPlayerFallback: React.FC = () => {
               }
             } as any
           }}
-          onReady={(player: any) => {
-            if (isPlaying && isFallbackActive && player && typeof player.playVideo === 'function') {
-              try {
-                player.playVideo();
-              } catch {}
-            }
-            if (player && typeof player.getDuration === 'function') {
-              const d = player.getDuration();
-              if (d && d > 0) setDuration(Math.round(d));
-            }
+          onDurationChange={(event: React.SyntheticEvent<HTMLMediaElement>) => {
+            const d = event.currentTarget.duration;
+            if (Number.isFinite(d) && d > 0) setDuration(Math.round(d));
           }}
-          onProgress={(state: any) => {
-            if (state && typeof state.playedSeconds === 'number') {
-              updatePlaybackTime(state.playedSeconds);
-            }
+          onTimeUpdate={(event: React.SyntheticEvent<HTMLMediaElement>) => {
+            updatePlaybackTime(event.currentTarget.currentTime);
           }}
           onEnded={() => {
             playNext();
           }}
           onError={(err: any) => {
-            console.warn('Background playback notice:', err);
+            console.warn('Background playback failed, switching source:', err);
+            handleFallbackError();
           }}
         />
       ) : null}
