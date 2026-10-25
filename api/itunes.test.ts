@@ -74,10 +74,11 @@ test('searchCatalog answers from Deezer and never calls iTunes when Deezer has t
     return Response.json({ data: [deezerItem(1)] });
   }) as unknown as typeof fetch;
 
-  const result = await searchCatalog('anything', fetchImpl);
+  const result = await searchCatalog('anything', { fetchImpl });
   assert.equal(result.source, 'deezer');
   assert.equal(result.tracks[0].id, 'deezer-1');
   assert.equal(requested.length, 1);
+  assert.match(requested[0], /\/search\?q=anything&index=0&limit=20$/);
 });
 
 test('searchCatalog falls back to iTunes when Deezer fails or finds nothing', async () => {
@@ -86,7 +87,7 @@ test('searchCatalog falls back to iTunes when Deezer fails or finds nothing', as
       String(url).includes('deezer.com') ? deezerResponse.clone() : Response.json({ results: [valid] })
     ) as unknown as typeof fetch;
 
-    const result = await searchCatalog('anything', fetchImpl);
+    const result = await searchCatalog('anything', { fetchImpl });
     assert.equal(result.source, 'itunes');
     assert.equal(result.tracks[0].id, 'itunes-617154366');
   }
@@ -94,12 +95,32 @@ test('searchCatalog falls back to iTunes when Deezer fails or finds nothing', as
 
 test('searchCatalog rejects only when both catalogs fail', async () => {
   const fetchImpl = (async () => new Response('', { status: 500 })) as unknown as typeof fetch;
-  await assert.rejects(searchCatalog('anything', fetchImpl), /iTunes HTTP 500/);
+  await assert.rejects(searchCatalog('anything', { fetchImpl }), /iTunes HTTP 500/);
 });
 
 test('searchCatalog returns an empty result when Deezer is empty and iTunes is down', async () => {
   const fetchImpl = (async (url: string) =>
     String(url).includes('deezer.com') ? Response.json({ data: [] }) : new Response('', { status: 500 })
   ) as unknown as typeof fetch;
-  assert.deepEqual(await searchCatalog('anything', fetchImpl), { tracks: [], source: 'deezer' });
+  assert.deepEqual(await searchCatalog('anything', { fetchImpl }), { tracks: [], total: 0, nextIndex: null, source: 'deezer' });
+});
+
+test('searchCatalog asks Deezer for the requested page and never falls back to iTunes past the first page', async () => {
+  const requested: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    requested.push(String(url));
+    return Response.json({ total: 90, data: [deezerItem(41), deezerItem(42)] });
+  }) as unknown as typeof fetch;
+  const page = await searchCatalog('rock', { index: 40, limit: 2, fetchImpl });
+  assert.match(requested[0], /index=40&limit=2/);
+  assert.equal(page.nextIndex, 42);
+  assert.equal(page.total, 90);
+
+  const emptyPage = (async () => Response.json({ total: 90, data: [] })) as unknown as typeof fetch;
+  const empty = await searchCatalog('rock', { index: 80, fetchImpl: emptyPage });
+  assert.deepEqual(empty.tracks, []);
+  assert.equal(empty.source, 'deezer');
+
+  const down = (async () => new Response('', { status: 503 })) as unknown as typeof fetch;
+  await assert.rejects(searchCatalog('rock', { index: 40, fetchImpl: down }), /Deezer HTTP 503/);
 });
