@@ -42,8 +42,8 @@ Se falhar: `via web` com a chave configurada indica que a chave não chega à fu
 ### T02: fidelidade das coleções, "Ver tudo" e paginação
 
 1. Na home, confira os 5 carrosséis e o conteúdo de cada um contra a descrição: Top Hits (músicas mais tocadas no Brasil), Classic Rock (AC/DC, Pink Floyd, Bowie, Beatles), Alternative & Indie (indie e alternativo de hoje), Lofi Chill (lo-fi para estudar), Synthwave & Retrowave (sintetizadores dos anos 80).
-2. Toque em "Ver tudo" em cada carrossel e confira que a lista mostra só aquela coleção (Synthwave não pode mostrar faixas de outras).
-3. Em uma coleção, role até o fim. As faixas devem aparecer em blocos, o cabeçalho deve ir de "35 de 100 faixas" a "100 faixas" e o botão "Carregar mais" deve sumir no fim.
+2. Toque em "Ver tudo" em cada carrossel e também em cada bloco da grade "Explorar tudo" da aba Buscar; confira que a lista mostra só aquela coleção (Synthwave não pode mostrar faixas de outras) e que "‹" no topo volta à tela de onde você veio.
+3. Em uma coleção, role até o fim. As faixas devem aparecer em blocos e o botão "Carregar mais" deve sumir no fim; a linha sob o título diz o total da coleção (por exemplo "100 faixas").
 4. Procure faixas repetidas na mesma lista.
 
 Esperado: nenhuma coleção com faixa fora do tema, nenhuma repetida, contagens iguais ao `total` de T01, rolagem sem travar.
@@ -183,7 +183,8 @@ Se falhar: versão antiga persistente indica a política de cache do service wor
 2. Toque um "Mix por gênero": a fila segue sozinha, sem parar ao fim do primeiro lote de faixas.
 3. Se alguma faixa do mix não tocar, o app pula para a próxima em vez de travar.
 4. Menu inferior: Início, Rádio, Biblioteca e Buscar. O item destacado acompanha a tela em que você está, inclusive depois de abrir uma coleção ou uma busca.
-5. Em iPhone com recorte (PWA instalado): o cabeçalho e o menu não ficam colados na borda.
+5. Em iPhone com recorte (PWA instalado): o título grande e o menu não ficam colados na borda e o texto da barra de status continua legível ao rolar.
+6. Botão de ajustes (engrenagem no canto do título): abre "Gerenciar cache local" e o botão de instalar o app.
 
 Esperado: rádio ao vivo toca sem controles de playlist, mix é contínuo, menu coerente.
 
