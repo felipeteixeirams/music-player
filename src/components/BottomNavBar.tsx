@@ -16,7 +16,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onSelectT
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-30 bg-[#090912]/95 backdrop-blur-2xl border-t border-white/[0.08] px-2 py-2 max-w-xl md:max-w-2xl mx-auto"
+      className="fixed bottom-0 left-0 right-0 z-30 bg-[#090912]/95 backdrop-blur-2xl border-t border-white/[0.08] px-2 pt-2 pb-[calc(var(--safe-bottom)+0.5rem)] max-w-xl md:max-w-2xl mx-auto"
       aria-label="Navegação Principal"
     >
       <div className="flex items-center justify-around">

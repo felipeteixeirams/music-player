@@ -40,7 +40,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-[#090910]/90 backdrop-blur-2xl border-b border-white/[0.06] px-4 py-2.5">
+    <header className="sticky top-0 z-30 w-full bg-[#090910]/90 backdrop-blur-2xl border-b border-white/[0.06] px-4 pb-2.5 pt-[calc(var(--safe-top)+0.625rem)]">
       {/* Top Row: Wordmark Brand and Quick Actions */}
       <div className="flex items-center justify-between gap-2 max-w-5xl mx-auto">
         {/* Brand */}

@@ -175,7 +175,7 @@ const MusicAppContent: React.FC = () => {
       <OfflineIndicator />
 
       {/* Main Mobile/Tablet Wrapper */}
-      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-36">
+      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-[calc(9rem+var(--safe-bottom))]">
         {/* Top App Bar with live search */}
         <TopBar
           activeFilter={activeFilter}

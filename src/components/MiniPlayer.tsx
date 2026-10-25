@@ -21,7 +21,7 @@ export const MiniPlayer: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-[56px] left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto"
+      className="fixed bottom-[calc(4.25rem+var(--safe-bottom))] left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto"
     >
       <div className="w-full pointer-events-auto">
         <PlaybackNotice className="mb-1.5" />
