@@ -112,6 +112,13 @@ Fatos confirmados nesta verificação (com ressalvas):
 - YouTube Data API v3: cota padrão de 10.000 unidades/dia e `search.list` a 100 unidades, ou seja, cerca de 100 buscas por dia por projeto (fontes secundárias divergem sobre alterações recentes). Por isso, só buscar o vídeo quando o usuário pedir reprodução completa, e cachear o resultado por faixa. Exige chave própria do usuário em variável de ambiente, nunca no repositório.
 - Reprodução em navegador, incluindo CORS do `<audio>` para o CDN do Deezer, **não foi testada**.
 
+Estado da implementação (2026-10-25, primeira fatia):
+
+- Feito: `api/_deezer.ts` (mapper `unknown` -> `Track`, deduplicação, descarte de itens inválidos, `previewUrl` omitido quando ausente ou inválido, duração real obrigatória), busca/feed/`server.ts` migrados, `AudioContext` toca a prévia, testes determinísticos (`api/deezer.test.ts` e handlers) e smoke live atualizado.
+- Validação: `npm test` 28 aprovados e 1 ignorado; `npm run lint` e `npm run build` passam; smoke live com Metallica, Creed e Bon Jovi obteve prévias com HTTP 206 e `audio/*`; em Chromium headless o `<audio>` avançou ~5s de uma prévia de ~30s sem erro.
+- Limitações conhecidas: o CDN de prévias não enviou cabeçalho CORS no teste, então o download offline de prévias via `fetch` com `mode: 'cors'` provavelmente falha (não testado; precisaria de proxy no servidor); erros de reprodução vão para `pipedStatus.error`, que nenhum componente exibe; a primeira faixa de "Metallica One" é uma versão ao vivo, pois a busca do Deezer não prioriza a original.
+- Pendente: reserva iTunes; áudio completo via YouTube para faixas Deezer; migração dos IDs de favoritos/offline antigos (`ytm-*`, `piped-*`), que não existem mais no catálogo; remoção do código Piped de stream; contrato versionado de resposta.
+
 Critérios de aceite adicionais para esta troca:
 
 - Busca e feed devolvem `Track` com duração real vinda do provedor, sem passar por Piped/InnerTube.

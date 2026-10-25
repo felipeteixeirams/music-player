@@ -29,7 +29,7 @@ Masters e satélites são documentos navegáveis por links, não pontos de entra
 
 | Domínio | Master | Satélites ativos | Estado |
 | --- | --- | --- | --- |
-| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md) | Integrações atuais degradadas (verificado em 2026-10-25); troca para Deezer/iTunes + YouTube aprovada, ainda não implementada. |
+| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md) | Busca, feed e prévia de 30s via Deezer implementados e validados (2026-10-25); iTunes de reserva e áudio completo via YouTube pendentes. |
 
 ## Regras de manutenção
 

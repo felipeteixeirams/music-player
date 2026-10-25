@@ -145,6 +145,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsBuffering(false);
       if (currentTrackRef.current && currentTrackRef.current.sources.youtubeId) {
         triggerFallbackEngine(currentTrackRef.current, true);
+      } else {
+        setIsPlaying(false);
+        setPipedStatus({ error: 'Não foi possível reproduzir o áudio desta faixa.' });
       }
     };
 
@@ -237,7 +240,26 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // 2. Online stream resolution (YouTube / Piped)
+    // 2. Catalog preview (Deezer): direct audio URL, no video involved
+    if (track.sources.previewUrl && audioRef.current) {
+      const previewUrl = track.sources.previewUrl;
+      setActiveEngine('native');
+      setAudioStreamUrl(previewUrl);
+      setPipedStatus({ quality: 'Prévia de 30s', instanceUsed: 'Deezer' });
+      audioRef.current.src = previewUrl;
+      if (shouldPlay) {
+        try {
+          await audioRef.current.play();
+          setIsPlaying(true);
+        } catch (err) {
+          console.warn('Preview playback notice:', err);
+        }
+      }
+      setIsBuffering(false);
+      return;
+    }
+
+    // 3. Online stream resolution (YouTube / Piped)
     if (track.sources.youtubeId) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -289,6 +311,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
+    setPipedStatus({ error: 'Esta faixa não tem prévia disponível.' });
+    setIsPlaying(false);
     setIsBuffering(false);
   }, [triggerFallbackEngine]);
 
