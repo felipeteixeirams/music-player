@@ -42,12 +42,12 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   if (compact && miniPlayer) {
     const Current = TABS.find((tab) => tab.id === activeTab)?.icon ?? Home;
     return (
-      <div className="fixed inset-x-0 bottom-[calc(var(--safe-bottom)+0.5rem)] z-40 mx-auto max-w-xl md:max-w-2xl px-4 pointer-events-none">
+      <div className="fixed inset-x-0 bottom-[max(0.5rem,calc(var(--safe-bottom)-0.8rem))] z-40 mx-auto max-w-xl md:max-w-2xl px-[21px] pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto animate-in fade-in duration-200 motion-reduce:animate-none">
           <button
             onClick={() => onExpand?.()}
             aria-label="Mostrar a navegação"
-            className={`w-14 h-14 shrink-0 rounded-full flex items-center justify-center text-accent active:scale-90 transition-transform ${GLASS}`}
+            className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-accent active:scale-90 transition-transform ${GLASS}`}
           >
             <Current className="w-6 h-6 fill-current" />
           </button>
@@ -56,7 +56,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             onClick={() => select('search')}
             aria-label="Buscar"
             aria-current={activeTab === 'search' ? 'page' : undefined}
-            className={`w-14 h-14 shrink-0 rounded-full flex items-center justify-center active:scale-90 transition-transform ${GLASS} ${
+            className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center active:scale-90 transition-transform ${GLASS} ${
               activeTab === 'search' ? 'text-accent' : 'text-label'
             }`}
           >
@@ -68,13 +68,13 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-[calc(var(--safe-bottom)+0.5rem)] z-40 mx-auto max-w-xl md:max-w-2xl px-4 pointer-events-none">
+    <div className="fixed inset-x-0 bottom-[max(0.5rem,calc(var(--safe-bottom)-0.8rem))] z-40 mx-auto max-w-xl md:max-w-2xl px-[21px] pointer-events-none">
       <div className="flex flex-col gap-2 pointer-events-auto">
         {notice}
         {miniPlayer}
         <nav
           className={`rounded-full px-1.5 flex items-center transition-[height] duration-300 motion-reduce:transition-none ${GLASS} ${
-            compact ? 'h-14' : 'h-16'
+            compact ? 'h-14' : 'h-[3.875rem]'
           }`}
           aria-label="Navegação Principal"
         >
@@ -91,7 +91,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                   aria-label={tab.label}
                   className={`flex flex-col items-center justify-center rounded-full active:scale-90 transition-all ${
                     compact ? 'h-11' : 'h-[3.25rem]'
-                  } ${isActive ? 'bg-fill text-accent font-semibold' : 'text-label hover:text-label-secondary'}`}
+                  } ${isActive ? 'bg-tab-active text-accent font-semibold' : 'text-label hover:text-label-secondary'}`}
                 >
                   <Icon className={`w-6 h-6 ${isActive ? 'fill-current' : ''}`} />
                   <span

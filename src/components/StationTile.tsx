@@ -37,7 +37,7 @@ export const StationTile: React.FC<StationTileProps> = ({
       className="text-left min-w-0 active:scale-[0.97] transition-transform disabled:opacity-60"
     >
       <div
-        className={`relative aspect-square w-full rounded-sheet overflow-hidden shadow-lg shadow-black/30 ${
+        className={`relative aspect-square w-full rounded-tile overflow-hidden shadow-lg shadow-black/30 ${
           isCurrent ? 'ring-2 ring-accent' : ''
         }`}
         style={imageUrl ? undefined : { background: `linear-gradient(145deg, ${color}, color-mix(in srgb, ${color} 55%, #000))` }}

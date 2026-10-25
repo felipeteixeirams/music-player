@@ -74,13 +74,13 @@ export const MiniPlayer: React.FC = () => {
             }
           }}
           aria-label={`Abrir player expandido para ${currentTrack.title} por ${currentTrack.artist}`}
-          className="relative overflow-hidden rounded-full material-regular ring-[0.5px] ring-separator shadow-xl shadow-black/30 cursor-pointer select-none touch-pan-y active:scale-[0.99] transition-all"
+          className="relative h-12 overflow-hidden rounded-full material-regular ring-[0.5px] ring-separator shadow-xl shadow-black/30 cursor-pointer select-none touch-pan-y active:scale-[0.99] transition-all"
         >
-          <div className="flex items-center justify-between p-1.5 pl-2 gap-2.5">
+          <div className="flex items-center justify-between p-1.5 pl-1.5 gap-2.5">
             {/* Left Slot: Rotating Album Artwork (Vinyl effect) */}
             <div className="relative shrink-0">
               <div
-                className="w-11 h-11 rounded-full overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative"
+                className="w-9 h-9 rounded-full overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative"
               >
                 <img
                   src={currentTrack.coverUrl}
@@ -97,7 +97,7 @@ export const MiniPlayer: React.FC = () => {
             {/* Middle Slot: Track Name & Artist */}
             <div className="min-w-0 flex-1 text-left">
               <div className="flex items-center gap-1.5">
-                <h3 className="text-[15px] font-medium text-label truncate">
+                <h3 className="text-[15px] leading-tight font-medium text-label truncate">
                   {currentTrack.title}
                 </h3>
               </div>
@@ -112,7 +112,7 @@ export const MiniPlayer: React.FC = () => {
                   togglePlayPause();
                 }}
                 aria-label={isPlaying ? 'Pausar música' : 'Reproduzir música'}
-                className="w-11 h-11 rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
               >
                 {isPlaying ? (
                   <Pause className="w-6 h-6 fill-current" />
@@ -128,7 +128,7 @@ export const MiniPlayer: React.FC = () => {
                   playNext();
                 }}
                 aria-label="Avançar para a próxima faixa"
-                className="w-11 h-11 rounded-full flex items-center justify-center text-label-secondary hover:text-label active:scale-90 transition-all"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-label-secondary hover:text-label active:scale-90 transition-all"
               >
                 <SkipForward className="w-6 h-6 fill-current" />
               </button>
