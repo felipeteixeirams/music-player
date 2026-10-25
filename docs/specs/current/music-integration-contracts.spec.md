@@ -428,3 +428,10 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - Rádio (mix e ao vivo) mantém o mecanismo próprio de renovação (`refillRadio`).
 - Verificado em Chromium: tocar a 13ª de 15 faixas de um carrossel pediu `/api/category?id=top-hits&index=15` e a reprodução seguiu além da 15ª. Testes: `tests/queueSource.test.ts`.
 
+## Remoção do código Piped (2026-10-25)
+
+- Removidos: `api/streams/[id].ts` e a rota equivalente do `server.ts` (com o cache em memória), a rewrite em `vercel.json`, `fetchPipedAudioStream`, `extractAudioStreamFromPipedData` e `PIPED_INSTANCES` (`src/utils/audioEngine.ts`), `src/utils/audioLogger.ts`, o ramo Piped de `downloadTrackForOffline`, a pré-carga do próximo stream em `AudioContext`, o motor `piped` (`AudioEngineType` agora é `native | fallback`), o tipo `PipedAudioStream` e o campo `cachedStreams` do `/api/health` local. `pipedStatus` virou `playbackStatus`.
+- Por que era seguro: a faixa do catálogo (Deezer/iTunes) nunca traz `youtubeId`; o vídeo é localizado depois por `/api/resolve` e passado direto ao player oculto. O ramo Piped só rodava para uma faixa que já chegasse com `youtubeId`, o que nada produz hoje; esse caso agora vai direto ao player oculto, sem tentar o Piped antes.
+- Efeito: as funções da Vercel passam de 8 para 7; o `/api/health` local deixa de informar `cachedStreams`; 4 testes saíram (os dois do endpoint de stream, o do cliente e o do parser Piped). Todas as seções acima que descrevem Piped são histórico do diagnóstico.
+- Resta, fora do Piped: `preferredEngine` e `switchEngineManually` no `AudioContext` não têm nenhuma tela que os use e podem sair numa próxima limpeza.
+

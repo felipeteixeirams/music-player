@@ -1,4 +1,3 @@
-import { fetchPipedAudioStream } from './audioEngine';
 import { Track } from '../types/music';
 
 /**
@@ -49,7 +48,6 @@ export function isTrackOfflineAvailable(trackId: string): boolean {
 
 /**
  * Downloads audio and cover image for a track and stores them in CacheStorage.
- * Resolves Piped stream URL if audioUrl is not directly available.
  */
 export async function downloadTrackForOffline(
   track: Track,
@@ -70,11 +68,6 @@ export async function downloadTrackForOffline(
     } else if (!resolvedAudioUrl || resolvedAudioUrl.includes('youtube.com/watch')) {
       if (track.sources.localUrl) {
         resolvedAudioUrl = track.sources.localUrl;
-      } else if (track.sources.youtubeId) {
-        const streamInfo = await fetchPipedAudioStream(track.sources.youtubeId, 5000);
-        if (streamInfo.audioUrl) {
-          resolvedAudioUrl = streamInfo.audioUrl;
-        }
       }
     }
 

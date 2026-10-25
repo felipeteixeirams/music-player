@@ -197,11 +197,10 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 1. Reprodução com a tela bloqueada (T04): pode mudar a arquitetura do áudio completo.
 2. Qualidade da escolha do vídeo: ranqueamento pode escolher versão errada; opções: mostrar o álbum, deixar o usuário escolher entre os candidatos, registrar nos logs as faixas sem vídeo.
 3. Abuso e cota: rotas públicas e cota de cerca de 100 buscas por dia.
-4. Limpeza do código Piped (`api/streams/[id].ts`, funções do `audioEngine.ts`, `pipedStatus`).
-5. Desempenho da interface: contexto de áudio dividido e janelamento das listas.
-6. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
-7. Playlists criadas pelo usuário.
-8. Integração contínua no GitHub Actions e testes de ponta a ponta com Playwright.
+4. Desempenho da interface: contexto de áudio dividido e janelamento das listas.
+5. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
+6. Playlists criadas pelo usuário.
+7. Integração contínua no GitHub Actions e testes de ponta a ponta com Playwright.
 
 ## Testes automáticos que já passam
 

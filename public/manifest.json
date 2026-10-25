@@ -2,7 +2,7 @@
   "id": "/",
   "name": "AuraStream Music",
   "short_name": "AuraStream",
-  "description": "Aplicativo de música PWA mobile com streaming híbrido, Piped API e Media Session.",
+  "description": "Aplicativo de música PWA mobile com streaming de catálogo, faixa completa via YouTube e Media Session.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

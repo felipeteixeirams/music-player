@@ -7,13 +7,12 @@ import {
   progressToSeconds,
   getNextTrackIndex,
   getPreviousTrackIndex,
-  extractAudioStreamFromPipedData,
   resolveAudioDetails
 } from './audioEngine';
 import { Track } from '../types/music';
 import { extractYouTubeId } from './youtubeId';
 
-test('extractYouTubeId normalizes Piped and YouTube URLs', () => {
+test('extractYouTubeId normalizes YouTube URLs and ids', () => {
   assert.equal(extractYouTubeId('dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
   assert.equal(extractYouTubeId('/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
   assert.equal(extractYouTubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
@@ -74,25 +73,6 @@ test('getPreviousTrackIndex cycles back properly', () => {
   assert.equal(getPreviousTrackIndex(2, 4), 1);
   assert.equal(getPreviousTrackIndex(0, 4), 3); // wraps to last track
   assert.equal(getPreviousTrackIndex(0, 1), 0);
-});
-
-test('extractAudioStreamFromPipedData parses and selects highest bitrate stream', () => {
-  const mockPipedPayload = {
-    audioStreams: [
-      { url: 'https://stream.pipe/audio-low.webm', bitrate: 64000, quality: '64kbps' },
-      { url: 'https://stream.pipe/audio-high.m4a', bitrate: 160000, quality: '160kbps' },
-      { url: 'https://stream.pipe/audio-med.webm', bitrate: 128000, quality: '128kbps' }
-    ]
-  };
-
-  const extracted = extractAudioStreamFromPipedData(mockPipedPayload);
-  assert.ok(extracted);
-  assert.equal(extracted.url, 'https://stream.pipe/audio-high.m4a');
-  assert.equal(extracted.bitrate, 160000);
-
-  // Empty or invalid data returns null
-  assert.equal(extractAudioStreamFromPipedData(null), null);
-  assert.equal(extractAudioStreamFromPipedData({ audioStreams: [] }), null);
 });
 
 test('resolveAudioDetails provides correct engine and url based on track sources', () => {

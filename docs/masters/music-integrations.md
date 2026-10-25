@@ -10,7 +10,7 @@ As especificações ativas são [Contratos, mappers e testes](../specs/current/m
 
 **Status: busca, coleções da home (playlists editoriais fiéis, paginadas), rádio ao vivo e mix por gênero com fila contínua, prévia de 30s e faixa completa (YouTube oculto); reserva iTunes na busca, download offline de prévias, favoritos com metadados e avisos de reprodução implementados e validados.**
 
-Já existem correções parciais de normalização de IDs Piped/YouTube, remoção do player concorrente no painel expandido, testes determinísticos dos handlers e um smoke test contra os serviços reais. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e teste de playback no navegador.
+Já existem correções parciais de normalização de IDs do YouTube, remoção do player concorrente no painel expandido, testes determinísticos dos handlers e um smoke test contra os serviços reais. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e teste de playback no navegador.
 
 Os testes HTTP simulam respostas dos provedores e validam parsing, fallback e contratos dentro do processo. O smoke executado em 2026-10-24 encontrou busca via `pipedapi.ducks.party`, mas não obteve stream Piped direto para a primeira faixa; o fallback passou na verificação oEmbed do YouTube. Isso comprova a busca e que o vídeo é incorporável, não que áudio tocou. Não afirmar que reprodução está garantida sem teste real no navegador.
 
@@ -23,13 +23,13 @@ A verificação de 2026-10-25 mostrou as integrações atuais degradadas: o pars
 O fluxo abrangido por este master é:
 
 ```text
-YouTube Music InnerTube / Piped
+Deezer (reserva iTunes)
   -> client e validação do payload externo
   -> mapper para Track canônico
-  -> API de busca ou feed
+  -> API de busca, coleções ou rádio
   -> UI, fila e AudioContext
-  -> cache offline / stream local / resolução Piped
-  -> fallback headless YouTube
+  -> cache offline / prévia de 30s / URL local (rádio ao vivo)
+  -> faixa completa no player oculto do YouTube
 ```
 
 Serviços atuais:
@@ -37,9 +37,8 @@ Serviços atuais:
 - A aba Rádio tem duas seções: "Ao vivo", com 25 rádios de verdade (`src/data/liveRadios.ts`, tocadas direto por `<audio>`, sem função da Vercel nem YouTube), e "Mix por gênero". O player de rádio esconde linha do tempo, aleatório, repetir e anterior.
 - A aba Rádio lista estações curadas do Deezer por gênero (`/radio/genres` para as capas, `/radio/{id}/tracks` para os lotes de 40 faixas embaralhadas); a fila se renova sozinha e a faixa que não toca é pulada.
 - Deezer API é a fonte de busca (`/search`) e das coleções da home (`/playlist/{id}/tracks`, uma playlist editorial por coleção em `api/_categories.ts`); tudo é paginado por `index`/`limit` e as faixas trazem duração real e `previewUrl` de 30s quando existir.
-- O áudio padrão é a faixa completa via YouTube oculto (engine `fallback`), com o vídeo localizado por `/api/resolve`. Sem vídeo ou com embed bloqueado, toca a prévia de 30s por `HTMLAudioElement` (engine `native`) e `pipedStatus.notice` avisa o usuário. Faixa sem nenhuma fonte define `pipedStatus.error`. `PlaybackNotice` exibe ambos no mini player e no player expandido.
-- Instâncias Piped continuam apenas na rota `/api/streams/:id`, hoje inativa para faixas Deezer (sem `youtubeId`) e com bloqueio do YouTube observado.
-- YouTube InnerTube/Piped de busca foram removidos das rotas e do `server.ts`.
+- O áudio padrão é a faixa completa via YouTube oculto (engine `fallback`), com o vídeo localizado por `/api/resolve`. Sem vídeo ou com embed bloqueado, toca a prévia de 30s por `HTMLAudioElement` (engine `native`) e `playbackStatus.notice` avisa o usuário. Faixa sem nenhuma fonte define `playbackStatus.error`. `PlaybackNotice` exibe ambos no mini player e no player expandido.
+- O código Piped foi removido em 2026-10-25: a rota `/api/streams/:id` (e sua cópia em `server.ts`), as funções `fetchPipedAudioStream` e `extractAudioStreamFromPipedData`, o logger de extração, a pré-carga do próximo stream e o motor `piped`. Nenhuma faixa do catálogo (Deezer/iTunes) passava por esse caminho, e as instâncias públicas estavam bloqueadas pelo YouTube. O InnerTube de busca já havia saído antes. Os trechos históricos abaixo e no satélite descrevem o diagnóstico que levou a isso.
 - O `HeadlessPlayerFallback` só é acionado para faixas com `youtubeId`.
 
 ## Limitações conhecidas
@@ -59,7 +58,7 @@ Serviços atuais:
 - `api/_audioProxy.ts`, `api/audio.ts`, `tests/api/audioProxy.test.ts`: cópia same-origin de prévias para o download offline; só HTTPS e hosts `*.dzcdn.net`, `*.mzstatic.com`, `*.itunes.apple.com`, até 4 MB, sem redirecionamentos.
 - `src/utils/likedTracks.ts`: biblioteca de favoritos com metadados (`aurastream_liked_track_objects`), migração dos ids antigos e testes.
 - `api/_youtubeSearch.ts`, `api/resolve.ts` e `tests/api/youtubeSearch.test.ts`: busca do vídeo da faixa (API oficial com `YOUTUBE_API_KEY`, ou busca web não oficial sem chave), ranqueamento por duração/título/canal e testes sem rede.
-- `api/streams/[id].ts` e `server.ts`: resolução Piped duplicada e contrato de resposta de stream.
+- `server.ts`: servidor Express local e do AI Studio, com as mesmas rotas das funções da Vercel.
 - `src/utils/audioEngine.ts`: chamada client-side à resolução e utilitários de engine.
 - `src/context/AudioContext.tsx`: prioridade offline, stream, engine ativa e controles de playback.
 - `src/components/HeadlessPlayerFallback.tsx`: playback YouTube de fallback.
@@ -76,10 +75,10 @@ A especificação ativa contém o mapa mais completo dos arquivos e os detalhes 
 
 1. `Track` é o formato canônico entre providers, UI, fila, favoritos e player.
 2. Payload de terceiro começa como `unknown`, passa por validação e mapper, e não atravessa a fronteira de integração como `any`/DTO externo.
-3. Origem dos metadados (YouTube Music/Piped) deve ser distinta da fonte/engine de reprodução (offline, URL local, stream Piped, fallback YouTube).
+3. Origem dos metadados (Deezer/iTunes) deve ser distinta da fonte/engine de reprodução (offline, prévia, URL local, player oculto do YouTube).
 4. Mappers são puros, testáveis sem rede e únicos para cada formato de integração.
 5. Rotas Express e Vercel reutilizam a mesma lógica de clients/mappers sempre que compatível com o bundling; rotas permanecem responsáveis por HTTP/cache e adaptação de entrada/saída.
-6. A ordem de playback deve ser explícita: cache offline, fonte local válida, resolver Piped e fallback YouTube; erros precisam refletir estado observável, não só log.
+6. A ordem de playback deve ser explícita: cache offline, vídeo do YouTube localizado por `/api/resolve`, prévia de 30s, URL local; erros precisam refletir estado observável, não só log.
 7. Uma única engine pode tocar por vez. O painel expandido não monta um player YouTube separado.
 8. IDs de faixa afetam favoritos e cache offline persistidos; qualquer alteração de identidade exige avaliar migração/compatibilidade.
 9. Testes unitários nunca dependem de serviços externos. Rede real é smoke test complementar.
