@@ -1,21 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { Play, Pause, SkipForward } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
-import { calculateProgress } from '../utils/audioEngine';
-import { PlaybackNotice } from './PlaybackNotice';
 import { swipeAction } from '../utils/scrollChrome';
 
-interface MiniPlayerProps {
-  /** The tab bar below is collapsed, so the mini player sits lower. */
-  compact?: boolean;
-}
-
-export const MiniPlayer: React.FC<MiniPlayerProps> = ({ compact = false }) => {
+export const MiniPlayer: React.FC = () => {
   const {
     currentTrack,
     isPlaying,
-    currentTime,
-    duration,
     togglePlayPause,
     playNext,
     playPrevious,
@@ -33,16 +24,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ compact = false }) => {
   // Dragging sideways changes track as in Apple Music: a live broadcast has neither, a station mix only has next
   const allowed = { next: !isLive, previous: !isLive && !radioStation };
 
-  const progress = calculateProgress(currentTime, duration);
-
   return (
-    <div
-      className={`fixed left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto transition-[bottom] duration-300 motion-reduce:transition-none ${
-        compact ? 'bottom-[calc(3rem+var(--safe-bottom))]' : 'bottom-[calc(4.25rem+var(--safe-bottom))]'
-      }`}
-    >
-      <div className="w-full pointer-events-auto">
-        <PlaybackNotice className="mb-1.5" />
+    <div className="w-full">
+      <div className="w-full">
         {/* iOS-Style Floating Glassmorphic Container */}
         <div
           onClick={() => {
@@ -90,25 +74,13 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ compact = false }) => {
             }
           }}
           aria-label={`Abrir player expandido para ${currentTrack.title} por ${currentTrack.artist}`}
-          className="relative overflow-hidden rounded-card material-thin shadow-xl shadow-black/50 cursor-pointer select-none touch-pan-y active:scale-[0.99] transition-all"
+          className="relative overflow-hidden rounded-full material-regular ring-[0.5px] ring-separator shadow-xl shadow-black/30 cursor-pointer select-none touch-pan-y active:scale-[0.99] transition-all"
         >
-          {/* Micro Progress Bar on top edge (a radio has no timeline; a live one shows a pulsing line) */}
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fill-tertiary">
-            {isLive ? (
-              <div className={`h-full w-full bg-accent ${isPlaying ? 'animate-pulse' : 'opacity-40'}`} />
-            ) : radioStation ? null : (
-            <div
-              className="h-full bg-label transition-all duration-150"
-              style={{ width: `${progress}%` }}
-            />
-            )}
-          </div>
-
-          <div className="flex items-center justify-between p-2 pl-3 gap-3">
+          <div className="flex items-center justify-between p-1.5 pl-2 gap-2.5">
             {/* Left Slot: Rotating Album Artwork (Vinyl effect) */}
             <div className="relative shrink-0">
               <div
-                className="w-11 h-11 rounded-md overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative"
+                className="w-11 h-11 rounded-full overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative"
               >
                 <img
                   src={currentTrack.coverUrl}
@@ -129,15 +101,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ compact = false }) => {
                   {currentTrack.title}
                 </h3>
               </div>
-              <div className="flex items-center gap-1.5 text-[13px] text-label-secondary truncate">
-                <span className="truncate">{currentTrack.artist}</span>
-                {currentTrack.album && !currentTrack.album.includes('Piped') && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span className="truncate text-label-tertiary">{currentTrack.album}</span>
-                  </>
-                )}
-              </div>
+              <p className="text-[13px] text-label-secondary truncate">{currentTrack.artist}</p>
             </div>
 
             {/* Right Slot: Quick Play/Pause & Next Buttons */}

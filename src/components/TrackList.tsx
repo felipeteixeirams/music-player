@@ -121,7 +121,7 @@ export const TrackList: React.FC<TrackListProps> = ({
       {/* Toast Notification Banner */}
       {toast && (
         <div
-          className={`fixed bottom-[calc(5rem+var(--safe-bottom))] left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl border shadow-xl flex items-center gap-2.5 text-xs max-w-sm w-[90%] backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200 ${
+          className={`fixed bottom-[calc(10.5rem+var(--safe-bottom))] left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl border shadow-xl flex items-center gap-2.5 text-xs max-w-sm w-[90%] backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200 ${
             toast.type === 'success'
               ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200'
               : 'bg-rose-950/90 border-rose-500/40 text-rose-200'

@@ -6,54 +6,107 @@ export type AppTab = 'home' | 'radio' | 'library' | 'search';
 interface BottomNavBarProps {
   activeTab: AppTab;
   onSelectTab: (tab: AppTab) => void;
-  /** Collapsed to icons while the page scrolls down. */
+  /** Collapsed while the page scrolls down. */
   compact?: boolean;
   /** Called when a tap should bring the full bar back. */
   onExpand?: () => void;
+  /** The mini player: floats above the bar, or sits between two round buttons when the bar is collapsed. */
+  miniPlayer?: React.ReactNode;
+  /** Playback notice shown above the mini player. */
+  notice?: React.ReactNode;
 }
 
-export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onSelectTab, compact = false, onExpand }) => {
-  const tabs = [
-    { id: 'home' as const, label: 'Início', icon: Home },
-    { id: 'radio' as const, label: 'Rádio', icon: Radio },
-    { id: 'library' as const, label: 'Biblioteca', icon: Library },
-    { id: 'search' as const, label: 'Buscar', icon: Search }
-  ];
+const TABS = [
+  { id: 'home' as const, label: 'Início', icon: Home },
+  { id: 'radio' as const, label: 'Rádio', icon: Radio },
+  { id: 'library' as const, label: 'Biblioteca', icon: Library },
+  { id: 'search' as const, label: 'Buscar', icon: Search }
+];
+
+const GLASS = 'material-regular ring-[0.5px] ring-separator shadow-xl shadow-black/30';
+
+export const BottomNavBar: React.FC<BottomNavBarProps> = ({
+  activeTab,
+  onSelectTab,
+  compact = false,
+  onExpand,
+  miniPlayer,
+  notice
+}) => {
+  const select = (tab: AppTab) => {
+    onSelectTab(tab);
+    onExpand?.();
+  };
+
+  // Collapsed with something playing: the current tab, the mini player and search share one row, as in Apple Music
+  if (compact && miniPlayer) {
+    const Current = TABS.find((tab) => tab.id === activeTab)?.icon ?? Home;
+    return (
+      <div className="fixed inset-x-0 bottom-[calc(var(--safe-bottom)+0.5rem)] z-40 mx-auto max-w-xl md:max-w-2xl px-4 pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-auto animate-in fade-in duration-200 motion-reduce:animate-none">
+          <button
+            onClick={() => onExpand?.()}
+            aria-label="Mostrar a navegação"
+            className={`w-14 h-14 shrink-0 rounded-full flex items-center justify-center text-accent active:scale-90 transition-transform ${GLASS}`}
+          >
+            <Current className="w-6 h-6 fill-current" />
+          </button>
+          <div className="flex-1 min-w-0">{miniPlayer}</div>
+          <button
+            onClick={() => select('search')}
+            aria-label="Buscar"
+            aria-current={activeTab === 'search' ? 'page' : undefined}
+            className={`w-14 h-14 shrink-0 rounded-full flex items-center justify-center active:scale-90 transition-transform ${GLASS} ${
+              activeTab === 'search' ? 'text-accent' : 'text-label'
+            }`}
+          >
+            <Search className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <nav
-      className={`fixed bottom-0 left-0 right-0 z-30 material-thick hairline-top px-2 pt-1 max-w-xl md:max-w-2xl mx-auto transition-[height] duration-300 motion-reduce:transition-none ${compact ? 'h-[calc(3rem+var(--safe-bottom))]' : 'h-[calc(4.25rem+var(--safe-bottom))]'}`}
-      aria-label="Navegação Principal"
-    >
-      <div className="grid grid-cols-4 items-center">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+    <div className="fixed inset-x-0 bottom-[calc(var(--safe-bottom)+0.5rem)] z-40 mx-auto max-w-xl md:max-w-2xl px-4 pointer-events-none">
+      <div className="flex flex-col gap-2 pointer-events-auto">
+        {notice}
+        {miniPlayer}
+        <nav
+          className={`rounded-full px-1.5 flex items-center transition-[height] duration-300 motion-reduce:transition-none ${GLASS} ${
+            compact ? 'h-14' : 'h-16'
+          }`}
+          aria-label="Navegação Principal"
+        >
+          <div className="grid grid-cols-4 items-center w-full">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
 
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                onSelectTab(tab.id);
-                onExpand?.();
-              }}
-              aria-current={isActive ? 'page' : undefined}
-              className={`flex flex-col items-center px-1 py-1.5 rounded-2xl transition-all active:scale-90 ${
-                isActive ? 'text-accent font-semibold' : 'text-label-secondary hover:text-label'
-              }`}
-            >
-              <Icon className={`w-6 h-6 ${isActive ? 'scale-105' : ''}`} />
-              <span
-                className={`text-[10px] tracking-tight overflow-hidden transition-all duration-300 motion-reduce:transition-none ${
-                  compact ? 'max-h-0 opacity-0' : 'max-h-4 opacity-100 mt-1'
-                }`}
-              >
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => select(tab.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  aria-label={tab.label}
+                  className={`flex flex-col items-center justify-center rounded-full active:scale-90 transition-all ${
+                    compact ? 'h-11' : 'h-[3.25rem]'
+                  } ${isActive ? 'bg-fill text-accent font-semibold' : 'text-label hover:text-label-secondary'}`}
+                >
+                  <Icon className={`w-6 h-6 ${isActive ? 'fill-current' : ''}`} />
+                  <span
+                    className={`text-[10px] tracking-tight overflow-hidden transition-all duration-300 motion-reduce:transition-none ${
+                      compact ? 'max-h-0 opacity-0' : 'max-h-4 opacity-100 mt-0.5'
+                    }`}
+                  >
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       </div>
-    </nav>
+    </div>
   );
 };

@@ -10,7 +10,7 @@ export const UpdateBanner: React.FC = () => {
   return (
     <div
       role="status"
-      className="fixed bottom-[calc(9.5rem+var(--safe-bottom))] left-4 right-4 z-50 max-w-sm mx-auto flex items-center justify-between gap-3 rounded-card material-regular px-3.5 py-2 text-[13px] text-label shadow-xl"
+      className="fixed bottom-[calc(11rem+var(--safe-bottom))] left-4 right-4 z-50 max-w-sm mx-auto flex items-center justify-between gap-3 rounded-card material-regular px-3.5 py-2 text-[13px] text-label shadow-xl"
     >
       <span>Nova versão disponível</span>
       <button
