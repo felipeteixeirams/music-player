@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CATEGORY_IDS, CATEGORY_PLAYLISTS, MAX_PAGE_SIZE, isCategoryId, readPageParams } from './_categories';
-import { CATEGORIES } from '../src/data/musicCatalog';
+import { CATEGORY_IDS, CATEGORY_PLAYLISTS, MAX_PAGE_SIZE, isCategoryId, readPageParams } from '../../api/_categories';
+import { CATEGORIES } from '../../src/data/musicCatalog';
 
 test('every category shown in the app has a playlist behind it, and the other way around', () => {
   assert.deepEqual([...CATEGORIES.map((c) => c.id)].sort(), [...CATEGORY_IDS].sort());

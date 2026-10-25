@@ -52,8 +52,8 @@ Estas alterações estavam aplicadas ao inspecionar o workspace e devem ser pres
 - `api/feed.ts`, `api/search.ts` e `server.ts` usam esse helper ao mapear resultados Piped, filtrando IDs inválidos antes do limite de 15 resultados.
 - `src/components/ExpandedPlayer.tsx` não monta mais outro `ReactPlayer` diretamente sobre a artwork. O fallback headless fica como proprietário da reprodução YouTube quando a engine ativa é `fallback`, evitando duas fontes tocando simultaneamente.
 - `src/utils/audioEngine.test.ts` tem casos iniciais para `extractYouTubeId`.
-- `api/integrations.test.ts` invoca os handlers Vercel de busca, feed e stream com `fetch` simulado; também verifica o consumo da resposta de stream por `fetchPipedAudioStream`.
-- `api/integrations.live.test.ts` contém um smoke test opt-in que consulta busca/stream reais e verifica um byte de áudio direto ou a resposta oEmbed do fallback.
+- `tests/api/integrations.test.ts` invoca os handlers Vercel de busca, feed e stream com `fetch` simulado; também verifica o consumo da resposta de stream por `fetchPipedAudioStream`.
+- `tests/api/integrations.live.test.ts` contém um smoke test opt-in que consulta busca/stream reais e verifica um byte de áudio direto ou a resposta oEmbed do fallback.
 - `package.json` agora oferece `npm test`, executado por `tsx --test` sobre os testes de `src/` e `api/`.
 
 Não reverter essas alterações durante a implementação dos contratos. O helper atual pode ser mantido ou reorganizado se todos os usos e testes forem migrados juntos.
@@ -114,7 +114,7 @@ Fatos confirmados nesta verificação (com ressalvas):
 
 Estado da implementação (2026-10-25, primeira fatia):
 
-- Feito: `api/_deezer.ts` (mapper `unknown` -> `Track`, deduplicação, descarte de itens inválidos, `previewUrl` omitido quando ausente ou inválido, duração real obrigatória), busca/feed/`server.ts` migrados, `AudioContext` toca a prévia, testes determinísticos (`api/deezer.test.ts` e handlers) e smoke live atualizado.
+- Feito: `api/_deezer.ts` (mapper `unknown` -> `Track`, deduplicação, descarte de itens inválidos, `previewUrl` omitido quando ausente ou inválido, duração real obrigatória), busca/feed/`server.ts` migrados, `AudioContext` toca a prévia, testes determinísticos (`tests/api/deezer.test.ts` e handlers) e smoke live atualizado.
 - Validação: `npm test` 28 aprovados e 1 ignorado; `npm run lint` e `npm run build` passam; smoke live com Metallica, Creed e Bon Jovi obteve prévias com HTTP 206 e `audio/*`; em Chromium headless o `<audio>` avançou ~5s de uma prévia de ~30s sem erro.
 - Limitações conhecidas desta fatia (resolvidas na terceira): download offline de prévias sem CORS, erro de reprodução invisível e a primeira faixa de "Metallica One" ser uma versão ao vivo (a busca do Deezer não prioriza a original; segue em aberto).
 - Pendente: ver a seção "Estabilização" abaixo.
@@ -152,7 +152,7 @@ Observabilidade (2026-10-25, quinta fatia):
 Coleções fiéis e paginação (2026-10-25, sexta fatia):
 
 - Problema: as coleções da home não correspondiam ao que prometiam. "Classic Rock" e "Alternative Pop" eram os charts de gênero do Deezer (o de pop trazia country e faixas virais), "Lofi Chill" era uma busca de texto que devolvia lixo como "Wii U Mii Maker Lofi Slowed", e "Synthwave" não tinha dados: selecioná-la mostrava todas as faixas e a contagem era a do lofi. A busca e as coleções traziam só 15 faixas, sem paginação.
-- Fonte de cada coleção (`api/_categories.ts`): uma playlist editorial do Deezer cujo conteúdo foi conferido contra a descrição. `top-hits` = "Top Brazil" (Deezer Charts, 100); `classic-rock` = "Rock Essentials" (Deezer Rock, 100: AC/DC, Pink Floyd, Bowie, Beatles); `alternative-pop` = "New Alternative" (Deezer Alternative, 150), renomeada na tela para "Alternative & Indie", já que o conteúdo é indie/alternativo e não pop; `lofi-chill` = "study lofi" (Deezer Mood, 92); `synthwave` = "Synthwave" (Deezer Dance, 50). Nome e descrição de cada coleção ficam em `src/data/musicCatalog.ts` e só devem mudar junto com a playlist; `api/categories.test.ts` garante que toda coleção da tela tem playlist e vice-versa.
+- Fonte de cada coleção (`api/_categories.ts`): uma playlist editorial do Deezer cujo conteúdo foi conferido contra a descrição. `top-hits` = "Top Brazil" (Deezer Charts, 100); `classic-rock` = "Rock Essentials" (Deezer Rock, 100: AC/DC, Pink Floyd, Bowie, Beatles); `alternative-pop` = "New Alternative" (Deezer Alternative, 150), renomeada na tela para "Alternative & Indie", já que o conteúdo é indie/alternativo e não pop; `lofi-chill` = "study lofi" (Deezer Mood, 92); `synthwave` = "Synthwave" (Deezer Dance, 50). Nome e descrição de cada coleção ficam em `src/data/musicCatalog.ts` e só devem mudar junto com a playlist; `tests/api/categories.test.ts` garante que toda coleção da tela tem playlist e vice-versa.
 - Contrato das rotas (`api/_endpoints.ts`, compartilhado entre as funções da Vercel e o Express): `GET /api/feed` devolve `{ categories: { [id]: { tracks, total, nextIndex } }, featured }` com a primeira página (15) de cada coleção; `GET /api/category?id=&index=&limit=` e `GET /api/search?q=&index=&limit=` devolvem uma página (`limit` padrão 20, máximo 50, inteiros não negativos; id desconhecido = 400). `nextIndex` conta os itens que o Deezer devolveu, não os que viraram faixa, para que um item descartado não desloque a página seguinte; `null` indica o fim. Falha dos provedores = 502 sem cabeçalho de cache (antes: 200 com lista vazia, que o CDN podia guardar). A reserva iTunes só vale para a primeira página da busca (a API da Apple não pagina).
 - Faixas sem prévia deixam de ser descartadas: a reprodução completa vem do YouTube e a prévia é só o plano B, e descartar itens quebrava a conta da paginação. A faixa sem nenhuma fonte mostra o aviso de erro.
 - Interface: `usePagedTracks` carrega a lista página a página, cancela o que estava em andamento quando a coleção ou a busca muda, e começa da página que o feed já trouxe; `LoadMoreSentinel` carrega a próxima página quando o fim da lista se aproxima da tela (IntersectionObserver com margem de 600px, recriado a cada página para não travar com a lista curta), com botão "Carregar mais" e "Tentar de novo". O cabeçalho mostra "N de TOTAL faixas". Cada carrossel da home tem "Ver tudo", que abre a coleção inteira. Chips e grade vêm de `CATEGORIES`, então nomes e rótulos não divergem. "Músicas Recomendadas" virou "Mix das coleções" (4 faixas de cada), e o destaque diz "No topo do Brasil agora".
@@ -368,8 +368,8 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - `src/utils/youtubeId.ts`: normalização atual do ID, já compartilhada por busca/feed/local server.
 - `src/utils/audioEngine.ts`: seleção de stream e engine no cliente.
 - `src/utils/audioEngine.test.ts`: testes de utilitários e casos iniciais do ID.
-- `api/integrations.test.ts`: cobertura de integração com HTTP mockado para busca, feed e resolução.
-- `api/integrations.live.test.ts`: smoke externo condicionado por `RUN_LIVE_INTEGRATION_TESTS=1`.
+- `tests/api/integrations.test.ts`: cobertura de integração com HTTP mockado para busca, feed e resolução.
+- `tests/api/integrations.live.test.ts`: smoke externo condicionado por `RUN_LIVE_INTEGRATION_TESTS=1`.
 - `src/context/AudioContext.tsx`: prioridade offline, resolução Piped, fallback e estado playback.
 - `src/components/HeadlessPlayerFallback.tsx`: player ReactPlayer para fallback YouTube.
 - `src/components/ExpandedPlayer.tsx`: artwork do player expandido; não deve hospedar engine paralela.

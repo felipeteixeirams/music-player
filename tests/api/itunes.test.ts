@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mapItunesTrack, mapItunesTracks } from './_itunes';
-import { searchCatalog } from './_catalog';
+import { mapItunesTrack, mapItunesTracks } from '../../api/_itunes';
+import { searchCatalog } from '../../api/_catalog';
 
 const valid = {
   wrapperType: 'track',
