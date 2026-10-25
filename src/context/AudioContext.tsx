@@ -10,6 +10,7 @@ import {
 import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
+import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
 import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
 
 /** A radio gives up after this many unplayable tracks in a row. */
@@ -56,7 +57,8 @@ interface AudioContextType {
   userSeekRequest: number | null;
   
   // Actions
-  playTrack: (track: Track, customQueue?: Track[]) => void;
+  /** `source` says where more of `customQueue` comes from, so playback goes past what is loaded. */
+  playTrack: (track: Track, customQueue?: Track[], source?: QueueSource) => void;
   togglePlayPause: () => void;
   playNext: () => void;
   playPrevious: () => void;
@@ -92,6 +94,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [radioStation, setRadioStation] = useState<RadioStation | null>(null);
   const queueRef = useRef<Track[]>([]);
+  const queueSourceRef = useRef<QueueSource | null>(null);
+  const queueMoreBusyRef = useRef(false);
   const radioRefillingRef = useRef(false);
   const radioStationRef = useRef<RadioStation | null>(null);
   const radioSkipsRef = useRef(0);
@@ -526,7 +530,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [currentTime, duration, isPlaying, currentTrack]);
 
   // Main playback controls
-  const playTrack = useCallback((track: Track, customQueue?: Track[]) => {
+  const playTrack = useCallback((track: Track, customQueue?: Track[], source?: QueueSource) => {
     // Synchronously prime audio gesture permission
     if (audioRef.current) {
       audioRef.current.play().then(() => {
@@ -536,6 +540,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (customQueue) {
       setRadioStation(null);
+      queueSourceRef.current = source ?? null;
       setQueue(customQueue);
       const foundIdx = customQueue.findIndex((t) => t.id === track.id);
       setCurrentIndex(foundIdx >= 0 ? foundIdx : 0);
@@ -605,6 +610,40 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (radioStation && needsRadioRefill(queue.length, currentIndex)) void refillRadio();
   }, [radioStation, queue.length, currentIndex, refillRadio]);
 
+  // Fetches the next page of the list the queue came from; resolves with the tracks that were added
+  const loadMoreQueue = useCallback(async (): Promise<Track[]> => {
+    if (queueMoreBusyRef.current) return [];
+    queueMoreBusyRef.current = true;
+    const source = queueSourceRef.current;
+    try {
+      for (let attempt = 0; source && source.nextIndex !== null && attempt < MAX_EMPTY_PAGES; attempt++) {
+        const page = await source.load(source.nextIndex);
+        // The user may have started something else meanwhile
+        if (queueSourceRef.current !== source) return [];
+        source.nextIndex = page.nextIndex;
+        const added = newTracks(queueRef.current, page.tracks);
+        if (added.length > 0) {
+          queueRef.current = [...queueRef.current, ...added];
+          setQueue(queueRef.current);
+          return added;
+        }
+      }
+      return [];
+    } catch (err) {
+      console.warn('Queue extension notice:', err);
+      return [];
+    } finally {
+      queueMoreBusyRef.current = false;
+    }
+  }, []);
+
+  // Keeps an ordinary list ahead of the listener, so playback does not stop at the end of what was loaded
+  useEffect(() => {
+    if (!radioStation && needsMoreTracks(queue.length, currentIndex, queueSourceRef.current?.nextIndex ?? null)) {
+      void loadMoreQueue();
+    }
+  }, [radioStation, queue.length, currentIndex, loadMoreQueue]);
+
   const startLiveRadio = useCallback((station: LiveStation) => {
     const track = liveStationToTrack(station);
     // A live broadcast is not a queue: no radio mode, no list around it
@@ -660,14 +699,31 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    const nextIdx = getNextTrackIndex(currentIndex, queue.length, isShuffle, repeatMode);
-    if (nextIdx >= 0 && nextIdx < queue.length) {
-      setCurrentIndex(nextIdx);
-      loadAndPlayTrack(queue[nextIdx], preferredEngine, true);
-    } else {
-      setIsPlaying(false);
+    const advance = () => {
+      const nextIdx = getNextTrackIndex(currentIndex, queue.length, isShuffle, repeatMode);
+      if (nextIdx >= 0 && nextIdx < queue.length) {
+        setCurrentIndex(nextIdx);
+        loadAndPlayTrack(queue[nextIdx], preferredEngine, true);
+      } else {
+        setIsPlaying(false);
+      }
+    };
+
+    // At the end of what is loaded, but the list has more: fetch it instead of stopping or looping back
+    const atLoadedEnd = currentIndex >= queue.length - 1 && !isShuffle && repeatMode !== 'one';
+    if (atLoadedEnd && queueSourceRef.current?.nextIndex != null) {
+      void loadMoreQueue().then((added) => {
+        if (added.length === 0) {
+          advance();
+          return;
+        }
+        setCurrentIndex(currentIndex + 1);
+        loadAndPlayTrack(added[0], preferredEngine, true);
+      });
+      return;
     }
-  }, [radioStation, refillRadio, currentIndex, queue, isShuffle, repeatMode, preferredEngine, loadAndPlayTrack]);
+    advance();
+  }, [radioStation, refillRadio, loadMoreQueue, currentIndex, queue, isShuffle, repeatMode, preferredEngine, loadAndPlayTrack]);
 
   playNextRef.current = playNext;
 

@@ -421,3 +421,10 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - Regra de compatibilidade da API com o cliente anterior: ver `AGENTS.md`.
 - Critério: com a versão 1 aberta e a 2 publicada, o banner aparece, e "Atualizar" carrega a 2 e o esconde (verificado em Chromium com um segundo build; não verificado em iPhone real). Testes: `tests/appVersion.test.ts`.
 
+## Fila que continua além da página carregada (2026-10-25)
+
+- `playTrack(track, lista, origem?)` aceita uma `QueueSource` (`src/utils/queueSource.ts`): onde começa a próxima página (`nextIndex`) e como carregá-la. A origem é montada em `src/App.tsx` para coleções (carrosséis, "Ver tudo" e destaque) e para a busca online; Biblioteca, Mix das coleções e a busca no catálogo local não têm origem e acabam no fim do que mostram.
+- `AudioContext` busca a próxima página quando restam 3 faixas ou menos depois da atual (`needsMoreTracks`), acrescenta só o que ainda não está na fila (`newTracks`) e tenta até 3 páginas seguidas se vierem só repetidas. Ao terminar a última faixa carregada com mais páginas disponíveis, `playNext` espera o carregamento em vez de parar ou voltar ao início; se a busca falhar, cai no comportamento anterior. Com aleatório ou repetir uma faixa não há espera: o aleatório sorteia entre as faixas já carregadas, que seguem sendo ampliadas pela busca antecipada.
+- Rádio (mix e ao vivo) mantém o mecanismo próprio de renovação (`refillRadio`).
+- Verificado em Chromium: tocar a 13ª de 15 faixas de um carrossel pediu `/api/category?id=top-hits&index=15` e a reprodução seguiu além da 15ª. Testes: `tests/queueSource.test.ts`.
+
