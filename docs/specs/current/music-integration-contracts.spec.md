@@ -435,3 +435,10 @@ A duração do cache de URL de áudio merece verificação específica: `server.
 - Efeito: as funções da Vercel passam de 8 para 7; o `/api/health` local deixa de informar `cachedStreams`; 4 testes saíram (os dois do endpoint de stream, o do cliente e o do parser Piped). Todas as seções acima que descrevem Piped são histórico do diagnóstico.
 - Resta, fora do Piped: `preferredEngine` e `switchEngineManually` no `AudioContext` não têm nenhuma tela que os use e podem sair numa próxima limpeza.
 
+## Desempenho de listas longas (2026-10-25)
+
+- Medição (Chromium, "Ver tudo" de Top Hits carregada até 100 linhas, 40 eventos `timeupdate` simulados, o equivalente a 10 s de música): a lista renderizava **40 vezes**, uma por evento, porque todo consumidor de `useAudio()` renderizava a cada mudança do relógio. Depois: **0 renderizações**. O áudio de prévia não carrega no ambiente de teste (o CDN do Deezer não responde), então os eventos foram simulados; o gatilho de re-renderização é o mesmo.
+- Mudanças: o relógio (`currentTime`, `duration`) saiu do contexto principal para `PlaybackTimeContext` (`usePlaybackTime()`, usado só pelo `ExpandedPlayer`); o valor de `useAudio()` é memoizado; `likedTrackIds` passou a ser memoizado (era um array novo a cada render e mudava `isLiked` e o valor inteiro); `playPrevious` e `seekTo` leem o relógio por refs e os controles da tela de bloqueio por `mediaActionsRef`, de modo que os handlers do Media Session não são registrados de novo a cada tick e seguem atualizados.
+- `TrackList` usa `content-visibility: auto` com altura estimada de 72 px nas linhas: o navegador não faz layout nem pintura do que está fora da tela, sem virtualização em JavaScript (Safari 18 ou mais novo; antes disso a propriedade é ignorada e nada quebra).
+- Não verificado em iPhone real: o ganho percebido (rolagem, aquecimento, bateria) é o objetivo do T10.
+

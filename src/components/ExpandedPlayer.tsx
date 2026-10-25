@@ -17,7 +17,7 @@ import {
   Activity,
   Sliders
 } from 'lucide-react';
-import { useAudio } from '../context/AudioContext';
+import { useAudio, usePlaybackTime } from '../context/AudioContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
 import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
 import { PlaybackNotice } from './PlaybackNotice';
@@ -28,8 +28,6 @@ export const ExpandedPlayer: React.FC = () => {
   const {
     currentTrack,
     isPlaying,
-    currentTime,
-    duration,
     volume,
     isMuted,
     isShuffle,
@@ -50,6 +48,7 @@ export const ExpandedPlayer: React.FC = () => {
     radioStation,
     isLive
   } = useAudio();
+  const { currentTime, duration } = usePlaybackTime();
 
   const [activeTab, setActiveTab] = useState<'artwork' | 'lyrics' | 'visualizer'>('artwork');
   const [isScrubbing, setIsScrubbing] = useState(false);

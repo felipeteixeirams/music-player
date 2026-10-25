@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { AudioEngineType, LiveStation, RadioStation, RepeatMode, Track } from '../types/music';
 import {
   getNextTrackIndex,
@@ -38,8 +38,6 @@ interface AudioContextType {
   queue: Track[];
   currentIndex: number;
   isPlaying: boolean;
-  currentTime: number;
-  duration: number;
   volume: number;
   isMuted: boolean;
   isShuffle: boolean;
@@ -86,6 +84,7 @@ interface AudioContextType {
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
+const PlaybackTimeContext = createContext<{ currentTime: number; duration: number }>({ currentTime: 0, duration: 0 });
 
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -104,6 +103,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
+  // Read by callbacks that must not change on every time update (that would re-render every consumer)
+  const currentTimeRef = useRef(0);
+  const durationRef = useRef(0);
+  currentTimeRef.current = currentTime;
+  durationRef.current = duration;
+  const mediaActionsRef = useRef<{ togglePlayPause: () => void; playNext: () => void; playPrevious: () => void; seekTo: (seconds: number) => void } | null>(null);
   const [volume, setVolumeState] = useState<number>(0.85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
@@ -127,7 +132,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { tracks: [], pendingIds: [] };
     }
   });
-  const likedTrackIds = likedIds(likedLibrary);
+  // Memoized: a new array on every render would make `isLiked` and the whole context value change on each clock tick
+  const likedTrackIds = useMemo(() => likedIds(likedLibrary), [likedLibrary]);
 
   const [audioFrequencyData, setAudioFrequencyData] = useState<number[]>(new Array(24).fill(12));
 
@@ -448,42 +454,42 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       navigator.mediaSession.setActionHandler('play', () => {
-        togglePlayPause();
+        mediaActionsRef.current?.togglePlayPause();
       });
 
       navigator.mediaSession.setActionHandler('pause', () => {
-        togglePlayPause();
+        mediaActionsRef.current?.togglePlayPause();
       });
 
       const live = isLiveTrack(currentTrack);
 
       navigator.mediaSession.setActionHandler('previoustrack', live ? null : () => {
-        playPrevious();
+        mediaActionsRef.current?.playPrevious();
       });
 
       navigator.mediaSession.setActionHandler('nexttrack', live ? null : () => {
-        playNext();
+        mediaActionsRef.current?.playNext();
       });
 
       navigator.mediaSession.setActionHandler('seekto', live ? null : (details) => {
         if (details.seekTime !== undefined && details.seekTime !== null) {
-          seekTo(details.seekTime);
+          mediaActionsRef.current?.seekTo(details.seekTime);
         }
       });
 
       navigator.mediaSession.setActionHandler('seekbackward', live ? null : (details) => {
         const offset = details.seekOffset || 10;
-        seekTo(Math.max(0, currentTime - offset));
+        mediaActionsRef.current?.seekTo(Math.max(0, currentTimeRef.current - offset));
       });
 
       navigator.mediaSession.setActionHandler('seekforward', live ? null : (details) => {
         const offset = details.seekOffset || 10;
-        seekTo(Math.min(duration, currentTime + offset));
+        mediaActionsRef.current?.seekTo(Math.min(durationRef.current, currentTimeRef.current + offset));
       });
     } catch (e) {
       console.warn('MediaSession handler registration notice:', e);
     }
-  }, [currentTrack, currentTime, duration]);
+  }, [currentTrack]);
 
   // Update Media Session Position State
   useEffect(() => {
@@ -700,8 +706,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const playPrevious = useCallback(() => {
     if (isLiveTrack(currentTrackRef.current)) return;
-    if (currentTime > 4) {
-      seekTo(0);
+    if (currentTimeRef.current > 4) {
+      // Through the ref: this callback does not change with `activeEngine`, whose latest value seekTo needs
+      mediaActionsRef.current?.seekTo(0);
       return;
     }
     const prevIdx = getPreviousTrackIndex(currentIndex, queue.length);
@@ -709,11 +716,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setCurrentIndex(prevIdx);
       loadAndPlayTrack(queue[prevIdx], preferredEngine, true);
     }
-  }, [currentTime, currentIndex, queue, preferredEngine, loadAndPlayTrack]);
+  }, [currentIndex, queue, preferredEngine, loadAndPlayTrack]);
 
   const seekTo = useCallback((seconds: number) => {
     if (isLiveTrack(currentTrackRef.current)) return;
-    const target = Math.max(0, Math.min(seconds, duration));
+    const target = Math.max(0, Math.min(seconds, durationRef.current));
     setCurrentTime(target);
     if (audioRef.current && activeEngine !== 'fallback') {
       audioRef.current.currentTime = target;
@@ -721,7 +728,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (activeEngine === 'fallback') {
       setUserSeekRequest(target);
     }
-  }, [duration, activeEngine]);
+  }, [activeEngine]);
+
+  mediaActionsRef.current = { togglePlayPause, playNext, playPrevious, seekTo };
 
   const updatePlaybackTime = useCallback((seconds: number) => {
     if (seconds > 0.5) radioSkipsRef.current = 0;
@@ -817,56 +826,103 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return likedTrackIds.includes(trackId);
   }, [likedTrackIds]);
 
+  // The playback clock ticks several times a second: it lives in its own context so that only the components
+  // showing it (the full-screen player) render on every tick, and not every list that reads `useAudio()`.
+  const playbackTime = useMemo(() => ({ currentTime, duration }), [currentTime, duration]);
+
+  const audioValue = useMemo(
+    () => ({
+      currentTrack,
+      queue,
+      currentIndex,
+      isPlaying,
+      volume,
+      isMuted,
+      isShuffle,
+      repeatMode,
+      activeEngine,
+      preferredEngine,
+      isBuffering,
+      isExpanded,
+      playbackStatus,
+      audioStreamUrl,
+      likedTrackIds,
+      likedTracks: likedLibrary.tracks,
+      audioFrequencyData,
+      userSeekRequest,
+      playTrack,
+      togglePlayPause,
+      playNext,
+      playPrevious,
+      seekTo,
+      updatePlaybackTime,
+      setDuration,
+      clearUserSeekRequest,
+      handleFallbackError,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      setPreferredEngine,
+      toggleExpanded,
+      radioStation,
+      startRadio,
+      isLive,
+      startLiveRadio,
+      toggleLike,
+      hydrateLikedTracks,
+      isLiked,
+      switchEngineManually,
+    }),
+    [
+      currentTrack,
+      queue,
+      currentIndex,
+      isPlaying,
+      volume,
+      isMuted,
+      isShuffle,
+      repeatMode,
+      activeEngine,
+      preferredEngine,
+      isBuffering,
+      isExpanded,
+      playbackStatus,
+      audioStreamUrl,
+      likedTrackIds,
+      likedLibrary.tracks,
+      audioFrequencyData,
+      userSeekRequest,
+      playTrack,
+      togglePlayPause,
+      playNext,
+      playPrevious,
+      seekTo,
+      updatePlaybackTime,
+      setDuration,
+      clearUserSeekRequest,
+      handleFallbackError,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      setPreferredEngine,
+      toggleExpanded,
+      radioStation,
+      startRadio,
+      isLive,
+      startLiveRadio,
+      toggleLike,
+      hydrateLikedTracks,
+      isLiked,
+      switchEngineManually
+    ]
+  );
+
   return (
-    <AudioContext.Provider
-      value={{
-        currentTrack,
-        queue,
-        currentIndex,
-        isPlaying,
-        currentTime,
-        duration,
-        volume,
-        isMuted,
-        isShuffle,
-        repeatMode,
-        activeEngine,
-        preferredEngine,
-        isBuffering,
-        isExpanded,
-        playbackStatus,
-        audioStreamUrl,
-        likedTrackIds,
-        likedTracks: likedLibrary.tracks,
-        audioFrequencyData,
-        userSeekRequest,
-        playTrack,
-        togglePlayPause,
-        playNext,
-        playPrevious,
-        seekTo,
-        updatePlaybackTime,
-        setDuration,
-        clearUserSeekRequest,
-        handleFallbackError,
-        setVolume,
-        toggleMute,
-        toggleShuffle,
-        toggleRepeat,
-        setPreferredEngine,
-        toggleExpanded,
-        radioStation,
-        startRadio,
-        isLive,
-        startLiveRadio,
-        toggleLike,
-        hydrateLikedTracks,
-        isLiked,
-        switchEngineManually
-      }}
-    >
-      {children}
-    </AudioContext.Provider>
+    <PlaybackTimeContext.Provider value={playbackTime}>
+      <AudioContext.Provider value={audioValue}>{children}</AudioContext.Provider>
+    </PlaybackTimeContext.Provider>
   );
 };
 
@@ -877,3 +933,6 @@ export const useAudio = () => {
   }
   return context;
 };
+
+/** The playback clock (position and length, in seconds). Changes several times a second: use it only where it is shown. */
+export const usePlaybackTime = () => useContext(PlaybackTimeContext);
