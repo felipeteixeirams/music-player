@@ -55,7 +55,7 @@ Títulos grandes 34/700 que encolhem ao rolar, seção 22/700, linha 17/400 com 
 1. **Fundação** (feito): tokens, materiais, fonte do sistema.
 2. **Barras** (feito em 2026-10-25): cabeçalho, filtros e busca, botão de instalar, abas, mini player (sem capa girando, controles de 44 px, progresso fino na base) e aviso de nova versão.
 3. **Listas, carrosséis, categorias, rádio e destaque da home** (feito em 2026-10-25): linhas de 56 px sem cartão, com separador recuado e só título e artista; capas com `radius-cover`, sem borda e com sombra; cartões em `elevated`; faixa em reprodução em vermelho; títulos de seção em 22/700. Erros e avisos mantêm as cores semânticas (rosa e âmbar).
-4. Player aberto com gradiente da capa (extrair a cor num `canvas`; as capas do Deezer podem exigir CORS, com cor neutra de reserva).
+4. **Player aberto e janelas** (feito em 2026-10-25): fundo em gradiente com a cor dominante da capa (`useCoverColor`: amostra a capa num `canvas` de 24 px, escurece para manter o texto branco legível e cai para um cinza neutro se a capa não permitir leitura por CORS); capa com `radius-card` que encolhe a 86% ao pausar; progresso e volume brancos e finos; controles sem círculo colorido; janelas de cache e instalação em `material-thick`. O visualizador deixou de se chamar "Espectrograma Web Audio API / LIVE STREAMING": é uma animação decorativa e o texto diz isso.
 5. Modo claro, se decidido.
 6. Extras do iOS 26: barra de abas que encolhe ao rolar e deslizar o mini player para trocar de faixa.
 
