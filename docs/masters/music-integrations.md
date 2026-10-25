@@ -2,9 +2,9 @@
 
 ## Propósito e autoridade
 
-Este é o master do domínio de busca musical, normalização de faixas e reprodução de áudio. Ele resume o estado conhecido e direciona para a especificação granular ativa. O ponto de entrada global continua sendo [a base documental](../README.md); este master não substitui nem duplica esse índice.
+Este é o master do domínio de busca musical, normalização de faixas e reprodução de áudio. Ele resume o estado conhecido e direciona para as especificações granulares ativas. O ponto de entrada global continua sendo [a base documental](../README.md); este master não substitui nem duplica esse índice.
 
-A especificação ativa é [Contratos, mappers e testes](../specs/current/music-integration-contracts.spec.md). Ela é a fonte detalhada para requisitos, decisões a implementar, testes e critérios de aceite. Se este resumo divergir dela, confira o código e atualize os documentos; não escolha uma interpretação silenciosamente.
+As especificações ativas são [Contratos, mappers e testes](../specs/current/music-integration-contracts.spec.md) e o [Roteiro de validação em produção](../specs/current/validation-checklist.spec.md), que lista o que precisa ser testado no aparelho do usuário e registra os resultados. O primeiro é a fonte detalhada para requisitos, decisões a implementar, testes automáticos e critérios de aceite. Se este resumo divergir deles, confira o código e atualize os documentos; não escolha uma interpretação silenciosamente.
 
 ## Estado
 
