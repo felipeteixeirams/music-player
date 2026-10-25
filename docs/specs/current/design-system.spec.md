@@ -45,7 +45,7 @@ Títulos grandes 34/700 que encolhem ao rolar, seção 22/700, linha 17/400 com 
 
 - **Cabeçalho:** `material-regular` e `hairline-bottom`, título grande que vira título pequeno ao rolar.
 - **Barra de abas:** `material-thick` e `hairline-top`, aba ativa em `accent`, rótulos de 10 pt.
-- **Mini player:** flutuante acima da barra, `material-thin`, raio 14 px, capa de 42 px com raio 6 px, sem borda; barra de progresso fina.
+- **Mini player:** flutuante acima da barra, `material-thin`, raio 12 px (`radius-card`), capa de 44 px com raio 6 px, sem borda; barra de progresso fina.
 - **Listas:** capa 56 px (`radius-cover`), título e subtítulo, duração à direita, separador recuado de 76 px; sem cartão com contorno.
 - **Carrosséis e grade:** capas quadradas com `radius-cover` e sombra, título 15 e artista 13.
 - **Player aberto:** fundo em gradiente com a cor dominante da capa, capa grande que diminui ao pausar, controles brancos grandes, progresso fino.
@@ -53,7 +53,7 @@ Títulos grandes 34/700 que encolhem ao rolar, seção 22/700, linha 17/400 com 
 ## Fases (um PR por fase)
 
 1. **Fundação** (feito): tokens, materiais, fonte do sistema.
-2. Barras: cabeçalho, abas, mini player.
+2. **Barras** (feito em 2026-10-25): cabeçalho, filtros e busca, botão de instalar, abas, mini player (sem capa girando, controles de 44 px, progresso fino na base) e aviso de nova versão.
 3. Listas, carrosséis e grade de categorias.
 4. Player aberto com gradiente da capa (extrair a cor num `canvas`; as capas do Deezer podem exigir CORS, com cor neutra de reserva).
 5. Modo claro, se decidido.

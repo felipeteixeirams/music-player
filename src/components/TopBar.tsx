@@ -40,15 +40,15 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-[#090910]/90 backdrop-blur-2xl border-b border-white/[0.06] px-4 pb-2.5 pt-[calc(var(--safe-top)+0.625rem)]">
+    <header className="sticky top-0 z-30 w-full material-regular hairline-bottom px-4 pb-2.5 pt-[calc(var(--safe-top)+0.625rem)]">
       {/* Top Row: Wordmark Brand and Quick Actions */}
       <div className="flex items-center justify-between gap-2 max-w-5xl mx-auto">
         {/* Brand */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 flex items-center justify-center shadow-lg shadow-purple-600/30">
+          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="text-base font-extrabold tracking-tight text-white whitespace-nowrap">
+          <span className="text-[17px] font-bold tracking-tight text-label whitespace-nowrap">
             AuraStream
           </span>
         </div>
@@ -58,18 +58,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onOpenCacheSettings}
             aria-label="Gerenciar cota de cache local"
-            className="p-2 rounded-full border bg-white/5 border-white/10 text-white/70 hover:text-white transition-all active:scale-95"
+            className="p-2 rounded-full bg-fill-tertiary text-label-secondary hover:text-label transition-all active:scale-95"
             title="Configurar Cache"
           >
-            <Database className="w-3.5 h-3.5 text-purple-400" />
+            <Database className="w-3.5 h-3.5 text-accent" />
           </button>
           <button
             onClick={onToggleSearch}
             aria-label="Buscar faixas ou artistas"
-            className={`p-2 rounded-full border transition-all active:scale-95 ${
+            className={`p-2 rounded-full transition-all active:scale-95 ${
               isSearchOpen
-                ? 'bg-purple-600/30 border-purple-500 text-white'
-                : 'bg-white/5 border-white/10 text-white/70 hover:text-white'
+                ? 'bg-accent text-white'
+                : 'bg-fill-tertiary text-label-secondary hover:text-label'
             }`}
           >
             <Search className="w-3.5 h-3.5" />
@@ -91,10 +91,10 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onSelectFilter(item.id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 transition-all active:scale-95 ${
+                className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap shrink-0 transition-all active:scale-95 ${
                   isActive
-                    ? 'bg-white text-black shadow-md font-semibold'
-                    : 'text-white/70 hover:text-white hover:bg-white/10 bg-white/[0.03]'
+                    ? 'bg-accent text-white font-semibold'
+                    : 'text-label-secondary hover:text-label bg-fill-tertiary'
                 }`}
               >
                 {item.label}
@@ -109,7 +109,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="mt-2.5 max-w-5xl mx-auto space-y-2 animate-in slide-in-from-top-2 duration-150">
           <div className="relative flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-label-tertiary" />
               <input
                 type="text"
                 value={searchQuery}
@@ -121,12 +121,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                     : 'Buscar no catálogo local...'
                 }
                 autoFocus
-                className="w-full pl-10 pr-14 py-2 rounded-2xl bg-white/[0.06] border border-white/15 text-white placeholder-white/40 text-xs focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                className="w-full pl-10 pr-14 py-2 rounded-card bg-fill-tertiary text-label placeholder:text-label-tertiary text-[15px] focus:outline-none focus:ring-2 focus:ring-accent/60 transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-white/50 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-label-secondary hover:text-label"
                 >
                   Limpar
                 </button>
@@ -137,7 +137,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 onClick={onSubmitOnlineSearch}
                 disabled={isSearchingOnline || !searchQuery.trim()}
-                className="px-3.5 py-2 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shrink-0 active:scale-95 transition-all shadow-md shadow-purple-900/30"
+                className="px-3.5 py-2 rounded-card bg-accent hover:bg-accent-pressed disabled:opacity-50 text-white text-[15px] font-semibold flex items-center gap-1.5 shrink-0 active:scale-95 transition-all"
               >
                 {isSearchingOnline ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -149,13 +149,13 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
 
           {/* Search Scope Switcher Segmented Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-white/[0.04] rounded-2xl border border-white/10 w-fit">
+          <div className="flex items-center gap-0.5 p-0.5 bg-fill-tertiary rounded-lg w-fit">
             <button
               onClick={() => onSearchScopeChange('catalog')}
-              className={`px-3 py-1 rounded-xl text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
                 searchScope === 'catalog'
-                  ? 'bg-white text-black font-semibold shadow-sm'
-                  : 'text-white/60 hover:text-white'
+                  ? 'bg-elevated-2 text-label font-semibold shadow-sm'
+                  : 'text-label-secondary hover:text-label'
               }`}
             >
               <Library className="w-3 h-3" />
@@ -166,10 +166,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                 onSearchScopeChange('online');
                 if (searchQuery.trim()) onSubmitOnlineSearch();
               }}
-              className={`px-3 py-1 rounded-xl text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
                 searchScope === 'online'
-                  ? 'bg-purple-600 text-white font-semibold shadow-sm'
-                  : 'text-white/60 hover:text-white'
+                  ? 'bg-elevated-2 text-label font-semibold shadow-sm'
+                  : 'text-label-secondary hover:text-label'
               }`}
             >
               <Globe className="w-3 h-3" />

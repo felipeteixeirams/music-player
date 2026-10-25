@@ -39,15 +39,15 @@ export const MiniPlayer: React.FC = () => {
             }
           }}
           aria-label={`Abrir player expandido para ${currentTrack.title} por ${currentTrack.artist}`}
-          className="relative overflow-hidden rounded-3xl bg-[#12121e]/90 backdrop-blur-2xl border border-white/[0.12] shadow-2xl shadow-black/80 cursor-pointer select-none active:scale-[0.99] transition-all"
+          className="relative overflow-hidden rounded-card material-thin shadow-xl shadow-black/50 cursor-pointer select-none active:scale-[0.99] transition-all"
         >
           {/* Micro Progress Bar on top edge (a radio has no timeline; a live one shows a pulsing line) */}
-          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-white/10">
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fill-tertiary">
             {isLive ? (
-              <div className={`h-full w-full bg-rose-500/80 ${isPlaying ? 'animate-pulse' : 'opacity-40'}`} />
+              <div className={`h-full w-full bg-accent ${isPlaying ? 'animate-pulse' : 'opacity-40'}`} />
             ) : radioStation ? null : (
             <div
-              className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-400 transition-all duration-150"
+              className="h-full bg-label transition-all duration-150"
               style={{ width: `${progress}%` }}
             />
             )}
@@ -57,39 +57,33 @@ export const MiniPlayer: React.FC = () => {
             {/* Left Slot: Rotating Album Artwork (Vinyl effect) */}
             <div className="relative shrink-0">
               <div
-                className={`w-10 h-10 rounded-2xl overflow-hidden border border-white/20 shadow-md bg-gradient-to-tr from-purple-900/60 to-pink-900/60 flex items-center justify-center relative ${
-                  isPlaying ? 'animate-[spin_10s_linear_infinite]' : ''
-                }`}
-                style={{ transformOrigin: 'center' }}
+                className="w-11 h-11 rounded-md overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative"
               >
                 <img
                   src={currentTrack.coverUrl}
                   alt=""
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover rounded-2xl"
+                  className="w-full h-full object-cover"
                   onError={(e) => {
                     (e.currentTarget as HTMLElement).style.display = 'none';
                   }}
                 />
               </div>
-
-              {/* Center vinyl pin hole micro-detail */}
-              <div className="absolute inset-0 m-auto w-2 h-2 rounded-full bg-black/60 border border-white/40 pointer-events-none" />
             </div>
 
             {/* Middle Slot: Track Name & Artist */}
             <div className="min-w-0 flex-1 text-left">
               <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-bold text-white truncate">
+                <h3 className="text-[15px] font-medium text-label truncate">
                   {currentTrack.title}
                 </h3>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-white/50 truncate">
+              <div className="flex items-center gap-1.5 text-[13px] text-label-secondary truncate">
                 <span className="truncate">{currentTrack.artist}</span>
                 {currentTrack.album && !currentTrack.album.includes('Piped') && (
                   <>
                     <span aria-hidden="true">·</span>
-                    <span className="truncate text-white/40">{currentTrack.album}</span>
+                    <span className="truncate text-label-tertiary">{currentTrack.album}</span>
                   </>
                 )}
               </div>
@@ -103,12 +97,12 @@ export const MiniPlayer: React.FC = () => {
                   togglePlayPause();
                 }}
                 aria-label={isPlaying ? 'Pausar música' : 'Reproduzir música'}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-white text-black hover:bg-white/90 active:scale-90 transition-all shadow-md"
+                className="w-11 h-11 rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
               >
                 {isPlaying ? (
-                  <Pause className="w-4 h-4 fill-current" />
+                  <Pause className="w-6 h-6 fill-current" />
                 ) : (
-                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                  <Play className="w-6 h-6 fill-current ml-0.5" />
                 )}
               </button>
 
@@ -119,9 +113,9 @@ export const MiniPlayer: React.FC = () => {
                   playNext();
                 }}
                 aria-label="Avançar para a próxima faixa"
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+                className="w-11 h-11 rounded-full flex items-center justify-center text-label-secondary hover:text-label active:scale-90 transition-all"
               >
-                <SkipForward className="w-4 h-4 fill-current" />
+                <SkipForward className="w-6 h-6 fill-current" />
               </button>
               )}
             </div>
