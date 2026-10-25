@@ -139,7 +139,7 @@ Use o app normalmente por uns 30 minutos (buscar, tocar, trocar de coleção) e 
 - linhas `[Feed] ⚠️`, `[Category] ⚠️`, `[Search] ⚠️` e `[YouTube] API oficial indisponível`;
 - respostas 4xx e 5xx na aba de requisições.
 
-Esperado: quase todas `via official`, poucas faixas sem vídeo, nenhum 5xx. A cota gratuita da API do YouTube é de cerca de 100 buscas por dia (`search.list` custa 100 unidades de 10.000): uma sessão longa pode esgotá-la, e o app cai na busca web não oficial.
+Conte também respostas 403 e 429 (proteção das rotas): com uso normal não deve haver nenhuma; algumas indicam um script ou outro site chamando a API. Esperado: quase todas `via official`, poucas faixas sem vídeo, nenhum 5xx. A cota gratuita da API do YouTube é de cerca de 100 buscas por dia (`search.list` custa 100 unidades de 10.000): uma sessão longa pode esgotá-la, e o app cai na busca web não oficial.
 
 Se falhar: `web-after-official-failure` em série indica cota esgotada. Se isso acontecer com uso normal, a frente "abuso e cota" sobe de prioridade.
 

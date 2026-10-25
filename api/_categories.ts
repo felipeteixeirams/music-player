@@ -26,6 +26,8 @@ export function isCategoryId(value: unknown): value is CategoryId {
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 50;
+/** Deezer pages never go this deep for our lists; a larger `index` only fishes for requests the cache has not seen. */
+export const MAX_PAGE_INDEX = 5000;
 
 /** Reads `index` and `limit` from a query string: non-negative integers, limit clamped to 1..MAX_PAGE_SIZE. */
 export function readPageParams(raw: { index?: unknown; limit?: unknown }): { index: number; limit: number } {
@@ -35,7 +37,7 @@ export function readPageParams(raw: { index?: unknown; limit?: unknown }): { ind
     return Number.isSafeInteger(n) ? n : fallback;
   };
   return {
-    index: toInt(raw.index, 0),
+    index: Math.min(MAX_PAGE_INDEX, toInt(raw.index, 0)),
     limit: Math.min(MAX_PAGE_SIZE, Math.max(1, toInt(raw.limit, DEFAULT_PAGE_SIZE)))
   };
 }
