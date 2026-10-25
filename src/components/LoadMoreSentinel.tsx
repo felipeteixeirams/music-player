@@ -47,7 +47,7 @@ export const LoadMoreSentinel: React.FC<LoadMoreSentinelProps> = ({
         </span>
       )}
       {error && (
-        <div className="flex flex-col items-center gap-2 text-rose-300" role="alert">
+        <div className="flex flex-col items-center gap-2 text-rose-500" role="alert">
           <span className="flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4" />
             {error}

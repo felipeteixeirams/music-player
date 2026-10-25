@@ -3,6 +3,13 @@
 /*
  * Design tokens (see docs/specs/current/design-system.spec.md). Tailwind turns each --color-* into bg-*, text-* and
  * border-* utilities (bg-accent, text-label-secondary...). Screens should use these instead of raw hex or white/NN.
+ *
+ * The values declared here are the dark scheme. Light follows the system, but not in the installed app, whose
+ * status bar on iOS is fixed to white text over the top of the page (`black-translucent`) and would be
+ * unreadable on a light header. `.theme-dark` restores dark inside a subtree (the full-screen player, which
+ * always sits on a dark cover gradient). The colors are set on the variables Tailwind reads (--color-*) and not
+ * through an intermediate variable: a var() inside a custom property is resolved where it is declared and
+ * inherited as a final value, so a subtree could not switch scheme.
  */
 @theme static {
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -22,10 +29,50 @@
   --color-fill: rgb(120 120 128 / 0.36);
   --color-fill-secondary: rgb(120 120 128 / 0.32);
   --color-fill-tertiary: rgb(118 118 128 / 0.24);
+  --color-segment: rgb(99 99 102);
 
   --radius-cover: 0.5rem;
   --radius-card: 0.75rem;
   --radius-sheet: 1.25rem;
+}
+
+:root {
+  --material-rgb: 28 28 30;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) and (not (display-mode: standalone)) {
+  :root {
+    --color-canvas: #ffffff;
+    --color-elevated: #f2f2f7;
+    --color-elevated-2: #e5e5ea;
+    --color-label: #000000;
+    --color-label-secondary: rgb(60 60 67 / 0.6);
+    --color-label-tertiary: rgb(60 60 67 / 0.3);
+    --color-separator: rgb(60 60 67 / 0.29);
+    --color-fill: rgb(120 120 128 / 0.2);
+    --color-fill-secondary: rgb(120 120 128 / 0.16);
+    --color-fill-tertiary: rgb(118 118 128 / 0.12);
+    --color-segment: #ffffff;
+    --material-rgb: 249 249 249;
+    color-scheme: light;
+  }
+}
+
+.theme-dark {
+  --color-canvas: #000000;
+  --color-elevated: #1c1c1e;
+  --color-elevated-2: #2c2c2e;
+  --color-label: #ffffff;
+  --color-label-secondary: rgb(235 235 245 / 0.6);
+  --color-label-tertiary: rgb(235 235 245 / 0.3);
+  --color-separator: rgb(84 84 88 / 0.5);
+  --color-fill: rgb(120 120 128 / 0.36);
+  --color-fill-secondary: rgb(120 120 128 / 0.32);
+  --color-fill-tertiary: rgb(118 118 128 / 0.24);
+  --color-segment: rgb(99 99 102);
+  --material-rgb: 28 28 30;
+  color-scheme: dark;
 }
 
 @layer base {
@@ -38,7 +85,6 @@
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     font-family: var(--font-sans);
-    color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -98,14 +144,14 @@ input[type='range']::-moz-range-thumb {
 .material-thin,
 .material-regular,
 .material-thick {
-  background-color: rgb(28 28 30 / 0.94);
+  background-color: rgb(var(--material-rgb) / 0.94);
 }
 
 @supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
-  .material-ultrathin { background-color: rgb(28 28 30 / 0.45); -webkit-backdrop-filter: blur(12px) saturate(180%); backdrop-filter: blur(12px) saturate(180%); }
-  .material-thin { background-color: rgb(28 28 30 / 0.6); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
-  .material-regular { background-color: rgb(28 28 30 / 0.72); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); }
-  .material-thick { background-color: rgb(28 28 30 / 0.85); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%); }
+  .material-ultrathin { background-color: rgb(var(--material-rgb) / 0.45); -webkit-backdrop-filter: blur(12px) saturate(180%); backdrop-filter: blur(12px) saturate(180%); }
+  .material-thin { background-color: rgb(var(--material-rgb) / 0.6); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
+  .material-regular { background-color: rgb(var(--material-rgb) / 0.72); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); }
+  .material-thick { background-color: rgb(var(--material-rgb) / 0.85); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%); }
 }
 
 /* Hairline that separates a bar from the content: half a point, as on iOS */

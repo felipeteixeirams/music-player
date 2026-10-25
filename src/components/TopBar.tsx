@@ -154,7 +154,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               onClick={() => onSearchScopeChange('catalog')}
               className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
                 searchScope === 'catalog'
-                  ? 'bg-elevated-2 text-label font-semibold shadow-sm'
+                  ? 'bg-segment text-label font-semibold shadow-sm'
                   : 'text-label-secondary hover:text-label'
               }`}
             >
@@ -168,7 +168,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               }}
               className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
                 searchScope === 'online'
-                  ? 'bg-elevated-2 text-label font-semibold shadow-sm'
+                  ? 'bg-segment text-label font-semibold shadow-sm'
                   : 'text-label-secondary hover:text-label'
               }`}
             >

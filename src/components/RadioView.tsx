@@ -44,7 +44,7 @@ export const RadioView: React.FC = () => {
   return (
     <section className="px-4 py-3 space-y-5" aria-labelledby="radio-heading">
       <div>
-        <h1 id="radio-heading" className="text-lg font-black text-white tracking-tight flex items-center gap-2">
+        <h1 id="radio-heading" className="text-[22px] font-bold text-label tracking-tight flex items-center gap-2">
           <Radio className="w-5 h-5 text-accent" />
           Rádio
         </h1>
@@ -116,7 +116,7 @@ export const RadioView: React.FC = () => {
       )}
 
       {error && !isLoading && (
-        <div className="px-4 py-12 text-center text-xs text-rose-300 space-y-2" role="alert">
+        <div className="px-4 py-12 text-center text-xs text-rose-500 space-y-2" role="alert">
           <AlertCircle className="w-7 h-7 mx-auto" />
           <p>{error}</p>
           <button
