@@ -76,7 +76,7 @@ Este é o maior risco do produto: o áudio completo vem de um player do YouTube 
 
 Anote o aparelho, o sistema e o navegador. Esperado: o áudio continua com a tela bloqueada e os controles do sistema funcionam.
 
-Se falhar: pausa em segundo plano é limitação do player do YouTube no celular. A alternativa é discutir a solução definitiva para o áudio completo (decisão em aberto do usuário) antes de investir em desempenho ou em playlists.
+Resultado de 2026-10-25: no navegador funcionou; só o app instalado (PWA) pausa. A causa provável é a restrição do iOS a mídia de apps instalados, e não o player do YouTube (relatos externos citados na conversa; sem correção confirmada). Se falhar em outro aparelho: pausa em segundo plano é limitação do player do YouTube no celular. A alternativa é discutir a solução definitiva para o áudio completo (decisão em aberto do usuário) antes de investir em desempenho ou em playlists.
 
 ## Rodada 3: dados do usuário e busca
 
@@ -215,7 +215,7 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 | T01 | | | ⬜ | |
 | T02 | | | ⬜ | |
 | T03 | | | ⬜ | |
-| T04 | | | ⬜ | |
+| T04 | 2026-10-25 | iPhone 11, Microsoft Edge (navegador) e app instalado (PWA) | ⚠️ | No navegador: a faixa completa continua tocando com a tela bloqueada e com o app minimizado. No app instalado na tela inicial: o áudio para ao bloquear, e o play da tela de bloqueio não religa. Decisão: usar pelo navegador; o texto do modal de instalação avisa. Não testado: prévia de 30s no PWA, nem troca de aplicativo por 1 minuto. |
 | T05 | | | ⬜ | |
 | T06 | | | ⬜ | |
 | T07 | | | ⬜ | |
