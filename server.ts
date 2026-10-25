@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { categoryEndpoint, feedEndpoint, searchEndpoint } from './api/_endpoints';
+import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { resolveYouTubeVideos } from './api/_youtubeSearch';
 
@@ -138,6 +138,13 @@ app.get('/api/feed', async (req, res) => {
 // One page of a home category
 app.get('/api/category', async (req, res) => {
   const { status, body } = await categoryEndpoint(req.query);
+  return res.status(status).json(body);
+});
+
+// Endpoint: GET /api/radio and GET /api/radio?id=
+// Curated stations by genre, or a fresh batch of tracks from one station
+app.get('/api/radio', async (req, res) => {
+  const { status, body } = await radioEndpoint(req.query);
   return res.status(status).json(body);
 });
 

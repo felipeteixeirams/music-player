@@ -1,4 +1,4 @@
-import type { FeedResponse, Track, TrackPage } from '../types/music';
+import type { FeedResponse, RadioGenre, Track, TrackPage } from '../types/music';
 
 /** Raised for any answer that is not a usable page, with a message fit for the user. */
 export class CatalogError extends Error {}
@@ -54,4 +54,22 @@ export async function fetchSearchPage(query: string, index: number, signal?: Abo
   const body = await getJson(`/api/search?q=${encodeURIComponent(query)}&index=${index}`, signal);
   if (!isTrackPage(body)) throw new CatalogError('Resposta inesperada do servidor ao buscar.');
   return body as TrackPage & { source?: string };
+}
+
+export async function fetchRadioGenres(signal?: AbortSignal): Promise<RadioGenre[]> {
+  const body = (await getJson('/api/radio', signal)) as { genres?: unknown } | null;
+  const genres = body?.genres;
+  const valid = Array.isArray(genres) && genres.every((genre) => {
+    const g = genre as Partial<RadioGenre> | null;
+    return Boolean(g && typeof g.id === 'string' && typeof g.name === 'string' && Array.isArray(g.stations));
+  });
+  if (!valid) throw new CatalogError('Resposta inesperada do servidor ao carregar as estações.');
+  return genres as RadioGenre[];
+}
+
+/** A new batch of tracks from a station; every call is a different shuffle. */
+export async function fetchRadioTracks(stationId: number, signal?: AbortSignal): Promise<Track[]> {
+  const body = await getJson(`/api/radio?id=${stationId}`, signal);
+  if (!isTrackPage(body)) throw new CatalogError('Resposta inesperada do servidor ao carregar a estação.');
+  return body.tracks;
 }

@@ -63,3 +63,16 @@ export interface FeedResponse {
   categories: Record<string, TrackPage>;
   featured: Track | null;
 }
+
+export interface RadioStation {
+  id: number;
+  name: string;
+  /** Cover from Deezer; null when it has none. */
+  picture: string | null;
+}
+
+export interface RadioGenre {
+  id: string;
+  name: string;
+  stations: RadioStation[];
+}
