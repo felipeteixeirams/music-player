@@ -6,8 +6,6 @@ import radioHandler from '../../api/radio';
 import feedHandler from '../../api/feed';
 import searchHandler from '../../api/search';
 import resolveHandler from '../../api/resolve';
-import streamHandler from '../../api/streams/[id]';
-import { fetchPipedAudioStream } from '../../src/utils/audioEngine';
 
 interface RecordedResponse extends VercelResponse {
   statusCode: number;
@@ -319,70 +317,6 @@ test('radio endpoint answers 502 when a station fails', async () => {
   assert.equal(response.headers['Cache-Control'], undefined);
 });
 
-test('stream endpoint selects the highest bitrate Piped audio stream', async () => {
-  setFetchMock(async (url) => {
-    assert.match(url, /\/streams\/dQw4w9WgXcQ$/);
-    return jsonResponse({
-      audioStreams: [
-        { url: 'https://audio.example/low.webm', bitrate: 64000, quality: '64kbps' },
-        { url: 'https://audio.example/high.m4a', bitrate: 160000, quality: '160kbps' }
-      ]
-    });
-  });
-
-  const response = createResponse();
-  await streamHandler(
-    { query: { id: 'dQw4w9WgXcQ' } } as unknown as VercelRequest,
-    response
-  );
-
-  const body = response.body as Record<string, any>;
-  assert.equal(response.statusCode, 200);
-  assert.equal(body.audioUrl, 'https://audio.example/high.m4a');
-  assert.equal(body.quality, '160kbps');
-  assert.equal(body.directStreamAvailable, true);
-});
-
-test('stream endpoint reports fallback when all Piped instances fail', async () => {
-  setFetchMock(async () => jsonResponse({ error: 'unavailable' }, 503));
-
-  const response = createResponse();
-  await streamHandler(
-    { query: { id: 'dQw4w9WgXcQ' } } as unknown as VercelRequest,
-    response
-  );
-
-  const body = response.body as Record<string, any>;
-  assert.equal(response.statusCode, 200);
-  assert.equal(body.directStreamAvailable, false);
-  assert.equal(body.audioUrl, null);
-  assert.equal(body.youtubeId, 'dQw4w9WgXcQ');
-});
-
-test('audio client consumes the stream endpoint contract and its fallback response', async () => {
-  let endpointResult: Record<string, unknown> = {
-    audioUrl: 'https://audio.example/direct.m4a',
-    quality: '128kbps',
-    instanceUsed: 'https://piped.example'
-  };
-  setFetchMock(async (url) => {
-    assert.equal(url, '/api/streams/dQw4w9WgXcQ');
-    return jsonResponse(endpointResult);
-  });
-
-  const resolved = await fetchPipedAudioStream('dQw4w9WgXcQ');
-  assert.equal(resolved.audioUrl, 'https://audio.example/direct.m4a');
-  assert.equal(resolved.instanceUsed, 'https://piped.example');
-
-  endpointResult = {
-    directStreamAvailable: false,
-    audioUrl: null,
-    youtubeId: 'dQw4w9WgXcQ'
-  };
-  const fallback = await fetchPipedAudioStream('dQw4w9WgXcQ');
-  assert.equal(fallback.audioUrl, null);
-  assert.equal(fallback.instanceUsed, 'YouTube Engine');
-});
 test('resolve endpoint returns the video ids found for a catalog track', async () => {
   setFetchMock(async (url) =>
     url.includes('/oembed') ? jsonResponse({}) : jsonResponse({

@@ -29,7 +29,7 @@ Masters e satélites são documentos navegáveis por links, não pontos de entra
 
 | Domínio | Master | Satélites ativos | Estado |
 | --- | --- | --- | --- |
-| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md); [Roteiro de validação em produção](specs/current/validation-checklist.spec.md) | Busca (Deezer + reserva iTunes), coleções fiéis e paginadas, rádio ao vivo e mix por gênero, prévia e faixa completa via YouTube (2026-10-25); pendentes: reserva do feed e remoção do código Piped. |
+| Integrações musicais e reprodução | [Integrações musicais](masters/music-integrations.md) | [Contratos, mappers e testes](specs/current/music-integration-contracts.spec.md); [Roteiro de validação em produção](specs/current/validation-checklist.spec.md) | Busca (Deezer + reserva iTunes), coleções fiéis e paginadas, rádio ao vivo e mix por gênero, prévia e faixa completa via YouTube (2026-10-25); pendente: reserva do feed. |
 | Design system da interface | [Design system](masters/design-system.md) | [Tokens, materiais e fases](specs/current/design-system.spec.md) | Direção Apple Music definida; fundação, barras, listas, rádio, player aberto e janelas implementados em 2026-10-25; modo claro (só no navegador) e extras do iOS 26 (barra de abas que recolhe, deslizar o mini player) implementados; fase 7 (paridade de estrutura com o Apple Music) completa: títulos grandes, Buscar com grade, cápsula e pílula, Rádio em grade e Biblioteca em seções. |
 
 ## Regras de manutenção

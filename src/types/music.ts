@@ -28,7 +28,7 @@ export interface Category {
   accentColor: string;
 }
 
-export type AudioEngineType = 'native' | 'piped' | 'fallback';
+export type AudioEngineType = 'native' | 'fallback';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -43,14 +43,6 @@ export interface PlaybackState {
   activeEngine: AudioEngineType;
   isBuffering: boolean;
   error: string | null;
-}
-
-export interface PipedAudioStream {
-  url: string;
-  bitrate: number;
-  format: string;
-  quality: string;
-  mimeType: string;
 }
 
 /** One page of a paginated track list. `nextIndex` is null when there is nothing left to load. */

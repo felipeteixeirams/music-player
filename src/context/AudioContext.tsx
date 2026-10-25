@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { AudioEngineType, LiveStation, RadioStation, RepeatMode, Track } from '../types/music';
 import {
-  fetchPipedAudioStream,
   getNextTrackIndex,
   getPreviousTrackIndex,
   resolveAudioDetails,
@@ -49,7 +48,7 @@ interface AudioContextType {
   preferredEngine: AudioEngineType;
   isBuffering: boolean;
   isExpanded: boolean;
-  pipedStatus: PlaybackStatus;
+  playbackStatus: PlaybackStatus;
   audioStreamUrl: string;
   likedTrackIds: string[];
   likedTracks: Track[];
@@ -114,9 +113,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [preferredEngine, setPreferredEngineState] = useState<AudioEngineType>('fallback');
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [pipedStatus, setPipedStatus] = useState<PlaybackStatus>({
+  const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>({
     quality: 'Áudio Original',
-    instanceUsed: 'YouTube / Piped'
+    instanceUsed: 'YouTube'
   });
   const [audioStreamUrl, setAudioStreamUrl] = useState<string>('');
   const [userSeekRequest, setUserSeekRequest] = useState<number | null>(null);
@@ -158,7 +157,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setActiveEngine('fallback');
     const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
     setAudioStreamUrl(fallbackUrl);
-    setPipedStatus({
+    setPlaybackStatus({
       quality: 'Áudio Original',
       instanceUsed: 'YouTube Engine (Fallback)'
     });
@@ -195,7 +194,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setActiveEngine('native');
     setAudioStreamUrl(previewUrl);
-    setPipedStatus({
+    setPlaybackStatus({
       quality: 'Prévia de 30s',
       instanceUsed: 'Catálogo',
       notice: 'Faixa completa indisponível, tocando a prévia de 30s.'
@@ -248,7 +247,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         triggerFallbackEngine(currentTrackRef.current, true);
       } else if (!skipUnplayableTrack()) {
         setIsPlaying(false);
-        setPipedStatus({ error: 'Não foi possível reproduzir o áudio desta faixa.' });
+        setPlaybackStatus({ error: 'Não foi possível reproduzir o áudio desta faixa.' });
       }
     };
 
@@ -317,7 +316,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
     const token = ++loadTokenRef.current;
-    setPipedStatus((prev) => (prev.error || prev.notice ? { ...prev, error: undefined, notice: undefined } : prev));
+    setPlaybackStatus((prev) => (prev.error || prev.notice ? { ...prev, error: undefined, notice: undefined } : prev));
     setIsBuffering(true);
     setCurrentTrack(track);
     setDuration(track.duration);
@@ -331,7 +330,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         audioRef.current.src = offlineBlobUrl;
         setActiveEngine('native');
         setAudioStreamUrl(offlineBlobUrl);
-        setPipedStatus({ quality: 'Offline Cache', instanceUsed: 'Local Cache Storage' });
+        setPlaybackStatus({ quality: 'Offline Cache', instanceUsed: 'Local Cache Storage' });
         if (shouldPlay) {
           try {
             await audioRef.current.play();
@@ -360,36 +359,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 3. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
     if (await playPreview(track, shouldPlay)) return;
 
-    // 4. Online stream resolution (YouTube / Piped)
+    // 4. A track that already carries its YouTube video goes straight to the headless player
     if (track.sources.youtubeId) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
       }
-
-      // Try fetching direct audio stream from Piped instances first with a quick 1.5s timeout
-      try {
-        const pipedResult = await fetchPipedAudioStream(track.sources.youtubeId, 1500);
-        if (pipedResult.audioUrl && audioRef.current) {
-          setActiveEngine('piped');
-          setAudioStreamUrl(pipedResult.audioUrl);
-          setPipedStatus({
-            quality: pipedResult.quality || '128kbps',
-            instanceUsed: pipedResult.instanceUsed || 'Piped Direct Stream'
-          });
-          audioRef.current.src = pipedResult.audioUrl;
-          if (shouldPlay) {
-            await audioRef.current.play();
-            setIsPlaying(true);
-          }
-          setIsBuffering(false);
-          return;
-        }
-      } catch (err) {
-        console.warn('Direct stream playback failed, using fallback engine:', err);
-      }
-
-      // Fallback to official YouTube headless engine player
       triggerFallbackEngine(track, shouldPlay);
       return;
     }
@@ -413,7 +388,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (skipUnplayableTrack()) return;
-    setPipedStatus({ error: 'Esta faixa não tem prévia disponível.' });
+    setPlaybackStatus({ error: 'Esta faixa não tem prévia disponível.' });
     setIsPlaying(false);
     setIsBuffering(false);
   }, [triggerFallbackEngine, playPreview, skipUnplayableTrack]);
@@ -426,7 +401,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const onEnded = () => {
       if (isLiveTrack(currentTrackRef.current)) {
         setIsPlaying(false);
-        setPipedStatus({ error: 'A transmissão foi interrompida. Toque em reproduzir para sintonizar de novo.' });
+        setPlaybackStatus({ error: 'A transmissão foi interrompida. Toque em reproduzir para sintonizar de novo.' });
         return;
       }
       if (repeatMode === 'one') {
@@ -448,10 +423,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const nextIdx = getNextTrackIndex(currentIndex, queue.length, isShuffle, repeatMode);
     if (nextIdx >= 0 && nextIdx < queue.length && nextIdx !== currentIndex) {
       const nextTrack = queue[nextIdx];
-      // Prime the server-side Piped stream resolution cache in background
-      if (nextTrack.sources.youtubeId && !isTrackOfflineAvailable(nextTrack.id)) {
-        fetchPipedAudioStream(nextTrack.sources.youtubeId).catch(() => {});
-      }
       // Warm up browser audio stream cache if native
       if (nextTrack.sources.localUrl) {
         const preloader = new Audio();
@@ -774,7 +745,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (skipUnplayableTrack()) return;
     setIsPlaying(false);
     setIsBuffering(false);
-    setPipedStatus({ error: 'Não foi possível reproduzir esta faixa.' });
+    setPlaybackStatus({ error: 'Não foi possível reproduzir esta faixa.' });
   }, [playPreview, triggerFallbackEngine, skipUnplayableTrack]);
 
   const clearUserSeekRequest = useCallback(() => {
@@ -863,7 +834,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         preferredEngine,
         isBuffering,
         isExpanded,
-        pipedStatus,
+        playbackStatus,
         audioStreamUrl,
         likedTrackIds,
         likedTracks: likedLibrary.tracks,
