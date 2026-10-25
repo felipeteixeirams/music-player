@@ -6,7 +6,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
-import { CategoryGrid } from './components/CategoryGrid';
+import { CategoryTiles } from './components/CategoryTiles';
+import { SettingsMenu } from './components/SettingsMenu';
 import { TrackCarousel } from './components/TrackCarousel';
 import { TrackList } from './components/TrackList';
 import { MiniPlayer } from './components/MiniPlayer';
@@ -49,14 +50,13 @@ const MusicAppContent: React.FC = () => {
   const [feedAttempt, setFeedAttempt] = useState<number>(0);
 
   const [activeTab, setActiveTab] = useState<AppTab>('home');
-  const [activeFilter, setActiveFilter] = useState<string>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [searchScope, setSearchScope] = useState<'catalog' | 'online'>('catalog');
   // Each submit starts a new search, even for the same words
   const [submittedSearch, setSubmittedSearch] = useState<{ query: string; id: number } | null>(null);
   const [isCacheSettingsOpen, setIsCacheSettingsOpen] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Register service worker on mount
   useEffect(() => {
@@ -95,33 +95,17 @@ const MusicAppContent: React.FC = () => {
     return () => controller.abort();
   }, [feedAttempt]);
 
-  // Sync BottomNavBar tabs with TopBar search states
   const handleSelectTab = (tab: AppTab) => {
     setActiveTab(tab);
+    // Each tab opens at its own first screen, not inside a collection left open elsewhere
+    setSelectedCategoryId(null);
     // Text typed in the search box belongs to the search screen; left behind it would filter the others
     if (tab !== 'search') setSearchQuery('');
-    if (tab === 'search') {
-      setIsSearchOpen(true);
-      setSearchScope('online');
-    } else if (tab === 'library') {
-      setIsSearchOpen(false);
-      setActiveFilter('liked');
-    } else if (tab === 'radio') {
-      setIsSearchOpen(false);
-      setActiveFilter('all');
-      setSelectedCategoryId(null);
-    } else {
-      setIsSearchOpen(false);
-      setActiveFilter('all');
-      setSelectedCategoryId(null);
-    }
+    if (tab === 'search') setSearchScope('online');
   };
 
-  // Collection or filter chip being viewed: the grid wins over the chips
-  const activeCategoryId = useMemo(() => {
-    if (selectedCategoryId && getCategoryById(selectedCategoryId)) return selectedCategoryId;
-    return getCategoryById(activeFilter) ? activeFilter : null;
-  }, [selectedCategoryId, activeFilter]);
+  // Collection open on screen, if any
+  const activeCategoryId = selectedCategoryId && getCategoryById(selectedCategoryId) ? selectedCategoryId : null;
   const activeCategory = activeCategoryId ? getCategoryById(activeCategoryId) : undefined;
 
   // The collection being viewed, loaded page by page; it starts from the page the home feed already brought
@@ -166,16 +150,6 @@ const MusicAppContent: React.FC = () => {
     return Array.from(map.values());
   }, [feed]);
 
-  // Size of each collection, as reported by the playlist behind it
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    CATEGORIES.forEach((category) => {
-      const total = feed?.categories[category.id]?.total;
-      if (total) counts[category.id] = total;
-    });
-    return counts;
-  }, [feed]);
-
   // Search inside what is already loaded, and the favorites library
   const filteredCatalogTracks = useMemo(() => {
     if (searchQuery.trim() && searchScope === 'catalog') {
@@ -188,14 +162,18 @@ const MusicAppContent: React.FC = () => {
           t.style.toLowerCase().includes(q)
       );
     }
-    if (activeFilter === 'liked' || activeTab === 'library') return likedTracks;
+    if (activeTab === 'library') return likedTracks;
     return allLiveTracks;
-  }, [allLiveTracks, searchQuery, searchScope, activeFilter, likedTracks, activeTab]);
+  }, [allLiveTracks, searchQuery, searchScope, likedTracks, activeTab]);
 
   const featuredTrack = feed?.featured ?? null;
-  const isRadioTab = activeTab === 'radio' && !isSearchOpen && !searchQuery;
-  // The tab shown as selected follows what is on screen, also when search is opened or closed from the top bar
-  const navTab: AppTab = isSearchOpen ? 'search' : activeTab === 'search' ? 'home' : activeTab;
+  const isSearchTab = activeTab === 'search' && !activeCategory;
+  const isRadioTab = activeTab === 'radio' && !activeCategory;
+  const isLibraryTab = activeTab === 'library' && !activeCategory;
+  const hasTypedQuery = searchQuery.trim().length > 0;
+  const screenTitle = activeCategory
+    ? activeCategory.name
+    : { home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab];
 
   return (
     <div className="min-h-screen bg-canvas text-label flex flex-col font-sans selection:bg-accent selection:text-white">
@@ -205,27 +183,28 @@ const MusicAppContent: React.FC = () => {
 
       {/* Main Mobile/Tablet Wrapper */}
       <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-[calc(9rem+var(--safe-bottom))]">
-        {/* Top App Bar with live search */}
+        {/* Large title of the screen, with search on the Search tab */}
         <TopBar
-          activeFilter={activeFilter}
-          onSelectFilter={(filter) => {
-            setActiveFilter(filter);
-            setSelectedCategoryId(null);
-            // Favorites are the library; everything else is shown on the home screen
-            setActiveTab(filter === 'liked' ? 'library' : 'home');
-          }}
+          title={screenTitle}
+          onBack={activeCategory ? () => setSelectedCategoryId(null) : undefined}
+          backLabel={{ home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab]}
+          showSearch={isSearchTab}
           searchQuery={searchQuery}
-          onSearchChange={(q) => setSearchQuery(q)}
-          isSearchOpen={isSearchOpen}
-          onToggleSearch={() => {
-            setIsSearchOpen((prev) => !prev);
-            if (!isSearchOpen) setSearchScope('online');
-            else setSearchQuery('');
+          onSearchChange={(q) => {
+            setSearchQuery(q);
+            // Clearing the box ends the search: back to browsing
+            if (!q.trim()) setSubmittedSearch(null);
           }}
           searchScope={searchScope}
           onSearchScopeChange={(scope) => setSearchScope(scope)}
           onSubmitOnlineSearch={performOnlineSearch}
           isSearchingOnline={onlineSearch.isLoading}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+
+        <SettingsMenu
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
           onOpenCacheSettings={() => setIsCacheSettingsOpen(true)}
         />
 
@@ -236,13 +215,53 @@ const MusicAppContent: React.FC = () => {
         />
 
         <main className="flex-1 space-y-4">
-          {/* 0. Radio stations */}
-          {isRadioTab ? (
+          {activeCategory ? (
+            /* One collection, loaded page by page */
+            <div className="pt-1 space-y-3">
+              <p className="px-4 text-[13px] text-label-secondary">
+                {activeCategory.description}
+                {categoryList.total ? ` · ${categoryList.total} faixas` : ''}
+              </p>
+              {categoryList.isLoading ? (
+                <div className="py-12 text-center text-label-secondary space-y-3">
+                  <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />
+                  <p className="text-xs">Carregando {activeCategory.name}...</p>
+                </div>
+              ) : categoryList.error && categoryList.tracks.length === 0 ? (
+                <div className="px-4 py-10 text-center text-xs text-rose-500 space-y-2" role="alert">
+                  <AlertCircle className="w-6 h-6 mx-auto" />
+                  <p>{categoryList.error}</p>
+                  <button
+                    onClick={categoryList.retry}
+                    className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label font-medium active:scale-95"
+                  >
+                    Tentar de novo
+                  </button>
+                </div>
+              ) : (
+                <TrackList
+                  tracks={categoryList.tracks}
+                  emptyMessage="Esta coleção está vazia no momento."
+                  onTrackSelect={(track) => playTrack(track, categoryList.tracks, activeCategoryId && categoryList.nextIndex !== null ? categorySource(activeCategoryId, categoryList.nextIndex) : undefined)}
+                  hasMore={categoryList.hasMore}
+                  isLoadingMore={categoryList.isLoadingMore}
+                  error={categoryList.error}
+                  onLoadMore={categoryList.loadMore}
+                  onRetry={categoryList.retry}
+                />
+              )}
+            </div>
+          ) : isRadioTab ? (
             <RadioView />
-          ) : /* 1. Live Online Search Results View */
-          isSearchOpen && searchScope === 'online' ? (
-            <div className="pt-2 space-y-3">
-              {onlineSearch.isLoading ? (
+          ) : isLibraryTab ? (
+            <TrackList
+              tracks={likedTracks}
+              emptyMessage="Nenhuma música favoritada ainda. Toque no ícone de coração em qualquer faixa para salvar!"
+              onTrackSelect={(track) => playTrack(track, likedTracks)}
+            />
+          ) : isSearchTab ? (
+            searchScope === 'online' ? (
+              onlineSearch.isLoading ? (
                 <div className="px-4 py-12 text-center text-label-secondary space-y-3">
                   <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />
                   <p className="text-xs">Buscando faixas online...</p>
@@ -259,7 +278,7 @@ const MusicAppContent: React.FC = () => {
                   onLoadMore={onlineSearch.loadMore}
                   onRetry={onlineSearch.retry}
                 />
-              ) : (
+              ) : submittedSearch || onlineSearch.error || hasTypedQuery ? (
                 <div className="px-4 py-10 text-center text-label-secondary text-xs space-y-2">
                   <div className="w-12 h-12 rounded-card bg-fill-tertiary flex items-center justify-center mx-auto text-accent">
                     <Globe className="w-6 h-6" />
@@ -268,9 +287,7 @@ const MusicAppContent: React.FC = () => {
                     {onlineSearch.error ||
                       (submittedSearch
                         ? `Nenhuma faixa encontrada para "${submittedSearch.query}".`
-                        : searchQuery.trim()
-                        ? `Pressione "Buscar" para encontrar "${searchQuery}" em toda a web.`
-                        : 'Digite o nome de qualquer música, artista ou banda e toque em Buscar.')}
+                        : `Toque em "Buscar" para encontrar "${searchQuery}" em toda a web.`)}
                   </p>
                   {onlineSearch.error && (
                     <button
@@ -281,67 +298,21 @@ const MusicAppContent: React.FC = () => {
                     </button>
                   )}
                 </div>
-              )}
-            </div>
-          ) : /* 2. Local Catalog Search or Category Filter / Library View */
-          (searchQuery || activeFilter !== 'all' || activeTab === 'library' || activeCategoryId) ? (
-            <div className="pt-2 space-y-3">
-              {activeCategory && !searchQuery && activeFilter !== 'liked' && activeTab !== 'library' ? (
-                /* One collection, loaded page by page */
-                <>
-                  <p className="px-4 text-[13px] text-label-secondary">{activeCategory.description}</p>
-                  {categoryList.isLoading ? (
-                    <div className="py-12 text-center text-label-secondary space-y-3">
-                      <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />
-                      <p className="text-xs">Carregando {activeCategory.name}...</p>
-                    </div>
-                  ) : categoryList.error && categoryList.tracks.length === 0 ? (
-                    <div className="px-4 py-10 text-center text-xs text-rose-500 space-y-2" role="alert">
-                      <AlertCircle className="w-6 h-6 mx-auto" />
-                      <p>{categoryList.error}</p>
-                      <button
-                        onClick={categoryList.retry}
-                        className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label font-medium active:scale-95"
-                      >
-                        Tentar de novo
-                      </button>
-                    </div>
-                  ) : (
-                    <TrackList
-                      tracks={categoryList.tracks}
-                      title={activeCategory.name}
-                      totalCount={categoryList.total}
-                      emptyMessage="Esta coleção está vazia no momento."
-                      onTrackSelect={(track) => playTrack(track, categoryList.tracks, activeCategoryId && categoryList.nextIndex !== null ? categorySource(activeCategoryId, categoryList.nextIndex) : undefined)}
-                      hasMore={categoryList.hasMore}
-                      isLoadingMore={categoryList.isLoadingMore}
-                      error={categoryList.error}
-                      onLoadMore={categoryList.loadMore}
-                      onRetry={categoryList.retry}
-                    />
-                  )}
-                </>
               ) : (
+                <CategoryTiles
+                  pages={feed?.categories}
+                  onSelectCategory={(id) => setSelectedCategoryId(id)}
+                  onSelectRadio={() => handleSelectTab('radio')}
+                />
+              )
+            ) : hasTypedQuery ? (
+              <div className="pt-1 space-y-3">
                 <TrackList
                   tracks={filteredCatalogTracks}
-                  title={
-                    searchQuery
-                      ? `Resultados para "${searchQuery}"`
-                      : activeFilter === 'liked' || activeTab === 'library'
-                      ? 'Sua Biblioteca (Favoritos)'
-                      : 'Faixas Selecionadas'
-                  }
-                  emptyMessage={
-                    activeFilter === 'liked' || activeTab === 'library'
-                      ? 'Nenhuma música favoritada ainda. Toque no ícone de coração em qualquer faixa para salvar!'
-                      : 'Nenhuma música encontrada nesta seção.'
-                  }
+                  title={`Resultados para "${searchQuery}"`}
+                  emptyMessage="Nenhuma música encontrada nas faixas já carregadas."
                   onTrackSelect={(track) => playTrack(track, filteredCatalogTracks)}
                 />
-              )}
-
-              {/* Fast switch to Web Search */}
-              {searchQuery && searchScope === 'catalog' && (
                 <div className="px-4 pt-2">
                   <button
                     onClick={() => {
@@ -366,10 +337,16 @@ const MusicAppContent: React.FC = () => {
                     <span className="text-[15px] text-accent">Ir ➔</span>
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <CategoryTiles
+                pages={feed?.categories}
+                onSelectCategory={(id) => setSelectedCategoryId(id)}
+                onSelectRadio={() => handleSelectTab('radio')}
+              />
+            )
           ) : (
-            /* 3. Main Live Home View */
+            /* Home */
             <>
               {/* Dynamic Live Featured Highlight Banner */}
               {featuredTrack && (
@@ -412,13 +389,6 @@ const MusicAppContent: React.FC = () => {
                   </div>
                 </div>
               )}
-
-              {/* Dynamic Category Grid */}
-              <CategoryGrid
-                selectedCategoryId={selectedCategoryId}
-                onSelectCategory={(id) => setSelectedCategoryId(id)}
-                categoryCounts={categoryCounts}
-              />
 
               {/* One carousel per collection: first page; "Ver tudo" opens the whole playlist */}
               {CATEGORIES.map((category) => {
@@ -477,7 +447,7 @@ const MusicAppContent: React.FC = () => {
       <ExpandedPlayer />
 
       {/* Spotify / Apple Music Style Bottom Navigation Bar */}
-      <BottomNavBar activeTab={navTab} onSelectTab={handleSelectTab} compact={compact} onExpand={expand} />
+      <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} compact={compact} onExpand={expand} />
 
       {/* Headless Player Redundant Fallback Engine */}
       <HeadlessPlayerFallback />

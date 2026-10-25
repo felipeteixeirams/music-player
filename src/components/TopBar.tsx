@@ -1,183 +1,128 @@
 import React from 'react';
-import { Search, Sparkles, Globe, Library, Loader2, Database } from 'lucide-react';
-import { PWAInstallButton } from './PWAInstallButton';
-import { CATEGORIES } from '../data/musicCatalog';
+import { ChevronLeft, Search, Globe, Library, Loader2, Settings } from 'lucide-react';
 
 interface TopBarProps {
-  activeFilter: string;
-  onSelectFilter: (filterId: string) => void;
+  /** Large title of the screen. */
+  title: string;
+  /** Present when the screen is a level below another (a collection): shows the way back. */
+  onBack?: () => void;
+  backLabel?: string;
+  showSearch: boolean;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  isSearchOpen: boolean;
-  onToggleSearch: () => void;
   searchScope: 'catalog' | 'online';
   onSearchScopeChange: (scope: 'catalog' | 'online') => void;
   onSubmitOnlineSearch: () => void;
   isSearchingOnline: boolean;
-  onOpenCacheSettings: () => void;
+  onOpenSettings: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
-  activeFilter,
-  onSelectFilter,
+  title,
+  onBack,
+  backLabel = 'Voltar',
+  showSearch,
   searchQuery,
   onSearchChange,
-  isSearchOpen,
-  onToggleSearch,
   searchScope,
   onSearchScopeChange,
   onSubmitOnlineSearch,
   isSearchingOnline,
-  onOpenCacheSettings
+  onOpenSettings
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (searchScope === 'online') {
-        onSubmitOnlineSearch();
-      }
+      if (searchScope === 'online') onSubmitOnlineSearch();
     }
   };
 
   return (
-    <header className="sticky top-0 z-30 w-full material-regular hairline-bottom px-4 pb-2.5 pt-[calc(var(--safe-top)+0.625rem)]">
-      {/* Top Row: Wordmark Brand and Quick Actions */}
-      <div className="flex items-center justify-between gap-2 max-w-5xl mx-auto">
-        {/* Brand */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-[17px] font-bold tracking-tight text-label whitespace-nowrap">
-            AuraStream
-          </span>
-        </div>
+    <>
+      {/* Keeps the status bar legible while the page scrolls under it */}
+      <div
+        className="fixed top-0 left-0 right-0 z-30 h-[var(--safe-top)] material-regular"
+        aria-hidden="true"
+      />
 
-        {/* Right Actions: Cache Settings + Search + PWA Install */}
-        <div className="flex items-center gap-1.5 shrink-0">
+      <header className="px-4 pb-2 pt-[calc(var(--safe-top)+0.75rem)]">
+        {onBack && (
           <button
-            onClick={onOpenCacheSettings}
-            aria-label="Gerenciar cota de cache local"
-            className="p-2 rounded-full bg-fill-tertiary text-label-secondary hover:text-label transition-all active:scale-95"
-            title="Configurar Cache"
+            onClick={onBack}
+            className="-ml-1 mb-1 flex items-center gap-0.5 text-[17px] text-accent active:opacity-60"
           >
-            <Database className="w-3.5 h-3.5 text-accent" />
+            <ChevronLeft className="w-6 h-6" aria-hidden="true" />
+            <span>{backLabel}</span>
           </button>
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-[34px] leading-tight font-bold tracking-tight text-label truncate">{title}</h1>
           <button
-            onClick={onToggleSearch}
-            aria-label="Buscar faixas ou artistas"
-            className={`p-2 rounded-full transition-all active:scale-95 ${
-              isSearchOpen
-                ? 'bg-accent text-white'
-                : 'bg-fill-tertiary text-label-secondary hover:text-label'
-            }`}
+            onClick={onOpenSettings}
+            aria-label="Abrir ajustes"
+            className="w-10 h-10 shrink-0 rounded-full bg-fill-tertiary text-label flex items-center justify-center active:scale-90 transition-transform"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Settings className="w-5 h-5" />
           </button>
-          <PWAInstallButton />
         </div>
-      </div>
 
-      {/* Row 2: Horizontal Filter Tabs */}
-      {!isSearchOpen && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2.5 pb-0.5 max-w-5xl mx-auto" aria-label="Filtrar faixas">
-          {[
-            { id: 'all', label: 'Tudo' },
-            ...CATEGORIES.map((category) => ({ id: category.id, label: category.name })),
-            { id: 'liked', label: 'Favoritos' }
-          ].map((item) => {
-            const isActive = activeFilter === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectFilter(item.id)}
-                className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap shrink-0 transition-all active:scale-95 ${
-                  isActive
-                    ? 'bg-accent text-white font-semibold'
-                    : 'text-label-secondary hover:text-label bg-fill-tertiary'
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+        {showSearch && (
+          <div className="mt-3 space-y-2.5">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-label-secondary" />
+                <input
+                  type="search"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={searchScope === 'online' ? 'Artistas, músicas e álbuns' : 'Buscar no que já carregou'}
+                  aria-label="Buscar"
+                  className="w-full h-10 pl-10 pr-4 rounded-full bg-fill-tertiary text-label placeholder:text-label-secondary text-[17px] focus:outline-none focus:ring-2 focus:ring-accent/60 transition-all"
+                />
+              </div>
 
-      {/* Expandable Search Input & Scope Switcher */}
-      {isSearchOpen && (
-        <div className="mt-2.5 max-w-5xl mx-auto space-y-2 animate-in slide-in-from-top-2 duration-150">
-          <div className="relative flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-label-tertiary" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  searchScope === 'online'
-                    ? 'Buscar músicas, artistas ou álbuns...'
-                    : 'Buscar no catálogo local...'
-                }
-                autoFocus
-                className="w-full pl-10 pr-14 py-2 rounded-card bg-fill-tertiary text-label placeholder:text-label-tertiary text-[15px] focus:outline-none focus:ring-2 focus:ring-accent/60 transition-all"
-              />
-              {searchQuery && (
+              {searchScope === 'online' && searchQuery.trim() && (
                 <button
-                  onClick={() => onSearchChange('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-label-secondary hover:text-label"
+                  onClick={onSubmitOnlineSearch}
+                  disabled={isSearchingOnline}
+                  className="h-10 px-4 rounded-full bg-accent hover:bg-accent-pressed disabled:opacity-50 text-white text-[15px] font-semibold flex items-center gap-1.5 shrink-0 active:scale-95 transition-all"
                 >
-                  Limpar
+                  {isSearchingOnline ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Buscar</span>}
                 </button>
               )}
             </div>
 
-            {searchScope === 'online' && (
+            <div className="flex items-center gap-0.5 p-0.5 bg-fill-tertiary rounded-lg w-fit">
               <button
-                onClick={onSubmitOnlineSearch}
-                disabled={isSearchingOnline || !searchQuery.trim()}
-                className="px-3.5 py-2 rounded-card bg-accent hover:bg-accent-pressed disabled:opacity-50 text-white text-[15px] font-semibold flex items-center gap-1.5 shrink-0 active:scale-95 transition-all"
+                onClick={() => onSearchScopeChange('online')}
+                className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
+                  searchScope === 'online'
+                    ? 'bg-segment text-label font-semibold shadow-sm'
+                    : 'text-label-secondary hover:text-label'
+                }`}
               >
-                {isSearchingOnline ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <span>Buscar</span>
-                )}
+                <Globe className="w-3 h-3" />
+                <span>Músicas online</span>
               </button>
-            )}
+              <button
+                onClick={() => onSearchScopeChange('catalog')}
+                className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
+                  searchScope === 'catalog'
+                    ? 'bg-segment text-label font-semibold shadow-sm'
+                    : 'text-label-secondary hover:text-label'
+                }`}
+              >
+                <Library className="w-3 h-3" />
+                <span>Já carregadas</span>
+              </button>
+            </div>
           </div>
-
-          {/* Search Scope Switcher Segmented Tabs */}
-          <div className="flex items-center gap-0.5 p-0.5 bg-fill-tertiary rounded-lg w-fit">
-            <button
-              onClick={() => onSearchScopeChange('catalog')}
-              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
-                searchScope === 'catalog'
-                  ? 'bg-segment text-label font-semibold shadow-sm'
-                  : 'text-label-secondary hover:text-label'
-              }`}
-            >
-              <Library className="w-3 h-3" />
-              <span>Catálogo</span>
-            </button>
-            <button
-              onClick={() => {
-                onSearchScopeChange('online');
-                if (searchQuery.trim()) onSubmitOnlineSearch();
-              }}
-              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
-                searchScope === 'online'
-                  ? 'bg-segment text-label font-semibold shadow-sm'
-                  : 'text-label-secondary hover:text-label'
-              }`}
-            >
-              <Globe className="w-3 h-3" />
-              <span>Músicas Online</span>
-            </button>
-          </div>
-        </div>
-      )}
-    </header>
+        )}
+      </header>
+    </>
   );
 };

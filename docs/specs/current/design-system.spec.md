@@ -50,6 +50,16 @@ Títulos grandes 34/700 que encolhem ao rolar, seção 22/700, linha 17/400 com 
 - **Carrosséis e grade:** capas quadradas com `radius-cover` e sombra, título 15 e artista 13.
 - **Player aberto:** fundo em gradiente com a cor dominante da capa, capa grande que diminui ao pausar, controles brancos grandes, progresso fino.
 
+## Paridade de estrutura com o Apple Music (fase 7, a partir de 2026-10-25)
+
+Comparação com capturas do Apple Music (iOS 26) no iPhone 11 mostrou que a diferença restante é de estrutura. Decisões aprovadas: os filtros de coleção saem do topo e a navegação por coleção vai para a aba Buscar; cache e instalação vão para um botão de ajustes no canto do título; o nome AuraStream deixa de aparecer no topo. Passos, um PR cada:
+
+1. **Cabeçalho com título grande e tela Buscar** (feito): título de 34/700 por aba ("Início", "Rádio", "Biblioteca", "Buscar"; numa coleção, o nome dela com "‹ aba de origem" acima), botão de ajustes (`SettingsMenu`: cache local e instalar o app), faixa fixa de `material-regular` só sobre a barra de status. Na aba Buscar o campo é uma pílula sempre visível, com o seletor "Músicas online" / "Já carregadas", e, sem texto digitado, a grade "Explorar tudo" (`CategoryTiles`: Rádio e as 5 coleções, com a capa da primeira faixa em duotone sobre a cor do bloco). Saem a barra de marca, os filtros (chips) e a "Explorar Categorias" da home; o modelo de navegação é só aba mais coleção aberta.
+2. Barra de abas em cápsula flutuante, com pílula na aba ativa, e mini player em pílula solta acima dela (e a barra recolhida em linha única: início, mini player e busca).
+3. Rádio em grade de 3 colunas com arte (estações de mix com a imagem do Deezer; ao vivo com quadrado colorido e iniciais, pois não há logos), Biblioteca como menu de seções (Favoritas, Downloads; Artistas e Álbuns derivados dos favoritos), cantos de capa mais arredondados e ícones preenchidos na aba ativa.
+
+Fora do alcance: ícones SF Symbols, artes e fotos do Apple Music e a refração do Liquid Glass.
+
 ## Fases (um PR por fase)
 
 1. **Fundação** (feito): tokens, materiais, fonte do sistema.
