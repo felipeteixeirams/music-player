@@ -8,6 +8,7 @@ import {
   pickBestCandidate,
   rankCandidates,
   resolveYouTubeVideoIds,
+  resolveYouTubeVideos,
   type VideoCandidate
 } from './_youtubeSearch';
 
@@ -219,6 +220,32 @@ test('resolveYouTubeVideoIds falls back to the web search when the official API 
   assert.deepEqual(await resolveYouTubeVideoIds(query, { apiKey: 'bad-key', fetchImpl }), ['WM8bTdBs-cw']);
   assert.ok(requested.some((url) => url.includes('googleapis.com')));
   assert.ok(requested.some((url) => url.includes('/youtubei/v1/search')));
+});
+
+test('resolveYouTubeVideos reports which search produced the videos', async () => {
+  const official = (async (url: string) => {
+    if (String(url).includes('/oembed')) return Response.json({});
+    if (String(url).includes('/search?')) {
+      return Response.json({ items: [{ id: { videoId: 'WM8bTdBs-cw' }, snippet: { title: 'Metallica - One', channelTitle: 'Metallica' } }] });
+    }
+    return Response.json({ items: [{ id: 'WM8bTdBs-cw', contentDetails: { duration: 'PT7M27S' } }] });
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await resolveYouTubeVideos(query, { apiKey: 'k', fetchImpl: official }), {
+    videoIds: ['WM8bTdBs-cw'],
+    via: 'official'
+  });
+
+  const web = (async (url: string) =>
+    String(url).includes('/oembed')
+      ? Response.json({})
+      : Response.json(webPayload([{ id: 'WM8bTdBs-cw', title: 'Metallica - One', channel: 'Metallica', length: '7:27' }]))
+  ) as unknown as typeof fetch;
+  assert.equal((await resolveYouTubeVideos(query, { fetchImpl: web })).via, 'web');
+
+  const refused = (async (url: string) =>
+    String(url).includes('googleapis.com') ? new Response('quota', { status: 403 }) : web(url)
+  ) as unknown as typeof fetch;
+  assert.equal((await resolveYouTubeVideos(query, { apiKey: 'k', fetchImpl: refused })).via, 'web-after-official-failure');
 });
 
 test('resolveYouTubeVideoIds rejects on HTTP errors so callers can fall back to the preview', async () => {

@@ -122,12 +122,24 @@ export interface DeezerFeed {
 
 export async function buildDeezerFeed(fetchImpl?: FetchLike): Promise<DeezerFeed> {
   const base = { requirePreview: true, fetchImpl };
-  const [trending, rock, pop, lofi] = await Promise.all([
-    fetchDeezerChart(0, { ...base, style: 'Top Hits' }),
-    fetchDeezerChart(DEEZER_GENRES.rock, { ...base, style: 'Rock' }),
-    fetchDeezerChart(DEEZER_GENRES.pop, { ...base, style: 'Pop' }),
-    searchDeezerTracks('lofi chill beats', { ...base, style: 'Lofi Chill' })
-  ].map((request) => request.catch((): Track[] => [])));
+  const startTime = Date.now();
+  const failed: string[] = [];
+  const guarded = (name: string, request: Promise<Track[]>) =>
+    request.catch((err: unknown): Track[] => {
+      failed.push(name);
+      console.warn(`[Feed] ⚠️ Categoria "${name}" falhou: ${(err as Error)?.message || err}`);
+      return [];
+    });
 
+  const [trending, rock, pop, lofi] = await Promise.all([
+    guarded('trending', fetchDeezerChart(0, { ...base, style: 'Top Hits' })),
+    guarded('rock', fetchDeezerChart(DEEZER_GENRES.rock, { ...base, style: 'Rock' })),
+    guarded('pop', fetchDeezerChart(DEEZER_GENRES.pop, { ...base, style: 'Pop' })),
+    guarded('lofi', searchDeezerTracks('lofi chill beats', { ...base, style: 'Lofi Chill' }))
+  ]);
+
+  console.log(
+    `[Feed] ${failed.length > 0 ? '⚠️' : '✅'} trending=${trending.length} rock=${rock.length} pop=${pop.length} lofi=${lofi.length} em ${Date.now() - startTime}ms`
+  );
   return { trending, rock, pop, lofi, featured: trending[0] ?? rock[0] ?? null };
 }
