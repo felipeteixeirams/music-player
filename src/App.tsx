@@ -17,6 +17,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { CacheSettingsModal } from './components/CacheSettingsModal';
 import { BottomNavBar, type AppTab } from './components/BottomNavBar';
 import { RadioView } from './components/RadioView';
+import { PlaybackNotice } from './components/PlaybackNotice';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useScrollChrome } from './hooks/useScrollChrome';
 import type { QueueSource } from './utils/queueSource';
@@ -182,7 +183,7 @@ const MusicAppContent: React.FC = () => {
       <UpdateBanner />
 
       {/* Main Mobile/Tablet Wrapper */}
-      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-[calc(9rem+var(--safe-bottom))]">
+      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-[calc(10rem+var(--safe-bottom))]">
         {/* Large title of the screen, with search on the Search tab */}
         <TopBar
           title={screenTitle}
@@ -440,14 +441,18 @@ const MusicAppContent: React.FC = () => {
         </main>
       </div>
 
-      {/* Floating Mini Player (iOS Style) */}
-      {currentTrack && <MiniPlayer compact={compact} />}
-
       {/* Fullscreen Expanded Player (Modal / Bottom Sheet) */}
       <ExpandedPlayer />
 
-      {/* Spotify / Apple Music Style Bottom Navigation Bar */}
-      <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} compact={compact} onExpand={expand} />
+      {/* Floating capsule navigation with the mini player pill above it */}
+      <BottomNavBar
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        compact={compact}
+        onExpand={expand}
+        miniPlayer={currentTrack ? <MiniPlayer /> : null}
+        notice={currentTrack ? <PlaybackNotice /> : null}
+      />
 
       {/* Headless Player Redundant Fallback Engine */}
       <HeadlessPlayerFallback />

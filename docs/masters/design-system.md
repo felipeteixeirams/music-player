@@ -6,7 +6,7 @@ Este é o master do domínio de interface visual: tokens, materiais translúcido
 
 ## Estado
 
-**Status: direção definida; fundação (fase 1), barras (fase 2) listas, carrosséis, categorias, rádio e destaque da home (fase 3), e player aberto e janelas de cache e instalação (fase 4) implementadas em 2026-10-25. O modo claro (fase 5) e os extras do iOS 26 (fase 6: barra de abas que recolhe e deslizar o mini player) foram implementados no mesmo dia; o plano de fases está completo.**
+**Status: direção definida; fundação (fase 1), barras (fase 2) listas, carrosséis, categorias, rádio e destaque da home (fase 3), e player aberto e janelas de cache e instalação (fase 4) implementadas em 2026-10-25. O modo claro (fase 5) e os extras do iOS 26 (fase 6: barra de abas que recolhe e deslizar o mini player) foram implementados no mesmo dia; as fases 1 a 6 estão completas. A fase 7 (paridade de estrutura com o Apple Music, ver o satélite) está em andamento: título grande por aba, tela Buscar com grade de coleções e menu de ajustes, e barra de abas em cápsula com mini player em pílula estão feitos; faltam Rádio em grade com arte, Biblioteca como menu de seções, cantos de capa mais arredondados e ícones preenchidos.**
 
 ## Direção
 

@@ -44,8 +44,8 @@ Títulos grandes 34/700 que encolhem ao rolar, seção 22/700, linha 17/400 com 
 ## Componentes alvo
 
 - **Cabeçalho:** `material-regular` e `hairline-bottom`, título grande que vira título pequeno ao rolar.
-- **Barra de abas:** `material-thick` e `hairline-top`, aba ativa em `accent`, rótulos de 10 pt.
-- **Mini player:** flutuante acima da barra, `material-thin`, raio 12 px (`radius-card`), capa de 44 px com raio 6 px, sem borda; barra de progresso fina.
+- **Barra de abas:** cápsula de `material-regular`, pílula `fill` atrás da aba ativa em `accent`, rótulos de 10 pt.
+- **Mini player:** pílula flutuante acima da barra (`material-regular`, totalmente arredondada, 3,5 rem), capa redonda de 44 px, título e artista, tocar/pausar e avançar; sem barra de progresso.
 - **Listas:** capa 56 px (`radius-cover`), título e subtítulo, duração à direita, separador recuado de 76 px; sem cartão com contorno.
 - **Carrosséis e grade:** capas quadradas com `radius-cover` e sombra, título 15 e artista 13.
 - **Player aberto:** fundo em gradiente com a cor dominante da capa, capa grande que diminui ao pausar, controles brancos grandes, progresso fino.
@@ -55,7 +55,7 @@ Títulos grandes 34/700 que encolhem ao rolar, seção 22/700, linha 17/400 com 
 Comparação com capturas do Apple Music (iOS 26) no iPhone 11 mostrou que a diferença restante é de estrutura. Decisões aprovadas: os filtros de coleção saem do topo e a navegação por coleção vai para a aba Buscar; cache e instalação vão para um botão de ajustes no canto do título; o nome AuraStream deixa de aparecer no topo. Passos, um PR cada:
 
 1. **Cabeçalho com título grande e tela Buscar** (feito): título de 34/700 por aba ("Início", "Rádio", "Biblioteca", "Buscar"; numa coleção, o nome dela com "‹ aba de origem" acima), botão de ajustes (`SettingsMenu`: cache local e instalar o app), faixa fixa de `material-regular` só sobre a barra de status. Na aba Buscar o campo é uma pílula sempre visível, com o seletor "Músicas online" / "Já carregadas", e, sem texto digitado, a grade "Explorar tudo" (`CategoryTiles`: Rádio e as 5 coleções, com a capa da primeira faixa em duotone sobre a cor do bloco). Saem a barra de marca, os filtros (chips) e a "Explorar Categorias" da home; o modelo de navegação é só aba mais coleção aberta.
-2. Barra de abas em cápsula flutuante, com pílula na aba ativa, e mini player em pílula solta acima dela (e a barra recolhida em linha única: início, mini player e busca).
+2. **Barra de abas em cápsula e mini player em pílula** (feito em 2026-10-25): a barra é uma cápsula flutuante de `material-regular` (16 px de margem lateral, 0,5 rem acima da área segura, 4 rem de altura) com uma pílula `fill` atrás da aba ativa, ícone preenchido e rótulo em vermelho; o mini player é uma pílula de 3,5 rem solta acima dela, sem barra de progresso (o progresso fica no player aberto). Ao rolar para baixo a cápsula encolhe (3,5 rem, só ícones) e, com música tocando, vira uma linha única: círculo da aba atual (toque mostra a navegação), mini player e círculo da busca. `BottomNavBar` recebe o mini player e o aviso de reprodução e é dono do contêiner fixo.
 3. Rádio em grade de 3 colunas com arte (estações de mix com a imagem do Deezer; ao vivo com quadrado colorido e iniciais, pois não há logos), Biblioteca como menu de seções (Favoritas, Downloads; Artistas e Álbuns derivados dos favoritos), cantos de capa mais arredondados e ícones preenchidos na aba ativa.
 
 Fora do alcance: ícones SF Symbols, artes e fotos do Apple Music e a refração do Liquid Glass.
