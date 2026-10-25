@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fetchCategoryPage, searchDeezerTracks } from './_deezer';
-import { CATEGORY_IDS } from './_categories';
-import { resolveYouTubeVideoIds } from './_youtubeSearch';
-import { searchItunesTracks } from './_itunes';
+import { fetchCategoryPage, searchDeezerTracks } from '../../api/_deezer';
+import { CATEGORY_IDS } from '../../api/_categories';
+import { resolveYouTubeVideoIds } from '../../api/_youtubeSearch';
+import { searchItunesTracks } from '../../api/_itunes';
 
 test(
   'live Deezer search returns tracks whose preview is real audio',

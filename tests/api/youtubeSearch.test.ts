@@ -10,7 +10,7 @@ import {
   resolveYouTubeVideoIds,
   resolveYouTubeVideos,
   type VideoCandidate
-} from './_youtubeSearch';
+} from '../../api/_youtubeSearch';
 
 const query = { artist: 'Metallica', title: 'One', duration: 447 };
 

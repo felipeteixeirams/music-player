@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import categoryHandler from './category';
-import feedHandler from './feed';
-import searchHandler from './search';
-import resolveHandler from './resolve';
-import streamHandler from './streams/[id]';
-import { fetchPipedAudioStream } from '../src/utils/audioEngine';
+import categoryHandler from '../../api/category';
+import feedHandler from '../../api/feed';
+import searchHandler from '../../api/search';
+import resolveHandler from '../../api/resolve';
+import streamHandler from '../../api/streams/[id]';
+import { fetchPipedAudioStream } from '../../src/utils/audioEngine';
 
 interface RecordedResponse extends VercelResponse {
   statusCode: number;

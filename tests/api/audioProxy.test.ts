@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AudioProxyError, fetchAllowedAudio, isAllowedAudioUrl } from './_audioProxy';
+import { AudioProxyError, fetchAllowedAudio, isAllowedAudioUrl } from '../../api/_audioProxy';
 
 const audio = (bytes = 8, headers: Record<string, string> = {}) =>
   new Response(Buffer.alloc(bytes), { headers: { 'content-type': 'audio/mpeg', ...headers } });

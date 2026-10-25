@@ -45,11 +45,11 @@ Serviços atuais:
 - `src/types/music.ts`: formato interno atual de `Track` e `AudioSource`.
 - `src/utils/youtubeId.ts`: normalização de IDs para URLs e IDs simples.
 - `api/_deezer.ts`: mapper e client Deezer compartilhados; `api/_categories.ts`: playlist de cada coleção; `api/_endpoints.ts`: lógica de feed, categoria e busca usada pelas funções da Vercel (`api/feed.ts`, `api/category.ts`, `api/search.ts`) e por `server.ts`, que só tratam HTTP/cache.
-- `api/deezer.test.ts`: testes do mapper sem rede.
-- `api/_itunes.ts`, `api/_catalog.ts`: mapper/client iTunes e `searchCatalog` (Deezer primeiro, iTunes se falhar ou vier vazio), com `api/itunes.test.ts`.
-- `api/_audioProxy.ts`, `api/audio.ts`, `api/audioProxy.test.ts`: cópia same-origin de prévias para o download offline; só HTTPS e hosts `*.dzcdn.net`, `*.mzstatic.com`, `*.itunes.apple.com`, até 4 MB, sem redirecionamentos.
+- `tests/api/deezer.test.ts`: testes do mapper sem rede.
+- `api/_itunes.ts`, `api/_catalog.ts`: mapper/client iTunes e `searchCatalog` (Deezer primeiro, iTunes se falhar ou vier vazio), com `tests/api/itunes.test.ts`.
+- `api/_audioProxy.ts`, `api/audio.ts`, `tests/api/audioProxy.test.ts`: cópia same-origin de prévias para o download offline; só HTTPS e hosts `*.dzcdn.net`, `*.mzstatic.com`, `*.itunes.apple.com`, até 4 MB, sem redirecionamentos.
 - `src/utils/likedTracks.ts`: biblioteca de favoritos com metadados (`aurastream_liked_track_objects`), migração dos ids antigos e testes.
-- `api/_youtubeSearch.ts`, `api/resolve.ts` e `api/youtubeSearch.test.ts`: busca do vídeo da faixa (API oficial com `YOUTUBE_API_KEY`, ou busca web não oficial sem chave), ranqueamento por duração/título/canal e testes sem rede.
+- `api/_youtubeSearch.ts`, `api/resolve.ts` e `tests/api/youtubeSearch.test.ts`: busca do vídeo da faixa (API oficial com `YOUTUBE_API_KEY`, ou busca web não oficial sem chave), ranqueamento por duração/título/canal e testes sem rede.
 - `api/streams/[id].ts` e `server.ts`: resolução Piped duplicada e contrato de resposta de stream.
 - `src/utils/audioEngine.ts`: chamada client-side à resolução e utilitários de engine.
 - `src/context/AudioContext.tsx`: prioridade offline, stream, engine ativa e controles de playback.
@@ -57,8 +57,8 @@ Serviços atuais:
 - `src/components/ExpandedPlayer.tsx`: UI expandida; não deve iniciar uma engine paralela.
 - `src/App.tsx`: consumo de `/api/feed`, `/api/category` e `/api/search` com `src/hooks/usePagedTracks.ts`, `src/utils/catalogClient.ts`, `src/utils/pagedList.ts` e `src/components/LoadMoreSentinel.tsx` (lista paginada com rolagem infinita).
 - `src/utils/audioEngine.test.ts`: testes existentes de utilitários e IDs.
-- `api/integrations.test.ts`: testes de integração dos handlers Vercel e do cliente de streams, com respostas HTTP simuladas.
-- `api/integrations.live.test.ts`: smoke test opt-in que busca três artistas no Deezer e confirma `audio/*` no preview (leitura de 1 byte).
+- `tests/api/integrations.test.ts`: testes de integração dos handlers Vercel e do cliente de streams, com respostas HTTP simuladas.
+- `tests/api/integrations.live.test.ts`: smoke test opt-in que busca três artistas no Deezer e confirma `audio/*` no preview (leitura de 1 byte).
 - `package.json`: `npm test` executa a suíte via `tsx --test`.
 
 A especificação ativa contém o mapa mais completo dos arquivos e os detalhes conhecidos; consulte-a antes de mudar qualquer contrato.
