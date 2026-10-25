@@ -49,3 +49,12 @@ Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função se
 ## Interface em PWA no iPhone
 
 O app roda em tela cheia (`viewport-fit=cover` e barra de status `black-translucent`), então o conteúdo chega até o recorte e o indicador de início do iPhone. Barras fixas ou fixadas ao topo e à base somam `var(--safe-top)` e `var(--safe-bottom)` (definidas em `src/index.css` a partir de `env(safe-area-inset-*)`, valendo 0 onde não há recorte) ao próprio espaçamento: o cabeçalho, a navegação inferior, o mini player (acima da navegação, que tem 4,25rem mais a área segura), o aviso offline e o aviso de download. Ao criar um elemento `fixed` ou `sticky` encostado em uma borda da tela, faça o mesmo. Para testar sem o aparelho, sobrescreva as variáveis no navegador (iPhone 11: 48px no topo e 34px na base).
+
+## Atualização do app e compatibilidade da API
+
+Um deploy novo não reinicia as sessões abertas: um PWA aberto (no iPhone costuma voltar do segundo plano sem recarregar) segue com o código antigo até recarregar. Por isso:
+
+- Mudanças nas respostas de `api/` devem ser compatíveis com o cliente anterior: acrescente campos, não renomeie nem remova. Para quebrar um contrato, publique primeiro uma versão que aceite os dois formatos e só depois remova o antigo.
+- `vite.config.ts` grava `version.json` no build e define `__APP_VERSION__`. `UpdateBanner` compara os dois quando o app volta ao primeiro plano (e a cada 10 minutos) e oferece "Atualizar"; nunca recarrega sozinho para não cortar a música. `public/sw.js` não intercepta `/version.json`.
+- `vercel.json` responde 200 com HTML para qualquer arquivo inexistente. Um chunk com hash de um deploy anterior não dá 404: o navegador recebe HTML no lugar de JavaScript. `preloadYouTubePlayer` baixa o chunk do player no início da sessão por isso; ao criar outro `import()` dinâmico necessário para tocar, faça o mesmo.
+

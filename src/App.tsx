@@ -16,6 +16,8 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { CacheSettingsModal } from './components/CacheSettingsModal';
 import { BottomNavBar, type AppTab } from './components/BottomNavBar';
 import { RadioView } from './components/RadioView';
+import { UpdateBanner } from './components/UpdateBanner';
+import { preloadYouTubePlayer } from './components/youtubePlayer';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
 import { Play, Sparkles, Globe, Loader2, AlertCircle } from 'lucide-react';
 import { FeedResponse, Track } from './types/music';
@@ -51,6 +53,12 @@ const MusicAppContent: React.FC = () => {
         .then((reg) => console.log('AuraStream Service Worker registered:', reg.scope))
         .catch((err) => console.warn('Service Worker registration note:', err));
     }
+  }, []);
+
+  // Fetch the YouTube player chunk now, while this deploy still serves it
+  useEffect(() => {
+    const timer = window.setTimeout(preloadYouTubePlayer, 2000);
+    return () => window.clearTimeout(timer);
   }, []);
 
   // First page of every collection, from the backend, on boot (and on retry)
@@ -180,6 +188,7 @@ const MusicAppContent: React.FC = () => {
     <div className="min-h-screen bg-[#07070d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white">
       {/* Offline Status Banner */}
       <OfflineIndicator />
+      <UpdateBanner />
 
       {/* Main Mobile/Tablet Wrapper */}
       <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-[calc(9rem+var(--safe-bottom))]">
