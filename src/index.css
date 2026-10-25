@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens (see docs/specs/current/design-system.spec.md). Tailwind turns each --color-* into bg-*, text-* and
+ * border-* utilities (bg-accent, text-label-secondary...). Screens should use these instead of raw hex or white/NN.
+ */
+@theme static {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --color-accent: #fa243c;
+  --color-accent-pressed: #d91c32;
+
+  --color-canvas: #000000;
+  --color-elevated: #1c1c1e;
+  --color-elevated-2: #2c2c2e;
+
+  --color-label: #ffffff;
+  --color-label-secondary: rgb(235 235 245 / 0.6);
+  --color-label-tertiary: rgb(235 235 245 / 0.3);
+  --color-separator: rgb(84 84 88 / 0.5);
+  --color-fill: rgb(120 120 128 / 0.36);
+  --color-fill-secondary: rgb(120 120 128 / 0.32);
+  --color-fill-tertiary: rgb(118 118 128 / 0.24);
+
+  --radius-cover: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-sheet: 1.25rem;
+}
+
 @layer base {
   :root {
     /*
@@ -9,14 +37,14 @@
      */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans);
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    background-color: #07070d;
-    color: #ffffff;
+    background-color: var(--color-canvas);
+    color: var(--color-label);
     overscroll-behavior-y: none;
     user-select: none;
     -webkit-user-select: none;
@@ -59,3 +87,27 @@ input[type='range']::-moz-range-thumb {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   cursor: pointer;
 }
+
+/*
+ * Materials: translucent layers that blur and saturate what scrolls underneath, like the system materials on iOS.
+ * Thickness grows with how much the surface must stay legible: ultrathin < thin < regular < thick. The tint is
+ * an approximation to be calibrated against a real device. The solid fallback keeps text legible where
+ * backdrop-filter is missing.
+ */
+.material-ultrathin,
+.material-thin,
+.material-regular,
+.material-thick {
+  background-color: rgb(28 28 30 / 0.94);
+}
+
+@supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
+  .material-ultrathin { background-color: rgb(28 28 30 / 0.45); -webkit-backdrop-filter: blur(12px) saturate(180%); backdrop-filter: blur(12px) saturate(180%); }
+  .material-thin { background-color: rgb(28 28 30 / 0.6); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
+  .material-regular { background-color: rgb(28 28 30 / 0.72); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); }
+  .material-thick { background-color: rgb(28 28 30 / 0.85); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%); }
+}
+
+/* Hairline that separates a bar from the content: half a point, as on iOS */
+.hairline-top { box-shadow: inset 0 0.5px 0 var(--color-separator); }
+.hairline-bottom { box-shadow: inset 0 -0.5px 0 var(--color-separator); }
