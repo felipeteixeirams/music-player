@@ -1,6 +1,7 @@
 import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
-import { buildDeezerFeed, fetchCategoryPage } from './_deezer.js';
+import { buildDeezerFeed, fetchCategoryPage, fetchRadioGenres, fetchRadioTracks } from './_deezer.js';
+import { findRadioStation } from './_radios.js';
 
 /** What an endpoint answers, independent of the HTTP framework (Vercel handlers and the Express server share it). */
 export interface EndpointResult {
@@ -52,5 +53,37 @@ export async function searchEndpoint(query: { q?: unknown; index?: unknown; limi
   } catch (err: any) {
     console.warn(`[Search] ⚠️ Falha em todos os catálogos para "${text.trim()}": ${err?.message || err}`);
     return failure(502, 'Não foi possível buscar agora');
+  }
+}
+
+/**
+ * Radio: without `id`, the curated stations grouped by genre (changes rarely: cached); with a station `id`,
+ * a fresh batch of its tracks (never cached: every call is a new shuffle, which is what keeps the radio going).
+ */
+export async function radioEndpoint(query: { id?: unknown }): Promise<EndpointResult> {
+  const hasId = Array.isArray(query.id) ? query.id.length > 0 : query.id !== undefined;
+
+  if (!hasId) {
+    try {
+      const genres = await fetchRadioGenres();
+      if (genres.length === 0) return failure(502, 'Não foi possível carregar as estações agora');
+      return { status: 200, body: { genres }, cacheControl: 's-maxage=86400, stale-while-revalidate=604800' };
+    } catch (err: any) {
+      console.warn(`[Radio] ⚠️ Lista de estações falhou: ${err?.message || err}`);
+      return failure(502, 'Não foi possível carregar as estações agora');
+    }
+  }
+
+  const station = findRadioStation(query.id);
+  if (!station) return failure(400, 'Estação desconhecida');
+
+  const startTime = Date.now();
+  try {
+    const page = await fetchRadioTracks(station);
+    console.log(`[Radio] ✅ ${station.name} → ${page.tracks.length} faixa(s) em ${Date.now() - startTime}ms`);
+    return { status: 200, body: page };
+  } catch (err: any) {
+    console.warn(`[Radio] ⚠️ ${station.name} falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível carregar esta estação agora');
   }
 }

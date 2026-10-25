@@ -14,7 +14,8 @@ import { ExpandedPlayer } from './components/ExpandedPlayer';
 import { HeadlessPlayerFallback } from './components/HeadlessPlayerFallback';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { CacheSettingsModal } from './components/CacheSettingsModal';
-import { BottomNavBar } from './components/BottomNavBar';
+import { BottomNavBar, type AppTab } from './components/BottomNavBar';
+import { RadioView } from './components/RadioView';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
 import { Play, Sparkles, Globe, Loader2, AlertCircle } from 'lucide-react';
 import { FeedResponse, Track } from './types/music';
@@ -32,7 +33,7 @@ const MusicAppContent: React.FC = () => {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedAttempt, setFeedAttempt] = useState<number>(0);
 
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'library' | 'explore'>('home');
+  const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -74,17 +75,20 @@ const MusicAppContent: React.FC = () => {
   }, [feedAttempt]);
 
   // Sync BottomNavBar tabs with TopBar search states
-  const handleSelectTab = (tab: 'home' | 'search' | 'library' | 'explore') => {
+  const handleSelectTab = (tab: AppTab) => {
     setActiveTab(tab);
+    // Text typed in the search box belongs to the search screen; left behind it would filter the others
+    if (tab !== 'search') setSearchQuery('');
     if (tab === 'search') {
       setIsSearchOpen(true);
       setSearchScope('online');
     } else if (tab === 'library') {
       setIsSearchOpen(false);
       setActiveFilter('liked');
-    } else if (tab === 'explore') {
+    } else if (tab === 'radio') {
       setIsSearchOpen(false);
       setActiveFilter('all');
+      setSelectedCategoryId(null);
     } else {
       setIsSearchOpen(false);
       setActiveFilter('all');
@@ -168,6 +172,9 @@ const MusicAppContent: React.FC = () => {
   }, [allLiveTracks, searchQuery, searchScope, activeFilter, likedTracks, activeTab]);
 
   const featuredTrack = feed?.featured ?? null;
+  const isRadioTab = activeTab === 'radio' && !isSearchOpen && !searchQuery;
+  // The tab shown as selected follows what is on screen, also when search is opened or closed from the top bar
+  const navTab: AppTab = isSearchOpen ? 'search' : activeTab === 'search' ? 'home' : activeTab;
 
   return (
     <div className="min-h-screen bg-[#07070d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white">
@@ -175,13 +182,15 @@ const MusicAppContent: React.FC = () => {
       <OfflineIndicator />
 
       {/* Main Mobile/Tablet Wrapper */}
-      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-36">
+      <div className="w-full max-w-xl md:max-w-2xl mx-auto flex flex-col flex-1 pb-[calc(9rem+var(--safe-bottom))]">
         {/* Top App Bar with live search */}
         <TopBar
           activeFilter={activeFilter}
           onSelectFilter={(filter) => {
             setActiveFilter(filter);
             setSelectedCategoryId(null);
+            // Favorites are the library; everything else is shown on the home screen
+            setActiveTab(filter === 'liked' ? 'library' : 'home');
           }}
           searchQuery={searchQuery}
           onSearchChange={(q) => setSearchQuery(q)}
@@ -189,6 +198,7 @@ const MusicAppContent: React.FC = () => {
           onToggleSearch={() => {
             setIsSearchOpen((prev) => !prev);
             if (!isSearchOpen) setSearchScope('online');
+            else setSearchQuery('');
           }}
           searchScope={searchScope}
           onSearchScopeChange={(scope) => setSearchScope(scope)}
@@ -204,8 +214,11 @@ const MusicAppContent: React.FC = () => {
         />
 
         <main className="flex-1 space-y-4">
-          {/* 1. Live Online Search Results View */}
-          {isSearchOpen && searchScope === 'online' ? (
+          {/* 0. Radio stations */}
+          {isRadioTab ? (
+            <RadioView />
+          ) : /* 1. Live Online Search Results View */
+          isSearchOpen && searchScope === 'online' ? (
             <div className="pt-2 space-y-3">
               {onlineSearch.isLoading ? (
                 <div className="px-4 py-12 text-center text-white/50 space-y-3">
@@ -439,7 +452,7 @@ const MusicAppContent: React.FC = () => {
       <ExpandedPlayer />
 
       {/* Spotify / Apple Music Style Bottom Navigation Bar */}
-      <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} />
+      <BottomNavBar activeTab={navTab} onSelectTab={handleSelectTab} />
 
       {/* Headless Player Redundant Fallback Engine */}
       <HeadlessPlayerFallback />

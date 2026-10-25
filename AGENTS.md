@@ -44,4 +44,8 @@ Decisão de 2026-10-25: os pacotes abaixo vieram do template do Google AI Studio
 
 ## Funções da Vercel
 
-Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 7: `audio`, `category`, `feed`, `health`, `resolve`, `search` e `streams/[id]`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
+Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 8: `audio`, `category`, `feed`, `health`, `radio`, `resolve`, `search` e `streams/[id]`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
+
+## Interface em PWA no iPhone
+
+O app roda em tela cheia (`viewport-fit=cover` e barra de status `black-translucent`), então o conteúdo chega até o recorte e o indicador de início do iPhone. Barras fixas ou fixadas ao topo e à base somam `var(--safe-top)` e `var(--safe-bottom)` (definidas em `src/index.css` a partir de `env(safe-area-inset-*)`, valendo 0 onde não há recorte) ao próprio espaçamento: o cabeçalho, a navegação inferior, o mini player (acima da navegação, que tem 4,25rem mais a área segura), o aviso offline e o aviso de download. Ao criar um elemento `fixed` ou `sticky` encostado em uma borda da tela, faça o mesmo. Para testar sem o aparelho, sobrescreva as variáveis no navegador (iPhone 11: 48px no topo e 34px na base).

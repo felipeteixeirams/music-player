@@ -12,7 +12,9 @@ export const MiniPlayer: React.FC = () => {
     duration,
     togglePlayPause,
     playNext,
-    toggleExpanded
+    toggleExpanded,
+    radioStation,
+    isLive
   } = useAudio();
 
   if (!currentTrack) return null;
@@ -21,7 +23,7 @@ export const MiniPlayer: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-[56px] left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto"
+      className="fixed bottom-[calc(4.25rem+var(--safe-bottom))] left-0 right-0 z-40 px-3 pb-1 pt-1 pointer-events-none max-w-xl md:max-w-2xl mx-auto"
     >
       <div className="w-full pointer-events-auto">
         <PlaybackNotice className="mb-1.5" />
@@ -39,12 +41,16 @@ export const MiniPlayer: React.FC = () => {
           aria-label={`Abrir player expandido para ${currentTrack.title} por ${currentTrack.artist}`}
           className="relative overflow-hidden rounded-3xl bg-[#12121e]/90 backdrop-blur-2xl border border-white/[0.12] shadow-2xl shadow-black/80 cursor-pointer select-none active:scale-[0.99] transition-all"
         >
-          {/* Micro Progress Bar on top edge */}
+          {/* Micro Progress Bar on top edge (a radio has no timeline; a live one shows a pulsing line) */}
           <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-white/10">
+            {isLive ? (
+              <div className={`h-full w-full bg-rose-500/80 ${isPlaying ? 'animate-pulse' : 'opacity-40'}`} />
+            ) : radioStation ? null : (
             <div
               className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-400 transition-all duration-150"
               style={{ width: `${progress}%` }}
             />
+            )}
           </div>
 
           <div className="flex items-center justify-between p-2 pl-3 gap-3">
@@ -106,6 +112,7 @@ export const MiniPlayer: React.FC = () => {
                 )}
               </button>
 
+              {!isLive && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -116,6 +123,7 @@ export const MiniPlayer: React.FC = () => {
               >
                 <SkipForward className="w-4 h-4 fill-current" />
               </button>
+              )}
             </div>
           </div>
         </div>

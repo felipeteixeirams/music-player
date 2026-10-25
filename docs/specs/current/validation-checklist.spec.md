@@ -177,6 +177,18 @@ Esperado: instalação funciona e a atualização chega sem precisar reinstalar.
 
 Se falhar: versão antiga persistente indica a política de cache do service worker (`public/sw.js`).
 
+### T13: rádio ao vivo, mix por gênero e menu
+
+1. Na aba Rádio, toque uma rádio da seção "Ao vivo": começa a tocar, o player não mostra linha do tempo, aleatório, repetir nem anterior, e o mini player indica transmissão ao vivo.
+2. Toque um "Mix por gênero": a fila segue sozinha, sem parar ao fim do primeiro lote de faixas.
+3. Se alguma faixa do mix não tocar, o app pula para a próxima em vez de travar.
+4. Menu inferior: Início, Rádio, Biblioteca e Buscar. O item destacado acompanha a tela em que você está, inclusive depois de abrir uma coleção ou uma busca.
+5. Em iPhone com recorte (PWA instalado): o cabeçalho e o menu não ficam colados na borda.
+
+Esperado: rádio ao vivo toca sem controles de playlist, mix é contínuo, menu coerente.
+
+Se falhar: anote o nome da rádio. Uma transmissão fora do ar pede troca da URL em `src/data/liveRadios.ts`.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
@@ -194,7 +206,7 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 
 ## Testes automáticos que já passam
 
-`npm test` (87 testes, 4 ignorados que dependem de rede), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). Não há integração contínua rodando isso nos PRs.
+`npm test` (113 testes, 6 ignorados que dependem de rede), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). Não há integração contínua rodando isso nos PRs.
 
 ## Registro
 
@@ -212,3 +224,4 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 | T10 | | | ⬜ | |
 | T11 | | | ⬜ | |
 | T12 | | | ⬜ | |
+| T13 | | | ⬜ | |

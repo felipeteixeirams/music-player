@@ -8,7 +8,7 @@ As especificações ativas são [Contratos, mappers e testes](../specs/current/m
 
 ## Estado
 
-**Status: busca, coleções da home (playlists editoriais fiéis ao que prometem, paginadas), prévia de 30s e faixa completa (YouTube oculto) funcionando; reserva iTunes na busca, download offline de prévias, favoritos com metadados e avisos de reprodução implementados e validados.**
+**Status: busca, coleções da home (playlists editoriais fiéis, paginadas), rádio ao vivo e mix por gênero com fila contínua, prévia de 30s e faixa completa (YouTube oculto); reserva iTunes na busca, download offline de prévias, favoritos com metadados e avisos de reprodução implementados e validados.**
 
 Já existem correções parciais de normalização de IDs Piped/YouTube, remoção do player concorrente no painel expandido, testes determinísticos dos handlers e um smoke test contra os serviços reais. Ainda faltam contratos de integração tipados, mappers runtime, unificação dos clients das rotas e teste de playback no navegador.
 
@@ -34,6 +34,8 @@ YouTube Music InnerTube / Piped
 
 Serviços atuais:
 
+- A aba Rádio tem duas seções: "Ao vivo", com 25 rádios de verdade (`src/data/liveRadios.ts`, tocadas direto por `<audio>`, sem função da Vercel nem YouTube), e "Mix por gênero". O player de rádio esconde linha do tempo, aleatório, repetir e anterior.
+- A aba Rádio lista estações curadas do Deezer por gênero (`/radio/genres` para as capas, `/radio/{id}/tracks` para os lotes de 40 faixas embaralhadas); a fila se renova sozinha e a faixa que não toca é pulada.
 - Deezer API é a fonte de busca (`/search`) e das coleções da home (`/playlist/{id}/tracks`, uma playlist editorial por coleção em `api/_categories.ts`); tudo é paginado por `index`/`limit` e as faixas trazem duração real e `previewUrl` de 30s quando existir.
 - O áudio padrão é a faixa completa via YouTube oculto (engine `fallback`), com o vídeo localizado por `/api/resolve`. Sem vídeo ou com embed bloqueado, toca a prévia de 30s por `HTMLAudioElement` (engine `native`) e `pipedStatus.notice` avisa o usuário. Faixa sem nenhuma fonte define `pipedStatus.error`. `PlaybackNotice` exibe ambos no mini player e no player expandido.
 - Instâncias Piped continuam apenas na rota `/api/streams/:id`, hoje inativa para faixas Deezer (sem `youtubeId`) e com bloqueio do YouTube observado.
@@ -44,6 +46,8 @@ Serviços atuais:
 
 - `src/types/music.ts`: formato interno atual de `Track` e `AudioSource`.
 - `src/utils/youtubeId.ts`: normalização de IDs para URLs e IDs simples.
+- `src/data/liveRadios.ts`, `src/utils/liveRadio.ts`: rádios ao vivo (lista fixa com a transmissão de cada estação) e a conversão em `Track` marcada com `sources.isLive`.
+- `api/_radios.ts`, `api/radio.ts`, `src/components/RadioView.tsx` e `src/utils/radioQueue.ts`: estações de rádio curadas, a rota única de estações e lotes de faixas, a tela e a escolha do que entra na fila contínua (a fila e o modo rádio ficam em `AudioContext`).
 - `api/_deezer.ts`: mapper e client Deezer compartilhados; `api/_categories.ts`: playlist de cada coleção; `api/_endpoints.ts`: lógica de feed, categoria e busca usada pelas funções da Vercel (`api/feed.ts`, `api/category.ts`, `api/search.ts`) e por `server.ts`, que só tratam HTTP/cache.
 - `tests/api/deezer.test.ts`: testes do mapper sem rede.
 - `api/_itunes.ts`, `api/_catalog.ts`: mapper/client iTunes e `searchCatalog` (Deezer primeiro, iTunes se falhar ou vier vazio), com `tests/api/itunes.test.ts`.
