@@ -185,7 +185,7 @@ const MusicAppContent: React.FC = () => {
   const navTab: AppTab = isSearchOpen ? 'search' : activeTab === 'search' ? 'home' : activeTab;
 
   return (
-    <div className="min-h-screen bg-[#07070d] text-white flex flex-col font-sans selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-label flex flex-col font-sans selection:bg-accent selection:text-white">
       {/* Offline Status Banner */}
       <OfflineIndicator />
       <UpdateBanner />
@@ -230,8 +230,8 @@ const MusicAppContent: React.FC = () => {
           isSearchOpen && searchScope === 'online' ? (
             <div className="pt-2 space-y-3">
               {onlineSearch.isLoading ? (
-                <div className="px-4 py-12 text-center text-white/50 space-y-3">
-                  <Loader2 className="w-7 h-7 text-purple-400 animate-spin mx-auto" />
+                <div className="px-4 py-12 text-center text-label-secondary space-y-3">
+                  <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />
                   <p className="text-xs">Buscando faixas online...</p>
                 </div>
               ) : onlineSearch.tracks.length > 0 ? (
@@ -247,8 +247,8 @@ const MusicAppContent: React.FC = () => {
                   onRetry={onlineSearch.retry}
                 />
               ) : (
-                <div className="px-4 py-10 text-center text-white/50 text-xs space-y-2">
-                  <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-purple-400">
+                <div className="px-4 py-10 text-center text-label-secondary text-xs space-y-2">
+                  <div className="w-12 h-12 rounded-card bg-fill-tertiary flex items-center justify-center mx-auto text-accent">
                     <Globe className="w-6 h-6" />
                   </div>
                   <p role={onlineSearch.error ? 'alert' : undefined}>
@@ -262,7 +262,7 @@ const MusicAppContent: React.FC = () => {
                   {onlineSearch.error && (
                     <button
                       onClick={onlineSearch.retry}
-                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+                      className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label font-medium active:scale-95"
                     >
                       Tentar de novo
                     </button>
@@ -276,10 +276,10 @@ const MusicAppContent: React.FC = () => {
               {activeCategory && !searchQuery && activeFilter !== 'liked' && activeTab !== 'library' ? (
                 /* One collection, loaded page by page */
                 <>
-                  <p className="px-4 text-[11px] text-white/50">{activeCategory.description}</p>
+                  <p className="px-4 text-[13px] text-label-secondary">{activeCategory.description}</p>
                   {categoryList.isLoading ? (
-                    <div className="py-12 text-center text-white/50 space-y-3">
-                      <Loader2 className="w-7 h-7 text-purple-400 animate-spin mx-auto" />
+                    <div className="py-12 text-center text-label-secondary space-y-3">
+                      <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />
                       <p className="text-xs">Carregando {activeCategory.name}...</p>
                     </div>
                   ) : categoryList.error && categoryList.tracks.length === 0 ? (
@@ -288,7 +288,7 @@ const MusicAppContent: React.FC = () => {
                       <p>{categoryList.error}</p>
                       <button
                         onClick={categoryList.retry}
-                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+                        className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label font-medium active:scale-95"
                       >
                         Tentar de novo
                       </button>
@@ -335,22 +335,22 @@ const MusicAppContent: React.FC = () => {
                       setSearchScope('online');
                       performOnlineSearch();
                     }}
-                    className="w-full p-3 rounded-2xl bg-purple-950/30 hover:bg-purple-900/40 border border-purple-500/30 flex items-center justify-between text-left transition-all active:scale-[0.98]"
+                    className="w-full p-3 rounded-card bg-elevated hover:bg-elevated-2 flex items-center justify-between text-left transition-all active:scale-[0.98]"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-lg bg-fill-tertiary text-accent flex items-center justify-center">
                         <Globe className="w-4 h-4" />
                       </div>
                       <div>
                         <span className="text-xs font-semibold text-white">
                           Buscar "{searchQuery}" em toda a web
                         </span>
-                        <p className="text-[10px] text-white/50">
+                        <p className="text-[13px] text-label-secondary">
                           Músicas, artistas e álbuns oficiais online
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-purple-400">Ir ➔</span>
+                    <span className="text-[15px] text-accent">Ir ➔</span>
                   </button>
                 </div>
               )}
@@ -361,7 +361,7 @@ const MusicAppContent: React.FC = () => {
               {/* Dynamic Live Featured Highlight Banner */}
               {featuredTrack && (
                 <div className="px-4 pt-3">
-                  <div className="relative overflow-hidden rounded-3xl p-5 border border-white/10 bg-gradient-to-br from-purple-900/40 via-purple-950/20 to-[#0d0d17] shadow-xl">
+                  <div className="relative overflow-hidden rounded-sheet p-5 bg-elevated shadow-xl">
                     {/* Subtle background cover glow */}
                     <div className="absolute right-0 top-0 bottom-0 w-1/2 opacity-25 overflow-hidden pointer-events-none">
                       <img
@@ -369,25 +369,25 @@ const MusicAppContent: React.FC = () => {
                         alt=""
                         className="w-full h-full object-cover blur-sm scale-125"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-r from-[#0d0d17] via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-elevated via-transparent to-transparent" />
                     </div>
 
                     <div className="relative z-10 max-w-[280px]">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400 mb-1">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-accent mb-1">
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>NO TOPO DO BRASIL AGORA</span>
                       </div>
-                      <h1 className="text-xl font-black text-white tracking-tight leading-tight">
+                      <h1 className="text-[22px] font-bold text-label tracking-tight leading-tight">
                         {featuredTrack.title}
                       </h1>
-                      <p className="text-xs text-white/60 mt-0.5 truncate">
+                      <p className="text-xs text-label-secondary mt-0.5 truncate">
                         {featuredTrack.artist} · {featuredTrack.album || 'Single Oficial'}
                       </p>
 
                       <button
                         onClick={() => playTrack(featuredTrack, feed?.categories['top-hits']?.tracks ?? [featuredTrack])}
                         aria-label={`Reproduzir ${featuredTrack.title}`}
-                        className="mt-3.5 flex items-center gap-2 px-4 py-2 rounded-2xl bg-white text-black font-bold text-xs hover:bg-white/90 active:scale-95 transition-all shadow-lg"
+                        className="mt-3.5 flex items-center gap-2 px-5 py-2 rounded-full bg-accent text-white font-semibold text-[15px] hover:bg-accent-pressed active:scale-95 transition-all"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
                         <span>Reproduzir Agora</span>
@@ -432,8 +432,8 @@ const MusicAppContent: React.FC = () => {
 
               {isLoadingFeed && allLiveTracks.length === 0 && (
                 <div className="py-20 text-center space-y-3">
-                  <Loader2 className="w-8 h-8 text-purple-400 animate-spin mx-auto" />
-                  <p className="text-xs text-white/50">Carregando as coleções...</p>
+                  <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+                  <p className="text-xs text-label-secondary">Carregando as coleções...</p>
                 </div>
               )}
 
@@ -443,7 +443,7 @@ const MusicAppContent: React.FC = () => {
                   <p>{feedError}</p>
                   <button
                     onClick={() => setFeedAttempt((attempt) => attempt + 1)}
-                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+                    className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label font-medium active:scale-95"
                   >
                     Tentar de novo
                   </button>

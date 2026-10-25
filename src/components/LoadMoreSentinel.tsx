@@ -39,10 +39,10 @@ export const LoadMoreSentinel: React.FC<LoadMoreSentinelProps> = ({
   if (!hasMore && !error) return null;
 
   return (
-    <div ref={ref} className="py-4 flex flex-col items-center gap-2 text-xs text-white/50" data-testid="load-more">
+    <div ref={ref} className="py-4 flex flex-col items-center gap-2 text-xs text-label-secondary" data-testid="load-more">
       {isLoadingMore && (
         <span className="flex items-center gap-2" role="status">
-          <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+          <Loader2 className="w-4 h-4 animate-spin text-accent" />
           Carregando mais faixas...
         </span>
       )}
@@ -54,7 +54,7 @@ export const LoadMoreSentinel: React.FC<LoadMoreSentinelProps> = ({
           </span>
           <button
             onClick={onRetry}
-            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium active:scale-95"
+            className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label font-medium active:scale-95"
           >
             Tentar de novo
           </button>
@@ -63,7 +63,7 @@ export const LoadMoreSentinel: React.FC<LoadMoreSentinelProps> = ({
       {!isLoadingMore && !error && (
         <button
           onClick={onLoadMore}
-          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-medium active:scale-95"
+          className="px-3.5 py-1.5 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label-secondary font-medium active:scale-95"
         >
           Carregar mais
         </button>
