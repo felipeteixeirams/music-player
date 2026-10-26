@@ -9,7 +9,8 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - Banco (Supabase, região São Paulo): schema, RLS, limites e função de cota em `supabase/migrations/0001_init.sql`, validados por `tests/db/schema.test.ts` (PGlite). **Implementado em 2026-10-26.**
 - Login por convite e proteção das rotas pelo token: implementado em 2026-10-26 (etapa 1).
 - Favoritos, playlists e escolhas de versão por conta, com migração dos dados do aparelho: implementado em 2026-10-26 (etapa 2).
-- Pendente, em etapas de um PR cada: (3) cache compartilhado de vídeos e cota diária por usuário; (4) histórico de reprodução.
+- Cache compartilhado de vídeos e cota diária de faixas novas por pessoa: implementado em 2026-10-26 (etapa 3); contrato em [Contratos](../specs/current/music-integration-contracts.spec.md).
+- Pendente: (4) histórico de reprodução.
 
 ## Decisões
 
@@ -20,6 +21,13 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - O e-mail padrão do Supabase pode só entregar a membros da equipe do projeto e ter limite baixo de envios (não verificado); para convidados externos, configurar SMTP próprio.
 - Chaves públicas (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) vão para o cliente. `SUPABASE_SERVICE_ROLE_KEY` e a senha do banco ficam só nas variáveis de ambiente da Vercel, nunca no repositório nem em conversas.
 - A cota é de "faixas novas" por dia (resoluções de vídeo, que gastam a YouTube Data API), não de horas de reprodução: tocar não passa pelo servidor.
+
+## Cota e cache (etapa 3)
+
+- Cada pessoa traz até 30 faixas novas por dia (`DAILY_NEW_TRACKS` na Vercel muda o número): uma "faixa nova" é uma que ninguém tocou antes no app, porque só ela gasta uma busca da YouTube Data API (≈100 por dia no app inteiro). Faixa já resolvida por qualquer pessoa vem do cache compartilhado e não conta. Tocar não passa pelo servidor e não tem limite de horas.
+- Com a cota acabada o app toca a prévia de 30 s e avisa; o contador aparece em Ajustes. O dia vira à meia-noite de São Paulo.
+- O servidor usa `DATABASE_SUPABASE_SERVICE_ROLE_KEY` (segredo, só na Vercel) para o cache e a cota; o navegador nunca a recebe.
+- Ajuste fino: com 3 pessoas, 3 x 30 = 90 cabe nas ≈100 buscas diárias; ao convidar mais gente, baixe `DAILY_NEW_TRACKS` ou peça aumento de cota ao Google.
 
 ## Dados por conta (etapa 2)
 
@@ -33,7 +41,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 ## Código proprietário
 
-`api/_auth.ts` (verificação e cache do token), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
+`api/_auth.ts` (verificação e cache do token), `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
 
 ## Navegação para a especificação
 

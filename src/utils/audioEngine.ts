@@ -119,32 +119,56 @@ export function resolveAudioDetails(
 
 const resolvedVideoIds = new Map<string, string[]>();
 
+export interface FullTrackResolution {
+  videoIds: string[];
+  /** The user's daily allowance of tracks nobody has played before is used up: no search was made. */
+  quotaExceeded: boolean;
+}
+
 /**
  * Finds the YouTube videos that play the full recording of a catalog track (Deezer), best first.
- * Answers, including empty ones, are cached for the session to spare the daily search quota;
- * failures are not cached.
+ * Answers, including empty ones, are cached for the session; failures and "limit reached" are not.
+ * The server adds its own shared cache and a daily allowance for tracks it has not resolved before.
  */
-export async function resolveFullTrackVideoIds(track: Track, timeoutMs = 6000): Promise<string[]> {
+export async function resolveFullTrack(track: Track, timeoutMs = 6000): Promise<FullTrackResolution> {
   const cached = resolvedVideoIds.get(track.id);
-  if (cached) return cached;
+  if (cached) return { videoIds: cached, quotaExceeded: false };
 
   try {
     const params = new URLSearchParams({
+      id: track.id,
       artist: track.artist,
       title: track.title,
       duration: String(track.duration)
     });
     const response = await apiFetch(`/api/resolve?${params}`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!response.ok) return [];
+    if (!response.ok) return { videoIds: [], quotaExceeded: false };
 
-    const data: unknown = await response.json();
-    const videoIds = (data as { videoIds?: unknown } | null)?.videoIds;
-    const resolved = Array.isArray(videoIds)
-      ? videoIds.filter((id): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id))
+    const data = (await response.json()) as { videoIds?: unknown; quota?: { exceeded?: unknown } } | null;
+    if (data?.quota?.exceeded === true) return { videoIds: [], quotaExceeded: true };
+    const resolved = Array.isArray(data?.videoIds)
+      ? data.videoIds.filter((id): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id))
       : [];
     resolvedVideoIds.set(track.id, resolved);
-    return resolved;
+    return { videoIds: resolved, quotaExceeded: false };
   } catch {
-    return [];
+    return { videoIds: [], quotaExceeded: false };
   }
+}
+
+export async function resolveFullTrackVideoIds(track: Track, timeoutMs = 6000): Promise<string[]> {
+  return (await resolveFullTrack(track, timeoutMs)).videoIds;
+}
+
+/**
+ * Tells the server that a video it handed out would not play (blocked, removed), so the shared cache drops it and
+ * the next play searches again. Fire and forget: a failed report only means the bad id lives a little longer.
+ */
+export function reportBrokenVideo(trackId: string, videoId: string): void {
+  resolvedVideoIds.delete(trackId);
+  void apiFetch('/api/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: trackId, videoId })
+  }).catch(() => undefined);
 }

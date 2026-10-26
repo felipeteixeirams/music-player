@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
-import { describeResolution, MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './api/_youtubeSearch';
+import { resolveRoute } from './api/_resolveEndpoint';
 import { authConfigFromEnv } from './api/_auth';
 import { authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
 
@@ -25,7 +25,10 @@ app.use('/api', async (req, res, next) => {
   const policy = policyFor(req.path);
   if (!policy) return next();
   const decision = await authorizeRequest(req.headers, policy);
-  if (decision.ok) return next();
+  if (decision.ok) {
+    res.locals.user = decision.user ?? null;
+    return next();
+  }
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
   return res.status(decision.status).json({ error: decision.message });
 });
@@ -81,28 +84,12 @@ app.get('/api/audio', async (req, res) => {
   }
 });
 
-// Endpoint: GET /api/resolve?artist=&title=&duration=
-// Finds the YouTube videos that play the full recording of a catalog track
-app.get('/api/resolve', async (req, res) => {
-  const { artist, title } = req.query;
-  const duration = Number(req.query.duration);
-  if (typeof artist !== 'string' || !artist.trim() || typeof title !== 'string' || !title.trim()
-    || artist.length > 200 || title.length > 200
-    || !Number.isFinite(duration) || duration <= 0 || duration > MAX_TRACK_DURATION_SECONDS) {
-    return res.status(400).json({ error: 'artist, title and duration are required' });
-  }
-
-  try {
-    const startTime = Date.now();
-    const query = { artist: artist.trim(), title: title.trim(), duration };
-    const result = await resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY });
-    const { videoIds } = result;
-    console.log(`[Resolve] ${describeResolution(query, result, Date.now() - startTime)}`);
-    return res.json({ videoIds });
-  } catch (err: any) {
-    console.warn(`[Resolve] Falha ao localizar vídeo: ${err?.message || err}`);
-    return res.json({ videoIds: [] });
-  }
+// Endpoint: GET /api/resolve?id=&artist=&title=&duration= (also ?usage=1 and POST to report a broken video)
+// Finds the YouTube videos that play the full recording of a catalog track, through the shared cache and the daily quota
+app.all('/api/resolve', async (req, res) => {
+  const { status, body, cacheControl } = await resolveRoute(req, res.locals.user ?? null);
+  if (cacheControl && status === 200) res.setHeader('Cache-Control', cacheControl);
+  return res.status(status).json(body);
 });
 
 // Endpoint: GET /api/health

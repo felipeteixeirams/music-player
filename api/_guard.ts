@@ -1,4 +1,4 @@
-import { authenticate } from './_auth.js';
+import { authenticate, type AuthUser } from './_auth.js';
 
 type Headers = Record<string, string | string[] | undefined>;
 
@@ -82,7 +82,7 @@ export interface GuardPolicy {
 }
 
 export type GuardDecision =
-  | { ok: true }
+  | { ok: true; user?: AuthUser | null }
   | { ok: false; status: 401 | 403 | 429 | 503; message: string; retryAfterSeconds?: number };
 
 export function evaluateRequest(headers: Headers, policy: GuardPolicy): GuardDecision {
@@ -104,7 +104,7 @@ export async function authorizeRequest(headers: Headers, policy: GuardPolicy): P
   const decision = evaluateRequest(headers, policy);
   if (!decision.ok) return decision;
   const auth = await authenticate(headers);
-  return auth.ok ? { ok: true } : { ok: false, status: auth.status, message: auth.message };
+  return auth.ok ? { ok: true, user: auth.user } : { ok: false, status: auth.status, message: auth.message };
 }
 
 /** Per-instance policies: the YouTube search and the audio copy cost the most, so they get the tightest limits. */
@@ -127,10 +127,19 @@ interface HttpResponseLike {
  * returns false. A call without a headers object is not an HTTP request (internal calls and unit tests).
  */
 export async function guard(req: HttpRequestLike, res: HttpResponseLike, policy: GuardPolicy): Promise<boolean> {
-  if (!req.headers) return true;
+  return (await guardUser(req, res, policy)) !== null;
+}
+
+/** Like `guard`, for routes that need to know who is calling: the user (null when login is off), or null when refused. */
+export async function guardUser(
+  req: HttpRequestLike,
+  res: HttpResponseLike,
+  policy: GuardPolicy
+): Promise<{ user: AuthUser | null } | null> {
+  if (!req.headers) return { user: null };
   const decision = await authorizeRequest(req.headers, policy);
-  if (decision.ok) return true;
+  if (decision.ok) return { user: decision.user ?? null };
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
   res.status(decision.status).json({ error: decision.message });
-  return false;
+  return null;
 }

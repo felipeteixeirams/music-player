@@ -1,5 +1,6 @@
-import React from 'react';
-import { Database, LogOut, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Database, Disc3, LogOut, X } from 'lucide-react';
+import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -12,6 +13,17 @@ interface SettingsMenuProps {
 /** What used to crowd the header: local storage and installing the app. */
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onOpenCacheSettings }) => {
   const { enabled, email, signOut } = useAuth();
+  const [usage, setUsage] = useState<DailyUsage | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !enabled) return;
+    const controller = new AbortController();
+    void fetchDailyUsage(controller.signal).then((value) => {
+      if (!controller.signal.aborted) setUsage(value);
+    });
+    return () => controller.abort();
+  }, [isOpen, enabled]);
+
   if (!isOpen) return null;
 
   return (
@@ -46,6 +58,15 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           <Database className="w-4 h-4 text-accent" aria-hidden="true" />
           <span>Gerenciar cache local</span>
         </button>
+
+        {usage && (
+          <div className="flex items-center gap-3 rounded-card bg-fill-tertiary px-3 py-2.5 text-[15px] text-label" data-testid="daily-usage">
+            <Disc3 className="h-4 w-4 text-accent" aria-hidden="true" />
+            <span>
+              Faixas novas hoje: {usage.used} de {usage.limit}
+            </span>
+          </div>
+        )}
 
         {enabled && (
           <div className="rounded-card bg-fill-tertiary px-3 py-2.5 text-[15px]">
