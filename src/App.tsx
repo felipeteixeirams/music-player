@@ -27,6 +27,7 @@ import { formatAge, loadSavedFeed, saveFeed } from './utils/feedCache';
 import { libraryParent, libraryTitle, type LibraryView } from './utils/library';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useScrollChrome } from './hooks/useScrollChrome';
+import { usePlayHistory } from './hooks/usePlayHistory';
 import type { QueueSource } from './utils/queueSource';
 import { preloadYouTubePlayer } from './components/youtubePlayer';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
@@ -52,6 +53,7 @@ const MusicAppContent: React.FC = () => {
   const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
   const { compact, expand } = useScrollChrome();
   const { playlists } = usePlaylists();
+  const { recent: recentTracks, clear: clearHistory } = usePlayHistory();
 
   // The home opens with the last feed saved on this device while the fresh one is fetched, and keeps it
   // (with a notice) if the fresh one cannot be had: no network, or the catalog is down
@@ -300,6 +302,8 @@ const MusicAppContent: React.FC = () => {
               onNavigate={setLibraryView}
               liked={likedTracks}
               downloads={downloadedTracks}
+              recent={recentTracks}
+              onClearHistory={clearHistory}
               onPlay={(track, queue) => playTrack(track, queue)}
             />
           ) : isSearchTab ? (

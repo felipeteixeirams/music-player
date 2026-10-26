@@ -14,3 +14,9 @@ export const emitUserDataChanged = () => bus.dispatchEvent(new Event('changed'))
 export const emitUserDataApplied = () => bus.dispatchEvent(new Event('applied'));
 export const onUserDataChanged = subscribe('changed');
 export const onUserDataApplied = subscribe('applied');
+
+/** The same two announcements for the play history: a play was recorded (or cleared), and the account's list arrived. */
+export const emitHistoryChanged = () => bus.dispatchEvent(new Event('history-changed'));
+export const emitHistoryApplied = () => bus.dispatchEvent(new Event('history-applied'));
+export const onHistoryChanged = subscribe('history-changed');
+export const onHistoryApplied = subscribe('history-applied');

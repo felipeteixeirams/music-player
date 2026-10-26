@@ -66,20 +66,51 @@ const json = (route: Route, body: unknown, status = 200) =>
 export const SILENT_PREVIEW =
   'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 
-/** Gives every track in a response a preview URL. */
-function withPreview<T>(value: T, previewUrl: string): T {
-  if (Array.isArray(value)) return value.map((item) => withPreview(item, previewUrl)) as T;
+/** What a stubbed track plays: a preview URL, and optionally a short length (so a "play" is over in seconds). */
+export interface PlayableOverride {
+  previewUrl: string;
+  durationSeconds?: number;
+}
+
+/** Gives every track in a response a preview URL (and length). */
+function withPreview<T>(value: T, override: PlayableOverride): T {
+  if (Array.isArray(value)) return value.map((item) => withPreview(item, override)) as T;
   if (value && typeof value === 'object') {
-    const entries = Object.entries(value).map(([key, item]) =>
-      key === 'sources' && item && typeof item === 'object' ? [key, { ...item, previewUrl }] : [key, withPreview(item, previewUrl)]
-    );
-    return Object.fromEntries(entries) as T;
+    const object = value as Record<string, unknown>;
+    if ('sources' in object && object.sources && typeof object.sources === 'object') {
+      return {
+        ...object,
+        ...(override.durationSeconds ? { duration: override.durationSeconds } : {}),
+        sources: { ...(object.sources as object), previewUrl: override.previewUrl }
+      } as T;
+    }
+    return Object.fromEntries(Object.entries(object).map(([key, item]) => [key, withPreview(item, override)])) as T;
   }
   return value;
 }
 
+/** A silent clip of the given length (8 kHz, 8-bit mono), as a data URL: it really plays, with no request. */
+export function silentClip(seconds: number): string {
+  const samples = 8000 * seconds;
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + samples, 4);
+  header.write('WAVEfmt ', 8);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(8000, 24);
+  header.writeUInt32LE(8000, 28);
+  header.writeUInt16LE(1, 32);
+  header.writeUInt16LE(8, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(samples, 40);
+  const body = Buffer.alloc(samples, 128);
+  return `data:audio/wav;base64,${Buffer.concat([header, body]).toString('base64')}`;
+}
+
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string; shortTracks?: boolean } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -96,7 +127,12 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
 
   await target.route('**/api/**', (route) => {
     const url = new URL(route.request().url());
-    const reply = (route: Route, body: unknown) => json(route, options.previewUrl ? withPreview(body, options.previewUrl) : body);
+    const override: PlayableOverride | null = options.shortTracks
+      ? { previewUrl: silentClip(4), durationSeconds: 4 }
+      : options.previewUrl
+      ? { previewUrl: options.previewUrl }
+      : null;
+    const reply = (route: Route, body: unknown) => json(route, override ? withPreview(body, override) : body);
     requests.push(`${url.pathname}${url.search}`);
 
     if (url.pathname === '/api/feed') {

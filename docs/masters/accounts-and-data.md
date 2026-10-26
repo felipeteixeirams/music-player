@@ -10,7 +10,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - Login por convite e proteção das rotas pelo token: implementado em 2026-10-26 (etapa 1).
 - Favoritos, playlists e escolhas de versão por conta, com migração dos dados do aparelho: implementado em 2026-10-26 (etapa 2).
 - Cache compartilhado de vídeos e cota diária de faixas novas por pessoa: implementado em 2026-10-26 (etapa 3); contrato em [Contratos](../specs/current/music-integration-contracts.spec.md).
-- Pendente: (4) histórico de reprodução.
+- Histórico de reprodução por conta, com tela "Reproduzidas recentemente" na Biblioteca: implementado em 2026-10-26 (etapa 4). As quatro etapas planejadas estão concluídas.
 
 ## Decisões
 
@@ -21,6 +21,13 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - O e-mail padrão do Supabase pode só entregar a membros da equipe do projeto e ter limite baixo de envios (não verificado); para convidados externos, configurar SMTP próprio.
 - Chaves públicas (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) vão para o cliente. `SUPABASE_SERVICE_ROLE_KEY` e a senha do banco ficam só nas variáveis de ambiente da Vercel, nunca no repositório nem em conversas.
 - A cota é de "faixas novas" por dia (resoluções de vídeo, que gastam a YouTube Data API), não de horas de reprodução: tocar não passa pelo servidor.
+
+## Histórico de reprodução (etapa 4)
+
+- Uma faixa entra no histórico depois de ouvida o bastante: 25 s de escuta real, ou metade dela se for mais curta (`src/utils/playedCounter.ts`). Pular para a frente não conta, pausar não custa nada, e repetir a faixa conta de novo. Rádios ao vivo ficam de fora.
+- O histórico só cresce (a conta guarda as últimas 500, um gatilho apaga as mais antigas), por isso não usa o motor de favoritos: cada reprodução vai para uma fila de envio no armazenamento do aparelho (`aurastream_play_history_outbox`) e é enviada em lote; sem conexão, a fila espera e nada se perde. Ao abrir, ao voltar ao primeiro plano e quando a conexão volta, a fila é enviada e a lista da conta é lida (assim as reproduções de outro aparelho aparecem). Uma reprodução que a conta recusa de vez é descartada para não travar as demais (`src/utils/playHistorySync.ts`).
+- A tela "Reproduzidas recentemente" mostra cada faixa uma vez, a mais recente primeiro; "Limpar histórico" apaga na hora no aparelho e deixa um pedido para a conta, que vale em todos os aparelhos.
+- Não faz parte do histórico: busca, favoritos e playlists (esses são da conta por outro caminho), nem o tempo total ouvido.
 
 ## Código por e-mail: validade, reenvio e abuso
 
@@ -48,7 +55,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 ## Código proprietário
 
-`api/_auth.ts` (verificação e cache do token), `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
+`api/_auth.ts` (verificação e cache do token), `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents,supabaseRest}.ts`, `src/utils/{playedCounter,playHistory,playHistoryRemote,playHistorySync}.ts`, `src/hooks/usePlayHistory.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/playHistory.test.ts`, `tests/e2e/history.spec.ts`, `tests/db/schema.test.ts`.
 
 ## Navegação para a especificação
 

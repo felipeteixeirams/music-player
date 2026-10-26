@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowDownCircle, ChevronRight, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { ArrowDownCircle, ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import type { Track } from '../types/music';
 import { groupByAlbum, groupByArtist, tracksOf, type LibraryGroup, type LibraryView } from '../utils/library';
 import { TrackList } from './TrackList';
@@ -11,6 +11,9 @@ interface LibraryScreenProps {
   onNavigate: (view: LibraryView) => void;
   liked: Track[];
   downloads: Track[];
+  /** What the user played lately, newest first. */
+  recent: Track[];
+  onClearHistory: () => void;
   onPlay: (track: Track, queue: Track[]) => void;
 }
 
@@ -56,14 +59,15 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; placeholder?: Reac
 );
 
 /** The Library tab: a menu of sections, as in Apple Music, and the screen of each one. */
-export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, downloads, onPlay }) => {
+export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, downloads, recent, onClearHistory, onPlay }) => {
   const { playlists, createNew, rename, remove, removeTrack } = usePlaylists();
-  const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | null>(null);
+  const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'clear' | null>(null);
 
   if (view === null) {
     return (
       <nav className="px-4 py-2" aria-label="Seções da biblioteca">
         <Row icon={<ListMusic className="w-6 h-6" />} title="Playlists" count={playlists.length} onClick={() => onNavigate({ kind: 'playlists' })} />
+        <Row icon={<Clock className="w-6 h-6" />} title="Reproduzidas recentemente" count={recent.length} onClick={() => onNavigate({ kind: 'recent' })} />
         <Row icon={<Music2 className="w-6 h-6" />} title="Músicas favoritas" count={liked.length} onClick={() => onNavigate({ kind: 'songs' })} />
         <Row icon={<ArrowDownCircle className="w-6 h-6" />} title="Downloads" count={downloads.length} onClick={() => onNavigate({ kind: 'downloads' })} />
         <Row icon={<Mic2 className="w-6 h-6" />} title="Artistas" count={groupByArtist(liked).length} onClick={() => onNavigate({ kind: 'artists' })} />
@@ -173,7 +177,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
         {dialog === 'delete' && (
           <ConfirmDialog
             title="Apagar playlist?"
-            message={`"${playlist.name}" será apagada deste aparelho. As músicas continuam no app.`}
+            message={`"${playlist.name}" será apagada da sua conta. As músicas continuam no app.`}
             confirmLabel="Apagar"
             onClose={() => setDialog(null)}
             onConfirm={() => {
@@ -211,6 +215,48 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
             }
           />
         ))}
+      </div>
+    );
+  }
+
+  if (view.kind === 'recent') {
+    return (
+      <div>
+        <div className="px-4 pt-1 pb-2 flex items-center gap-2">
+          <button
+            onClick={() => recent[0] && onPlay(recent[0], recent)}
+            disabled={recent.length === 0}
+            className="flex items-center gap-1.5 px-5 py-2 rounded-full bg-accent text-white text-[15px] font-semibold disabled:opacity-40 active:scale-95 transition-transform"
+          >
+            <Play className="w-4 h-4 fill-current" aria-hidden="true" />
+            Tocar
+          </button>
+          <button
+            onClick={() => setDialog('clear')}
+            disabled={recent.length === 0}
+            aria-label="Limpar histórico"
+            className="w-10 h-10 rounded-full bg-fill-tertiary text-label flex items-center justify-center disabled:opacity-40 active:scale-90 transition-transform"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+        <TrackList
+          tracks={recent}
+          emptyMessage="O que você ouvir aparece aqui, em todos os seus aparelhos."
+          onTrackSelect={(track) => onPlay(track, recent)}
+        />
+        {dialog === 'clear' && (
+          <ConfirmDialog
+            title="Limpar histórico?"
+            message="As faixas reproduzidas recentemente serão apagadas da sua conta. Favoritos e playlists não mudam."
+            confirmLabel="Limpar"
+            onClose={() => setDialog(null)}
+            onConfirm={() => {
+              onClearHistory();
+              setDialog(null);
+            }}
+          />
+        )}
       </div>
     );
   }
