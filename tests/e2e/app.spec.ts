@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { nav, stubApi, TOP_HITS } from './fixtures';
+import { nav, SILENT_PREVIEW, stubApi, TOP_HITS } from './fixtures';
 
 const COLLECTION_NAMES = ['Top Hits', 'Classic Rock', 'Alternative & Indie', 'Lofi Chill', 'Synthwave & Retrowave'];
 
@@ -283,6 +283,8 @@ test.describe('catálogo fora do ar', () => {
   });
 
   test('sem lista salva, o erro aparece com "Tentar de novo" e a home carrega quando o catálogo volta', async ({ page }) => {
+    // The feed of the first load is saved when it arrives: wait for it, or it could be saved again after the removal
+    await expect(page.locator('section[aria-label="Top Hits"]')).toBeVisible();
     await page.evaluate(() => localStorage.removeItem('aurastream_feed_cache'));
     const down = await feedDown(page);
     await page.reload();
@@ -302,3 +304,20 @@ test.describe('catálogo fora do ar', () => {
   });
 });
 
+
+test.describe('cota diária de faixas novas', () => {
+  test('os Ajustes mostram quantas faixas novas já foram trazidas hoje', async ({ page }) => {
+    await stubApi(page, { usedToday: 12 });
+    await page.reload();
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await expect(page.getByTestId('daily-usage')).toHaveText('Faixas novas hoje: 12 de 30');
+  });
+
+  test('com a cota acabada a faixa toca a prévia e avisa o motivo', async ({ page }) => {
+    await stubApi(page, { quotaExceeded: true, previewUrl: SILENT_PREVIEW });
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
+    await expect(page.getByText(/limite de faixas novas de hoje/).first()).toBeVisible();
+  });
+});

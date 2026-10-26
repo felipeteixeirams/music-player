@@ -4,7 +4,8 @@ import {
   getNextTrackIndex,
   getPreviousTrackIndex,
   resolveAudioDetails,
-  resolveFullTrackVideoIds
+  resolveFullTrack,
+  reportBrokenVideo
 } from '../utils/audioEngine';
 import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 import { fetchRadioTracks } from '../utils/catalogClient';
@@ -93,6 +94,8 @@ interface AudioContextType {
 const AudioContext = createContext<AudioContextType | null>(null);
 const PlaybackTimeContext = createContext<{ currentTime: number; duration: number }>({ currentTime: 0, duration: 0 });
 
+
+const QUOTA_NOTICE = 'Você chegou ao limite de faixas novas de hoje. Tocando a prévia de 30s; as faixas que já ouviu seguem completas.';
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { storage } = useAuth();
@@ -204,7 +207,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   // Plays the 30s catalog preview; returns false when the track has none.
-  const playPreview = useCallback(async (track: Track, shouldPlay: boolean): Promise<boolean> => {
+  const playPreview = useCallback(async (track: Track, shouldPlay: boolean, notice?: string): Promise<boolean> => {
     const previewUrl = track.sources.previewUrl;
     if (!previewUrl || !audioRef.current) return false;
 
@@ -213,7 +216,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPlaybackStatus({
       quality: 'Prévia de 30s',
       instanceUsed: 'Catálogo',
-      notice: 'Faixa completa indisponível, tocando a prévia de 30s.'
+      notice: notice ?? 'Faixa completa indisponível, tocando a prévia de 30s.'
     });
     audioRef.current.src = previewUrl;
     if (shouldPlay) {
@@ -366,9 +369,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // 2. Full recording of a catalog track: find its YouTube video and play it in the headless engine
+    let quotaExceeded = false;
     if (!track.sources.youtubeId && !track.sources.localUrl) {
       audioRef.current?.pause();
-      const found = await resolveFullTrackVideoIds(track);
+      const resolution = await resolveFullTrack(track);
+      const found = resolution.videoIds;
+      quotaExceeded = resolution.quotaExceeded;
       if (loadTokenRef.current !== token) return;
       // The version the user picked before comes first, even when the search no longer returns it
       const ids = orderVersions(found, loadChoices(storage)[track.id]);
@@ -381,7 +387,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // 3. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
-    if (await playPreview(track, shouldPlay)) return;
+    if (await playPreview(track, shouldPlay, quotaExceeded ? QUOTA_NOTICE : undefined)) return;
 
     // 4. A track that already carries its YouTube video goes straight to the headless player
     if (track.sources.youtubeId) {
@@ -761,11 +767,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const versions = versionsRef.current;
     if (track && versions.trackId === track.id && versions.index + 1 < versions.ids.length) {
       // This video would not play (embedding blocked, removed): the next candidate, until they run out
+      reportBrokenVideo(track.id, versions.ids[versions.index]);
       const index = versions.index + 1;
       versionsRef.current = { ...versions, index };
       triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: versions.ids[index] } }, true);
       return;
     }
+    if (track && versions.trackId === track.id && versions.ids[versions.index]) reportBrokenVideo(track.id, versions.ids[versions.index]);
     if (track?.sources.previewUrl) {
       void playPreview(track, true);
       return;

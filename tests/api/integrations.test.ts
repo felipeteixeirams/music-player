@@ -339,7 +339,7 @@ test('resolve endpoint returns the video ids found for a catalog track', async (
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.body, { videoIds: ['WM8bTdBs-cw'] });
-  assert.match(response.headers['Cache-Control'], /s-maxage=/);
+  assert.equal(response.headers['Cache-Control'], 'private, no-store', 'the answer depends on the user (quota): never shared');
 });
 
 test('resolve endpoint validates its parameters without calling YouTube', async () => {
@@ -368,7 +368,7 @@ test('resolve endpoint answers an empty list when YouTube fails', async () => {
   assert.equal(response.headers['Cache-Control'], undefined, 'a failure is never cached');
 });
 
-test('resolve endpoint caches a "no video found" answer for an hour so the paid search is not repeated', async () => {
+test('resolve endpoint answers "no video found" as a normal answer (the shared cache, not the CDN, remembers it)', async () => {
   setFetchMock(async () => jsonResponse({ contents: [] }));
 
   const response = createResponse();
@@ -379,5 +379,5 @@ test('resolve endpoint caches a "no video found" answer for an hour so the paid 
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.body, { videoIds: [] });
-  assert.equal(response.headers['Cache-Control'], 's-maxage=3600');
+  assert.equal(response.headers['Cache-Control'], 'private, no-store');
 });

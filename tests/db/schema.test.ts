@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import { PGlite } from '@electric-sql/pglite';
 
@@ -24,7 +24,9 @@ let db: PGlite;
 before(async () => {
   db = new PGlite();
   await db.exec(SUPABASE_STUBS);
-  await db.exec(readFileSync('supabase/migrations/0001_init.sql', 'utf8'));
+  for (const file of readdirSync('supabase/migrations').filter((name) => name.endsWith('.sql')).sort()) {
+    await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'));
+  }
   await db.exec(`insert into auth.users values ('${USER_A}'), ('${USER_B}')`);
 });
 
@@ -197,6 +199,33 @@ test('usage_daily is read-only for its owner', async () => {
       /permission denied/
     );
   } finally {
+    await db.exec('delete from usage_daily');
+  }
+});
+
+test('video_cache aceita "não achei" (lista vazia) mas não mais de 5 vídeos', async () => {
+  await as('service_role', null, async (q) => {
+    await q.query(`insert into video_cache (track_id, video_ids) values ('deezer-1', '{}')`);
+    await rejects(q.query(`insert into video_cache (track_id, video_ids) values ('deezer-2', array['a','b','c','d','e','f'])`), /video_cache/);
+  });
+});
+
+test('refund_resolve devolve uma unidade da cota do dia, sem passar de zero, e é só do servidor', async () => {
+  await rejects(as('authenticated', USER_A, (q) => q.query(`select refund_resolve($1)`, [USER_A])), /permission denied/);
+
+  await db.exec(`set role service_role`);
+  try {
+    const used = async (user: string) =>
+      (await db.query<{ resolves: number }>(`select resolves from usage_daily where user_id = $1`, [user])).rows[0]?.resolves;
+    await db.query(`select consume_resolve($1, 5)`, [USER_A]);
+    await db.query(`select consume_resolve($1, 5)`, [USER_A]);
+    await db.query(`select refund_resolve($1)`, [USER_A]);
+    assert.equal(await used(USER_A), 1);
+    await db.query(`select refund_resolve($1)`, [USER_A]);
+    await db.query(`select refund_resolve($1)`, [USER_A]);
+    assert.equal(await used(USER_A), 0);
+  } finally {
+    await db.exec('reset role');
     await db.exec('delete from usage_daily');
   }
 });

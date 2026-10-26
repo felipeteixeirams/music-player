@@ -62,8 +62,24 @@ function collectionPage(id: string, index: number) {
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
+/** A silent half-second clip, so a track can have a catalog preview without any request leaving the machine. */
+export const SILENT_PREVIEW =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+
+/** Gives every track in a response a preview URL. */
+function withPreview<T>(value: T, previewUrl: string): T {
+  if (Array.isArray(value)) return value.map((item) => withPreview(item, previewUrl)) as T;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).map(([key, item]) =>
+      key === 'sources' && item && typeof item === 'object' ? [key, { ...item, previewUrl }] : [key, withPreview(item, previewUrl)]
+    );
+    return Object.fromEntries(entries) as T;
+  }
+  return value;
+}
+
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser> } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -80,26 +96,32 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
 
   await target.route('**/api/**', (route) => {
     const url = new URL(route.request().url());
+    const reply = (route: Route, body: unknown) => json(route, options.previewUrl ? withPreview(body, options.previewUrl) : body);
     requests.push(`${url.pathname}${url.search}`);
 
     if (url.pathname === '/api/feed') {
       const categories = Object.fromEntries(Object.keys(COLLECTIONS).map((id) => [id, collectionPage(id, 0)]));
-      return json(route, { categories, featured: TOP_HITS[0] });
+      return reply(route, { categories, featured: TOP_HITS[0] });
     }
     if (url.pathname === '/api/category') {
-      return json(route, collectionPage(url.searchParams.get('id') ?? '', Number(url.searchParams.get('index') ?? 0)));
+      return reply(route, collectionPage(url.searchParams.get('id') ?? '', Number(url.searchParams.get('index') ?? 0)));
     }
     if (url.pathname === '/api/search') {
       const q = url.searchParams.get('q') ?? '';
-      return json(route, page([track(101, `${q} - Ao Vivo`, 'Intérprete Busca'), track(102, `${q} - Acústico`, 'Intérprete Busca')]));
+      return reply(route, page([track(101, `${q} - Ao Vivo`, 'Intérprete Busca'), track(102, `${q} - Acústico`, 'Intérprete Busca')]));
     }
     if (url.pathname === '/api/radio') {
-      if (url.searchParams.has('id')) return json(route, page([track(201, 'Faixa da Rádio', 'Artista Rádio')]));
-      return json(route, {
+      if (url.searchParams.has('id')) return reply(route, page([track(201, 'Faixa da Rádio', 'Artista Rádio')]));
+      return reply(route, {
         genres: [{ id: 'pop', name: 'Pop', stations: [{ id: 1, name: 'Estação Pop', picture: null }, { id: 2, name: 'Estação Hits', picture: null }] }]
       });
     }
-    if (url.pathname === '/api/resolve') return json(route, { videoIds: options.videoIds ?? [] });
+    if (url.pathname === '/api/resolve') {
+      if (route.request().method() === 'POST') return json(route, { ok: true });
+      if (url.searchParams.has('usage')) return json(route, { enabled: true, used: options.usedToday ?? 4, limit: 30 });
+      if (options.quotaExceeded) return json(route, { videoIds: [], quota: { used: 30, limit: 30, exceeded: true } });
+      return json(route, { videoIds: options.videoIds ?? [] });
+    }
     return route.continue();
   });
 

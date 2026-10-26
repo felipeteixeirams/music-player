@@ -9,7 +9,8 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - Banco (Supabase, região São Paulo): schema, RLS, limites e função de cota em `supabase/migrations/0001_init.sql`, validados por `tests/db/schema.test.ts` (PGlite). **Implementado em 2026-10-26.**
 - Login por convite e proteção das rotas pelo token: implementado em 2026-10-26 (etapa 1).
 - Favoritos, playlists e escolhas de versão por conta, com migração dos dados do aparelho: implementado em 2026-10-26 (etapa 2).
-- Pendente, em etapas de um PR cada: (3) cache compartilhado de vídeos e cota diária por usuário; (4) histórico de reprodução.
+- Cache compartilhado de vídeos e cota diária de faixas novas por pessoa: implementado em 2026-10-26 (etapa 3); contrato em [Contratos](../specs/current/music-integration-contracts.spec.md).
+- Pendente: (4) histórico de reprodução.
 
 ## Decisões
 
@@ -20,6 +21,20 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - O e-mail padrão do Supabase pode só entregar a membros da equipe do projeto e ter limite baixo de envios (não verificado); para convidados externos, configurar SMTP próprio.
 - Chaves públicas (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) vão para o cliente. `SUPABASE_SERVICE_ROLE_KEY` e a senha do banco ficam só nas variáveis de ambiente da Vercel, nunca no repositório nem em conversas.
 - A cota é de "faixas novas" por dia (resoluções de vídeo, que gastam a YouTube Data API), não de horas de reprodução: tocar não passa pelo servidor.
+
+## Código por e-mail: validade, reenvio e abuso
+
+- O código vale 90 s e um novo só pode ser pedido 60 s depois (`CODE_TTL_MS` e `RESEND_COOLDOWN_MS` em `src/utils/loginCode.ts`). Quem de fato expira o código e recusa pedidos cedo demais é o Supabase, por endereço e por rede, então um script que ignore a tela não passa; a tela só mostra a contagem (e a lembra ao recarregar a página).
+- Ajustes no painel do Supabase que sustentam isso (os nomes podem variar; confira no painel): Authentication > Sign In / Providers > Email: "Email OTP Expiration" = 90 (segundos) e "Email OTP Length" = 6; intervalo mínimo entre e-mails para o mesmo usuário = 60 s; Authentication > Rate Limits: limites de envio de e-mails por hora, de pedidos de código e de verificações por rede a cada 5 minutos, em valores baixos para um grupo pequeno.
+- Sem bloqueio universal: o intervalo mínimo é por usuário e os limites de pedido e de verificação são por rede; errar o código ou pedir demais trava só quem errou. O único teto compartilhado é o de e-mails por hora do projeto (e do provedor de SMTP): quem soubesse o e-mail de um convidado poderia gastá-lo e atrasar o código dos demais. Por isso, mantenha o teto por hora baixo mas folgado para o grupo e use SMTP próprio com limite próprio; endereço sem convite não envia nada (o Supabase recusa), e a tela responde igual para ele, para não revelar quem tem convite.
+- Não implementado de propósito: um controle próprio no servidor. Se o grupo crescer ou houver abuso, o passo seguinte é uma rota que cobre pedido de código com limite por e-mail no banco, sem passar pela rede compartilhada do Supabase.
+
+## Cota e cache (etapa 3)
+
+- Cada pessoa traz até 30 faixas novas por dia (`DAILY_NEW_TRACKS` na Vercel muda o número): uma "faixa nova" é uma que ninguém tocou antes no app, porque só ela gasta uma busca da YouTube Data API (≈100 por dia no app inteiro). Faixa já resolvida por qualquer pessoa vem do cache compartilhado e não conta. Tocar não passa pelo servidor e não tem limite de horas.
+- Com a cota acabada o app toca a prévia de 30 s e avisa; o contador aparece em Ajustes. O dia vira à meia-noite de São Paulo.
+- O servidor usa `DATABASE_SUPABASE_SERVICE_ROLE_KEY` (segredo, só na Vercel) para o cache e a cota; o navegador nunca a recebe.
+- Ajuste fino: com 3 pessoas, 3 x 30 = 90 cabe nas ≈100 buscas diárias; ao convidar mais gente, baixe `DAILY_NEW_TRACKS` ou peça aumento de cota ao Google.
 
 ## Dados por conta (etapa 2)
 
@@ -33,7 +48,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 ## Código proprietário
 
-`api/_auth.ts` (verificação e cache do token), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
+`api/_auth.ts` (verificação e cache do token), `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
 
 ## Navegação para a especificação
 
