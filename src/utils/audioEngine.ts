@@ -1,5 +1,7 @@
 import { AudioEngineType, RepeatMode, Track } from '../types/music';
 import { apiFetch } from './apiFetch';
+import { ResolvedStore } from './resolvedStore';
+import { createLookupQueue } from './resolvePrefetch';
 
 /**
  * Formats a duration in seconds into MM:SS format (e.g. 214 -> "03:34")
@@ -117,7 +119,12 @@ export function resolveAudioDetails(
   };
 }
 
-const resolvedVideoIds = new Map<string, string[]>();
+/** The videos already known for a track: on this device (lasting), from the shared cache via `prefetchResolved`, or from a search. */
+const resolved = new ResolvedStore(typeof localStorage !== 'undefined' ? localStorage : null);
+/** Tracks the server answered "no video" for in this session: not asked again until the app restarts. */
+const noVideoThisSession = new Set<string>();
+/** A track being resolved right now: a second tap on it waits for the same answer instead of making another search. */
+const resolving = new Map<string, Promise<FullTrackResolution>>();
 
 export interface FullTrackResolution {
   videoIds: string[];
@@ -125,15 +132,31 @@ export interface FullTrackResolution {
   quotaExceeded: boolean;
 }
 
+/** The videos known without asking anyone; undefined when the track has to be asked about. */
+export function knownVideoIds(trackId: string): string[] | undefined {
+  return resolved.get(trackId);
+}
+
 /**
  * Finds the YouTube videos that play the full recording of a catalog track (Deezer), best first.
- * Answers, including empty ones, are cached for the session; failures and "limit reached" are not.
- * The server adds its own shared cache and a daily allowance for tracks it has not resolved before.
+ * What is known on the device answers at once; otherwise the server answers from the shared cache or, for a track
+ * nobody has played, from a search that counts against the user's daily allowance. Failures and "limit reached" are
+ * not remembered.
  */
-export async function resolveFullTrack(track: Track, timeoutMs = 6000): Promise<FullTrackResolution> {
-  const cached = resolvedVideoIds.get(track.id);
-  if (cached) return { videoIds: cached, quotaExceeded: false };
+export function resolveFullTrack(track: Track, timeoutMs = 6000): Promise<FullTrackResolution> {
+  const known = resolved.get(track.id);
+  if (known) return Promise.resolve({ videoIds: known, quotaExceeded: false });
+  if (noVideoThisSession.has(track.id)) return Promise.resolve({ videoIds: [], quotaExceeded: false });
 
+  const inFlight = resolving.get(track.id);
+  if (inFlight) return inFlight;
+
+  const request = fetchResolution(track, timeoutMs).finally(() => resolving.delete(track.id));
+  resolving.set(track.id, request);
+  return request;
+}
+
+async function fetchResolution(track: Track, timeoutMs: number): Promise<FullTrackResolution> {
   try {
     const params = new URLSearchParams({
       id: track.id,
@@ -146,11 +169,12 @@ export async function resolveFullTrack(track: Track, timeoutMs = 6000): Promise<
 
     const data = (await response.json()) as { videoIds?: unknown; quota?: { exceeded?: unknown } } | null;
     if (data?.quota?.exceeded === true) return { videoIds: [], quotaExceeded: true };
-    const resolved = Array.isArray(data?.videoIds)
+    const ids = Array.isArray(data?.videoIds)
       ? data.videoIds.filter((id): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id))
       : [];
-    resolvedVideoIds.set(track.id, resolved);
-    return { videoIds: resolved, quotaExceeded: false };
+    if (ids.length > 0) resolved.set(track.id, ids);
+    else noVideoThisSession.add(track.id);
+    return { videoIds: ids, quotaExceeded: false };
   } catch {
     return { videoIds: [], quotaExceeded: false };
   }
@@ -160,15 +184,47 @@ export async function resolveFullTrackVideoIds(track: Track, timeoutMs = 6000): 
   return (await resolveFullTrack(track, timeoutMs)).videoIds;
 }
 
+const lookupQueue = createLookupQueue({
+  isKnown: (id) => resolved.get(id) !== undefined,
+  onFound: (id, ids) => resolved.set(id, ids),
+  send: async (items) => {
+    const response = await apiFetch('/api/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lookup: items })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = (await response.json()) as { found?: Record<string, unknown> } | null;
+    const found: Record<string, string[]> = {};
+    for (const [id, ids] of Object.entries(data?.found ?? {})) {
+      if (Array.isArray(ids)) found[id] = ids.filter((v): v is string => typeof v === 'string');
+    }
+    return found;
+  }
+});
+
+/**
+ * Asks, for the tracks about to be shown or played next, which already have a video in the shared cache, and keeps
+ * what comes back. Tapping one of them then starts at once, with no wait for the network (which is what lets iOS
+ * accept the start). It never searches and never counts against the quota.
+ */
+export function prefetchResolved(tracks: Track[]): void {
+  lookupQueue.enqueue(
+    tracks
+      .filter((track) => /^(deezer|itunes)-\d+$/.test(track.id) && !track.sources.youtubeId && !track.sources.localUrl)
+      .map((track) => ({ id: track.id, artist: track.artist, title: track.title, duration: track.duration }))
+  );
+}
+
 /**
  * Tells the server that a video it handed out would not play (blocked, removed), so the shared cache drops it and
  * the next play searches again. Fire and forget: a failed report only means the bad id lives a little longer.
  */
-export function reportBrokenVideo(trackId: string, videoId: string): void {
-  resolvedVideoIds.delete(trackId);
+export function reportBrokenVideo(track: Track, videoId: string): void {
+  resolved.delete(track.id);
   void apiFetch('/api/resolve', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: trackId, videoId })
+    body: JSON.stringify({ id: track.id, videoId, artist: track.artist, title: track.title, duration: track.duration })
   }).catch(() => undefined);
 }

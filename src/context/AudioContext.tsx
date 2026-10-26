@@ -5,7 +5,8 @@ import {
   getPreviousTrackIndex,
   resolveAudioDetails,
   resolveFullTrack,
-  reportBrokenVideo
+  reportBrokenVideo,
+  prefetchResolved
 } from '../utils/audioEngine';
 import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 import { fetchRadioTracks } from '../utils/catalogClient';
@@ -194,6 +195,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  // The next tracks of the queue: their videos are asked for now (from the shared cache only), so when the current one
+  // ends, even with the screen locked, the next starts without waiting on the network
+  useEffect(() => {
+    if (queue.length > 0) prefetchResolved(queue.slice(currentIndex + 1, currentIndex + 4));
+  }, [queue, currentIndex]);
 
   useEffect(() => {
     radioStationRef.current = radioStation;
@@ -902,13 +909,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const versions = versionsRef.current;
     if (track && versions.trackId === track.id && versions.index + 1 < versions.ids.length) {
       // This video would not play (embedding blocked, removed): the next candidate, until they run out
-      reportBrokenVideo(track.id, versions.ids[versions.index]);
+      reportBrokenVideo(track, versions.ids[versions.index]);
       const index = versions.index + 1;
       versionsRef.current = { ...versions, index };
       triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: versions.ids[index] } }, true);
       return;
     }
-    if (track && versions.trackId === track.id && versions.ids[versions.index]) reportBrokenVideo(track.id, versions.ids[versions.index]);
+    if (track && versions.trackId === track.id && versions.ids[versions.index]) reportBrokenVideo(track, versions.ids[versions.index]);
     if (track?.sources.previewUrl) {
       void playPreview(track, true);
       return;

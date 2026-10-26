@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Play, Pause, Heart, Sparkles } from 'lucide-react';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
-import { formatTime } from '../utils/audioEngine';
+import { formatTime, prefetchResolved } from '../utils/audioEngine';
 
 interface TrackCarouselProps {
   title: string;
@@ -24,6 +24,11 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
   onSeeAll
 }) => {
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked } = useAudio();
+
+  // Ask the shared cache about the tracks shown, so tapping one somebody already played starts with no wait
+  useEffect(() => {
+    prefetchResolved(tracks.slice(0, 40));
+  }, [tracks]);
 
   if (tracks.length === 0) return null;
 

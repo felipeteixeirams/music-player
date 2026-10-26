@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  aliasKeyFor,
   cacheKeyFor,
+  cacheKeysFor,
+  lookupEndpoint,
   FOUND_TTL_MS,
   MISS_TTL_MS,
   reportBadVideoEndpoint,
@@ -25,6 +28,10 @@ function fakeAdmin(limitFails = false) {
     async getCached(key) {
       calls.push(`get ${key}`);
       return cache.get(key) ?? null;
+    },
+    async getCachedMany(keys) {
+      calls.push(`getMany ${keys.join(',')}`);
+      return Object.fromEntries(keys.filter((k) => cache.has(k)).map((k) => [k, cache.get(k)!]));
     },
     async putCached(key, videoIds, now) {
       calls.push(`put ${key}`);
@@ -125,20 +132,20 @@ test('"não achei" da busca web não vai para o cache (ela falha em silêncio)',
 
 test('acima do limite diário não busca nem grava: avisa que a cota acabou; o cache continua valendo', async () => {
   const t = setup({ limit: 2 });
-  await resolveEndpoint({ ...QUERY, id: 'deezer-1' }, USER, t.deps);
-  await resolveEndpoint({ ...QUERY, id: 'deezer-2' }, USER, t.deps);
-  const third = await resolveEndpoint({ ...QUERY, id: 'deezer-3' }, USER, t.deps);
+  await resolveEndpoint({ ...QUERY, id: 'deezer-1', title: 'Um' }, USER, t.deps);
+  await resolveEndpoint({ ...QUERY, id: 'deezer-2', title: 'Dois' }, USER, t.deps);
+  const third = await resolveEndpoint({ ...QUERY, id: 'deezer-3', title: 'Três' }, USER, t.deps);
   assert.deepEqual(third.body, { videoIds: [], quota: { used: 2, limit: 2, exceeded: true } });
   assert.equal(t.searches(), 2);
   assert.equal(t.cache.has('deezer-3'), false);
-  const cached = await resolveEndpoint({ ...QUERY, id: 'deezer-1' }, USER, t.deps);
+  const cached = await resolveEndpoint({ ...QUERY, id: 'deezer-1', title: 'Um' }, USER, t.deps);
   assert.deepEqual(cached.body, { videoIds: [VIDEO] });
 });
 
 test('a cota é de cada pessoa', async () => {
   const t = setup({ limit: 1 });
-  await resolveEndpoint({ ...QUERY, id: 'deezer-1' }, USER, t.deps);
-  const other = await resolveEndpoint({ ...QUERY, id: 'deezer-2' }, { id: 'user-2', email: null }, t.deps);
+  await resolveEndpoint({ ...QUERY, id: 'deezer-1', title: 'Um' }, USER, t.deps);
+  const other = await resolveEndpoint({ ...QUERY, id: 'deezer-2', title: 'Dois' }, { id: 'user-2', email: null }, t.deps);
   assert.equal((other.body as { quota: { exceeded: boolean } }).quota.exceeded, false);
 });
 
@@ -239,4 +246,104 @@ test('createAdmin fala com as tabelas e funções certas com a chave de serviço
   assert.deepEqual(JSON.parse(calls[1].body!), { p_user: 'u1', p_limit: 30 });
   assert.ok(decodeURIComponent(calls[2].url).includes('day=eq.2026-10-26'));
   assert.equal(calls[5].method, 'DELETE');
+});
+
+// ------------------------------------------------------------------ a mesma música com outro id, e a consulta em lote
+
+const SONG = { artist: 'Artista', title: 'Faixa', duration: 200 };
+
+test('a mesma música com outro id (Deezer e iTunes, reedição) aproveita o vídeo já achado: uma busca só', async () => {
+  const t = setup();
+  await resolveEndpoint(QUERY, USER, t.deps);
+  assert.deepEqual([...t.cache.keys()].sort(), ['deezer-7', aliasKeyFor(SONG)].sort());
+
+  const other = await resolveEndpoint({ ...QUERY, id: 'itunes-99' }, { id: 'user-2', email: null }, t.deps);
+  assert.deepEqual(other.body, { videoIds: [VIDEO] });
+  assert.equal(t.searches(), 1);
+  assert.equal(t.used.get('user-2'), undefined, 'e não gasta a cota de quem a pediu');
+
+  // Outra duração (outra gravação): outra busca
+  await resolveEndpoint({ ...QUERY, id: 'deezer-8', duration: '260' }, USER, t.deps);
+  assert.equal(t.searches(), 2);
+});
+
+test('as chaves de uma faixa: o id do catálogo e a da música, sem repetir', () => {
+  assert.deepEqual(cacheKeysFor(SONG, 'deezer-7'), ['deezer-7', aliasKeyFor(SONG)]);
+  assert.deepEqual(cacheKeysFor(SONG, undefined), [aliasKeyFor(SONG)]);
+  assert.equal(cacheKeyFor(SONG, 'deezer-7'), 'deezer-7');
+});
+
+test('a denúncia com os dados da música tira o vídeo ruim das duas chaves', async () => {
+  const t = setup();
+  await t.admin.putCached('deezer-7', [VIDEO, 'BBBBBBBBBBB'], 5);
+  await t.admin.putCached(aliasKeyFor(SONG), [VIDEO, 'BBBBBBBBBBB'], 5);
+  await reportBadVideoEndpoint({ id: 'deezer-7', videoId: VIDEO, ...SONG }, t.deps);
+  assert.deepEqual(t.cache.get('deezer-7')?.videoIds, ['BBBBBBBBBBB']);
+  assert.deepEqual(t.cache.get(aliasKeyFor(SONG))?.videoIds, ['BBBBBBBBBBB']);
+});
+
+test('lookup: devolve só as faixas que já têm vídeo no cache, sem buscar nem gastar cota', async () => {
+  const t = setup();
+  await t.admin.putCached('deezer-1', [VIDEO], t.deps.now());
+  await t.admin.putCached(aliasKeyFor({ artist: 'B', title: 'Outra', duration: 100 }), ['CCCCCCCCCCC'], t.deps.now());
+  await t.admin.putCached('deezer-3', [], t.deps.now()); // "não achei" não vale como achado
+
+  const result = await lookupEndpoint(
+    {
+      lookup: [
+        { id: 'deezer-1', artist: 'A', title: 'Uma', duration: 100 },
+        { id: 'itunes-2', artist: 'B', title: 'Outra', duration: 100 },
+        { id: 'deezer-3', artist: 'C', title: 'Vazia', duration: 100 },
+        { id: 'deezer-4', artist: 'D', title: 'Nova', duration: 100 }
+      ]
+    },
+    t.deps
+  );
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, { found: { 'deezer-1': [VIDEO], 'itunes-2': ['CCCCCCCCCCC'] } });
+  assert.equal(t.searches(), 0);
+  assert.equal(t.used.size, 0);
+  assert.equal(t.calls.filter((c) => c.startsWith('getMany')).length, 1, 'uma leitura só para o lote');
+});
+
+test('lookup: respeita o prazo do cache e valida a entrada', async () => {
+  const t = setup();
+  await t.admin.putCached('deezer-1', [VIDEO], t.deps.now() - FOUND_TTL_MS - 1);
+  const stale = await lookupEndpoint({ lookup: [{ id: 'deezer-1', artist: 'A', title: 'Uma', duration: 100 }] }, t.deps);
+  assert.deepEqual(stale.body, { found: {} });
+
+  for (const bad of [null, {}, { lookup: [] }, { lookup: Array(41).fill({ id: 'deezer-1', artist: 'A', title: 'U', duration: 10 }) },
+    { lookup: [{ id: 'xx', artist: 'A', title: 'U', duration: 10 }] }, { lookup: [{ id: 'deezer-1', artist: '', title: 'U', duration: 10 }] },
+    { lookup: [{ id: 'deezer-1', artist: 'A', title: 'U', duration: 99999 }] }]) {
+    assert.equal((await lookupEndpoint(bad, t.deps)).status, 400);
+  }
+});
+
+test('lookup sem banco ou com o banco fora do ar responde "nada achado", sem erro', async () => {
+  const body = { lookup: [{ id: 'deezer-1', artist: 'A', title: 'Uma', duration: 100 }] };
+  assert.deepEqual((await lookupEndpoint(body, setup({ noAdmin: true }).deps)).body, { found: {} });
+  const down = setup();
+  down.deps.admin = { ...down.admin, getCachedMany: async () => { throw new Error('db down'); } };
+  assert.deepEqual((await lookupEndpoint(body, down.deps)).body, { found: {} });
+});
+
+test('resolveRoute manda o POST com lookup para a consulta e o outro POST para a denúncia', async () => {
+  const t = setup();
+  const lookup = await resolveRoute({ method: 'POST', query: {}, body: { lookup: [{ id: 'deezer-1', artist: 'A', title: 'U', duration: 10 }] } }, USER, t.deps);
+  assert.deepEqual(lookup.body, { found: {} });
+  assert.equal((await resolveRoute({ method: 'POST', query: {}, body: { id: 'x' } }, USER, t.deps)).status, 400);
+});
+
+test('createAdmin.getCachedMany lê várias chaves numa chamada só', async () => {
+  const urls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    urls.push(decodeURIComponent(url));
+    return new Response(JSON.stringify([{ track_id: 'deezer-1', video_ids: [VIDEO], resolved_at: '2026-01-01T00:00:00Z' }]));
+  }) as unknown as typeof fetch;
+  const admin = createAdmin({ url: 'https://p.supabase.co', serviceKey: 's' }, fetchImpl);
+  const many = await admin.getCachedMany(['deezer-1', 'h-abc']);
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /track_id=in\.\("deezer-1","h-abc"\)/);
+  assert.deepEqual(many, { 'deezer-1': { videoIds: [VIDEO], resolvedAt: Date.parse('2026-01-01T00:00:00Z') } });
+  assert.deepEqual(await createAdmin({ url: 'https://p.supabase.co', serviceKey: 's' }, fetchImpl).getCachedMany([]), {});
 });

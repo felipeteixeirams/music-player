@@ -104,6 +104,8 @@ test('reenviar depois do tempo traz um código novo e reinicia a contagem', asyn
   await page.goto('/');
   await page.getByLabel('E-mail').fill(testUser(NO_COOLDOWN_PREFIX).email);
   await page.getByRole('button', { name: 'Receber código' }).click();
+  // The time is counted from when the code was sent: wait for it to be sent before moving the clock
+  await expect(page.getByTestId('code-status')).toHaveText('O código vale por 1:30');
   await page.clock.fastForward(61_000);
   await page.getByRole('button', { name: 'Reenviar código' }).click();
   await expect(page.getByTestId('code-status')).toHaveText('O código vale por 1:30');
