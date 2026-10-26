@@ -87,7 +87,8 @@ Variável nova no código: declare-a em `.env.example` e em `DOCUMENTED_VARS` de
 - Primeiro login num aparelho com dados de antes das contas: quem entra primeiro leva os dados (as chaves antigas são apagadas, ninguém mais herda) e eles são mesclados com a conta; ids de playlist antigos que não eram uuid ganham um uuid.
 - A sincronização roda ao abrir, ao voltar ao primeiro plano (no máximo a cada 30 s) e ao voltar a conexão. Uma recusa definitiva da conta (por exemplo, um limite) devolve ao aparelho o estado da conta.
 - Os contextos não conhecem a sincronização: avisam `emitUserDataChanged()` depois de salvar e releem o armazenamento em `onUserDataApplied` (`src/utils/userDataEvents.ts`). "Limpar cache" não apaga mais favoritos: eles são da conta.
-- Não sincronizado, de propósito: downloads offline (são do aparelho), a lista de início salva e o limite de cache.
+- Downloads offline: a **lista** é por usuário no aparelho (chaves sufixadas pelo id, como favoritos e playlists), então duas pessoas no mesmo aparelho veem só o que cada uma baixou; quem entra primeiro leva a lista de antes das contas. Os **arquivos** de áudio ficam no CacheStorage do navegador, compartilhados por id da faixa: remover o download só apaga o arquivo quando ninguém mais do aparelho o lista. Não vão para a conta (são do aparelho).
+- Não sincronizado, de propósito: a lista de início salva e o limite de cache (do aparelho), e os próprios downloads.
 
 ## Código proprietário
 

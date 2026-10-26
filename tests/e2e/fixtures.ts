@@ -152,6 +152,10 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
         genres: [{ id: 'pop', name: 'Pop', stations: [{ id: 1, name: 'Estação Pop', picture: null }, { id: 2, name: 'Estação Hits', picture: null }] }]
       });
     }
+    // The same-origin copy of a catalog preview, for the Downloads
+    if (url.pathname === '/api/audio') {
+      return route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(SILENT_PREVIEW.split(',')[1], 'base64') });
+    }
     if (url.pathname === '/api/resolve') {
       if (route.request().method() === 'POST') return json(route, { ok: true });
       if (url.searchParams.has('usage')) return json(route, { enabled: true, used: options.usedToday ?? 4, limit: 30 });

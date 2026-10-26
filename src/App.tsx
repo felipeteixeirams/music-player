@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { PlaylistsProvider, usePlaylists } from './context/PlaylistsContext';
 import { AddToPlaylistSheet } from './components/AddToPlaylistSheet';
 import { TopBar } from './components/TopBar';
@@ -54,6 +54,7 @@ const MusicAppContent: React.FC = () => {
   const { compact, expand } = useScrollChrome();
   const { playlists } = usePlaylists();
   const { recent: recentTracks, clear: clearHistory } = usePlayHistory();
+  const { storage } = useAuth();
 
   // The home opens with the last feed saved on this device while the fresh one is fetched, and keeps it
   // (with a notice) if the fresh one cannot be had: no network, or the catalog is down
@@ -199,7 +200,7 @@ const MusicAppContent: React.FC = () => {
   const hasTypedQuery = searchQuery.trim().length > 0;
   // Read again each time the Library screen changes, so a download made meanwhile shows up
   const downloadedTracks = useMemo(
-    () => (isLibraryTab ? getOfflineTracks(likedTracks) : []),
+    () => (isLibraryTab ? getOfflineTracks(likedTracks, storage) : []),
     [isLibraryTab, libraryView, likedTracks]
   );
   const screenTitle = activeCategory
