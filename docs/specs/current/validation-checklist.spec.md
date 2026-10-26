@@ -199,11 +199,10 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 3. Abuso e cota: rotas públicas e cota de cerca de 100 buscas por dia.
 4. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
 5. Playlists criadas pelo usuário.
-6. Integração contínua no GitHub Actions e testes de ponta a ponta com Playwright.
 
 ## Testes automáticos que já passam
 
-`npm test` (113 testes, 6 ignorados que dependem de rede), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). Não há integração contínua rodando isso nos PRs.
+`npm test` (135 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (13 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
 
 ## Registro
 
