@@ -10,6 +10,7 @@ import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineMan
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
 import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
+import { loadChoices, nextVersionIndex, orderVersions, rememberChoice } from '../utils/videoChoice';
 import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
 
 /** A radio gives up after this many unplayable tracks in a row. */
@@ -69,6 +70,10 @@ interface AudioContextType {
   toggleShuffle: () => void;
   toggleRepeat: () => void;
   setPreferredEngine: (engine: AudioEngineType) => void;
+  /** How many YouTube versions of the playing track are known; "Outra versão" is offered above one. */
+  versionCount: number;
+  /** Plays the next version of the playing track (wrapping around) and remembers the choice. */
+  switchVersion: () => void;
   toggleExpanded: (open?: boolean) => void;
   /** The station playing as a radio: the queue renews itself and never runs out. Null for ordinary lists. */
   radioStation: RadioStation | null;
@@ -143,7 +148,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentTrackRef = useRef<Track | null>(null);
   const loadTokenRef = useRef(0);
   // Remaining YouTube videos to try for the current track when the embed of one of them fails
-  const alternateVideosRef = useRef<{ trackId: string; videoIds: string[] }>({ trackId: '', videoIds: [] });
+  // The YouTube videos found for the track playing, best first, and which one is on: "Outra versão" moves along them
+  const versionsRef = useRef<{ trackId: string; ids: string[]; index: number }>({ trackId: '', ids: [], index: 0 });
+  const [versionCount, setVersionCount] = useState(0);
 
   const isLive = isLiveTrack(currentTrack);
 
@@ -324,6 +331,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const token = ++loadTokenRef.current;
     setPlaybackStatus((prev) => (prev.error || prev.notice ? { ...prev, error: undefined, notice: undefined } : prev));
     setIsBuffering(true);
+    setVersionCount(0);
     setCurrentTrack(track);
     setDuration(track.duration);
     setCurrentTime(0);
@@ -353,11 +361,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 2. Full recording of a catalog track: find its YouTube video and play it in the headless engine
     if (!track.sources.youtubeId && !track.sources.localUrl) {
       audioRef.current?.pause();
-      const [videoId, ...alternates] = await resolveFullTrackVideoIds(track);
+      const found = await resolveFullTrackVideoIds(track);
       if (loadTokenRef.current !== token) return;
-      if (videoId) {
-        alternateVideosRef.current = { trackId: track.id, videoIds: alternates };
-        triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: videoId } }, shouldPlay);
+      // The version the user picked before comes first, even when the search no longer returns it
+      const ids = orderVersions(found, loadChoices(localStorage)[track.id]);
+      if (ids.length > 0) {
+        versionsRef.current = { trackId: track.id, ids, index: 0 };
+        setVersionCount(ids.length);
+        triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: ids[0] } }, shouldPlay);
         return;
       }
     }
@@ -740,11 +751,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // The headless YouTube player failed (embedding blocked, unavailable video): use the preview if any
   const handleFallbackError = useCallback(() => {
     const track = currentTrackRef.current;
-    const alternates = alternateVideosRef.current;
-    if (track && alternates.trackId === track.id && alternates.videoIds.length > 0) {
-      const [nextVideoId, ...rest] = alternates.videoIds;
-      alternateVideosRef.current = { trackId: track.id, videoIds: rest };
-      triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: nextVideoId } }, true);
+    const versions = versionsRef.current;
+    if (track && versions.trackId === track.id && versions.index + 1 < versions.ids.length) {
+      // This video would not play (embedding blocked, removed): the next candidate, until they run out
+      const index = versions.index + 1;
+      versionsRef.current = { ...versions, index };
+      triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: versions.ids[index] } }, true);
       return;
     }
     if (track?.sources.previewUrl) {
@@ -756,6 +768,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsBuffering(false);
     setPlaybackStatus({ error: 'Não foi possível reproduzir esta faixa.' });
   }, [playPreview, triggerFallbackEngine, skipUnplayableTrack]);
+
+  // "Outra versão": the next video found for this track (wrapping around), remembered as the user's choice
+  const switchVersion = useCallback(() => {
+    const track = currentTrackRef.current;
+    const versions = versionsRef.current;
+    if (!track || versions.trackId !== track.id || versions.ids.length < 2) return;
+
+    const index = nextVersionIndex(versions.index, versions.ids.length);
+    versionsRef.current = { ...versions, index };
+    triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: versions.ids[index] } }, true);
+    rememberChoice(localStorage, track.id, versions.ids[index]);
+    setPlaybackStatus((prev) => ({ ...prev, notice: `Tocando outra versão (${index + 1} de ${versions.ids.length}).` }));
+  }, [triggerFallbackEngine]);
 
   const clearUserSeekRequest = useCallback(() => {
     setUserSeekRequest(null);
@@ -864,6 +889,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       toggleShuffle,
       toggleRepeat,
       setPreferredEngine,
+      versionCount,
+      switchVersion,
       toggleExpanded,
       radioStation,
       startRadio,
@@ -907,6 +934,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       toggleShuffle,
       toggleRepeat,
       setPreferredEngine,
+      versionCount,
+      switchVersion,
       toggleExpanded,
       radioStation,
       startRadio,

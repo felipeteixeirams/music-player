@@ -28,6 +28,8 @@ const MAX_DURATION_DIFF_SECONDS = 15;
 const MIN_ACCEPTED_SCORE = 40;
 const MAX_RESOLVED_VIDEOS = 3;
 const UNWANTED_TERMS = ['live', 'ao vivo', 'cover', 'remix', 'karaoke', 'reaction', 'instrumental', 'slowed', 'sped up', '8d', 'nightcore'];
+/** Music videos open with a scene, an intro or a skit the studio recording does not have: worse than audio, not unusable. */
+const CLIP_TERMS = ['official video', 'official music video', 'music video', 'video oficial', 'videoclipe', 'clipe'];
 
 function normalize(text: string): string {
   return text
@@ -134,38 +136,63 @@ export function parseOfficialCandidates(searchPayload: unknown, videosPayload: u
   return candidates;
 }
 
-function scoreCandidate(candidate: VideoCandidate, query: TrackQuery): number {
+/** A candidate with the reasons behind its score, for the logs and for choosing between versions. */
+export interface RankedCandidate {
+  candidate: VideoCandidate;
+  score: number;
+  /** Seconds away from the catalog duration; null when the video's length is unknown. */
+  durationDiff: number | null;
+  /** From a "Artist - Topic" channel: the label's own audio upload, the closest thing to the studio master. */
+  topic: boolean;
+}
+
+/**
+ * The app plays audio only, so the best video is the cleanest source of the studio recording: a Topic channel
+ * (audio supplied by the label, with the catalog's exact duration, no intro or scenes) beats an official audio
+ * upload, which beats a music video. Duration decides first among the rest: the closer, the likelier it is
+ * the same recording without extra seconds.
+ */
+function evaluateCandidate(candidate: VideoCandidate, query: TrackQuery): RankedCandidate {
   const title = normalize(candidate.title);
   const channel = normalize(candidate.channel);
   const wantedTitle = normalize(query.title);
   const wantedArtist = normalize(query.artist);
   const wantedText = `${wantedTitle} ${wantedArtist}`;
+  const topic = channel.endsWith('topic');
   let score = 0;
+  let durationDiff: number | null = null;
 
   if (candidate.durationSeconds !== null) {
-    const diff = Math.abs(candidate.durationSeconds - query.duration);
-    if (diff > MAX_DURATION_DIFF_SECONDS) return -1;
-    score += diff <= 3 ? 50 : 30;
+    durationDiff = Math.abs(candidate.durationSeconds - query.duration);
+    if (durationDiff > MAX_DURATION_DIFF_SECONDS) return { candidate, score: -1, durationDiff, topic };
+    score += durationDiff <= 2 ? 60 : durationDiff <= 5 ? 45 : 25;
   }
   if (wantedTitle && title.includes(wantedTitle)) score += 30;
   if (wantedArtist && title.includes(wantedArtist)) score += 10;
   if (wantedArtist && channel.includes(wantedArtist)) score += 20;
-  if (channel.endsWith('topic') || title.includes('official audio')) score += 15;
+  if (topic) score += 40;
+  else if (title.includes('official audio')) score += 15;
   else if (title.includes('official')) score += 5;
 
   for (const term of UNWANTED_TERMS) {
-    if (title.includes(term) && !wantedText.includes(term)) score -= 80;
+    // Heavier than the best duration bonus, so a live or cover take of the right length still falls below the threshold
+    if (title.includes(term) && !wantedText.includes(term)) score -= 100;
   }
-  return score;
+  if (CLIP_TERMS.some((term) => title.includes(term) && !wantedText.includes(term))) score -= 30;
+  return { candidate, score, durationDiff, topic };
+}
+
+/** Acceptable videos with their scores, best match first; empty when nothing is close to the requested recording. */
+export function rankCandidatesDetailed(candidates: VideoCandidate[], query: TrackQuery): RankedCandidate[] {
+  return candidates
+    .map((candidate) => evaluateCandidate(candidate, query))
+    .filter(({ score }) => score >= MIN_ACCEPTED_SCORE)
+    .sort((a, b) => b.score - a.score);
 }
 
 /** Acceptable videos, best match first; empty when nothing is close to the requested recording. */
 export function rankCandidates(candidates: VideoCandidate[], query: TrackQuery): VideoCandidate[] {
-  return candidates
-    .map((candidate) => ({ candidate, score: scoreCandidate(candidate, query) }))
-    .filter(({ score }) => score >= MIN_ACCEPTED_SCORE)
-    .sort((a, b) => b.score - a.score)
-    .map(({ candidate }) => candidate);
+  return rankCandidatesDetailed(candidates, query).map(({ candidate }) => candidate);
 }
 
 /** Best matching video, or null when nothing is close enough to the requested recording. */
@@ -231,6 +258,10 @@ export type ResolveVia = 'official' | 'web' | 'web-after-official-failure';
 export interface ResolvedVideos {
   videoIds: string[];
   via: ResolveVia;
+  /** The videos behind `videoIds`, same order, with why each was chosen. */
+  picks: RankedCandidate[];
+  /** How many videos the search returned before ranking, to tell "nothing found" from "nothing close enough". */
+  considered: number;
 }
 
 /** Official API when a key exists; the unofficial search when there is no key or the API refuses (quota, bad key). */
@@ -258,15 +289,25 @@ export async function resolveYouTubeVideos(query: TrackQuery, options: ResolveOp
   const searchText = `${query.artist} ${query.title} official audio`;
   const { candidates, via } = await searchCandidates(searchText, options, fetchImpl);
   // oEmbed only catches some blocked videos; the player reports the rest and the caller tries the next id.
-  const ranked = rankCandidates(candidates, query).slice(0, MAX_RESOLVED_VIDEOS + 1);
-  const checks = await Promise.all(ranked.map((candidate) => isEmbeddable(candidate.videoId, fetchImpl)));
-  const videoIds = ranked
-    .filter((_, index) => checks[index])
-    .map((candidate) => candidate.videoId)
-    .slice(0, MAX_RESOLVED_VIDEOS);
-  return { videoIds, via };
+  const ranked = rankCandidatesDetailed(candidates, query).slice(0, MAX_RESOLVED_VIDEOS + 1);
+  const checks = await Promise.all(ranked.map((entry) => isEmbeddable(entry.candidate.videoId, fetchImpl)));
+  const picks = ranked.filter((_, index) => checks[index]).slice(0, MAX_RESOLVED_VIDEOS);
+  return { videoIds: picks.map((entry) => entry.candidate.videoId), via, picks, considered: candidates.length };
 }
 
 export async function resolveYouTubeVideoIds(query: TrackQuery, options: ResolveOptions = {}): Promise<string[]> {
   return (await resolveYouTubeVideos(query, options)).videoIds;
+}
+
+/**
+ * The line the resolve routes log: what was chosen and why, or why nothing was. Without it a wrong version
+ * cannot be told apart from a ranking that needs tuning.
+ */
+export function describeResolution(query: TrackQuery, result: ResolvedVideos, elapsedMs: number): string {
+  const name = `"${query.artist} - ${query.title}"`;
+  const head = `${result.videoIds.length > 0 ? '✅' : '⚠️'} ${name} → ${result.videoIds.length} vídeo(s) via ${result.via} em ${elapsedMs}ms`;
+  const best = result.picks[0];
+  if (!best) return `${head} | ${result.considered} candidato(s), nenhum aceito`;
+  const diff = best.durationDiff === null ? 'duração desconhecida' : `Δ${best.durationDiff}s`;
+  return `${head} | escolhido: "${best.candidate.title}" (${best.candidate.channel || 'canal desconhecido'}) ${diff}, ${best.score} pontos${best.topic ? ', Topic' : ''}`;
 }

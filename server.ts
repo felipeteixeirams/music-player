@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
-import { MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './api/_youtubeSearch';
+import { describeResolution, MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './api/_youtubeSearch';
 import { evaluateRequest, POLICIES, type GuardPolicy } from './api/_guard';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -93,11 +93,10 @@ app.get('/api/resolve', async (req, res) => {
 
   try {
     const startTime = Date.now();
-    const { videoIds, via } = await resolveYouTubeVideos(
-      { artist: artist.trim(), title: title.trim(), duration },
-      { apiKey: process.env.YOUTUBE_API_KEY }
-    );
-    console.log(`[Resolve] ${videoIds.length > 0 ? '✅' : '⚠️'} "${artist} - ${title}" → ${videoIds.length} vídeo(s) via ${via} em ${Date.now() - startTime}ms`);
+    const query = { artist: artist.trim(), title: title.trim(), duration };
+    const result = await resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY });
+    const { videoIds } = result;
+    console.log(`[Resolve] ${describeResolution(query, result, Date.now() - startTime)}`);
     return res.json({ videoIds });
   } catch (err: any) {
     console.warn(`[Resolve] Falha ao localizar vídeo: ${err?.message || err}`);

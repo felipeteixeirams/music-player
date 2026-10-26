@@ -62,7 +62,7 @@ Toque 5 ou 6 faixas de coleções diferentes, esperando 3 segundos em cada:
 
 Depois confira no log de execução as linhas `[Resolve]` dessas faixas: `N vídeo(s)` com N maior que zero, e `via official`.
 
-Se falhar: muitas faixas só com prévia indicam embeds bloqueados ou vídeo escolhido errado (ver T04 e a frente "qualidade da escolha do vídeo" em "Frentes em aberto"). Anote título e artista de cada caso para investigar o ranqueamento em `api/_youtubeSearch.ts`.
+Se a faixa tocada for a versão errada (ao vivo, cover, clipe com introdução), toque no botão "Outra versão" do player completo (ao lado do coração, só aparece quando há mais de um vídeo para a faixa): a escolha fica lembrada nesta faixa. Anote título e artista de cada erro e procure a linha `[Resolve]` nos logs da Vercel, que diz qual vídeo foi escolhido, o canal, a diferença de duração e se era um canal Topic. Muitas faixas só com prévia indicam embeds bloqueados. Anote título e artista de cada caso para investigar o ranqueamento em `api/_youtubeSearch.ts`.
 
 ### T04: reprodução com a tela bloqueada e em segundo plano
 
@@ -194,15 +194,17 @@ Se falhar: anote o nome da rádio. Uma transmissão fora do ar pede troca da URL
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
 
-1. Reprodução com a tela bloqueada (T04): pode mudar a arquitetura do áudio completo.
-2. Qualidade da escolha do vídeo: ranqueamento pode escolher versão errada; opções: mostrar o álbum, deixar o usuário escolher entre os candidatos, registrar nos logs as faixas sem vídeo.
-3. Abuso e cota: rotas públicas e cota de cerca de 100 buscas por dia.
-4. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
-5. Playlists criadas pelo usuário.
+1. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
+2. Playlists criadas pelo usuário.
+3. Limite de taxa global das rotas (hoje por instância): firewall da Vercel ou armazenamento compartilhado.
+4. Limpezas pequenas: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
+5. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção.
+
+Já resolvidas: qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza do código Piped, desempenho de listas longas, fila além da página carregada e integração contínua.
 
 ## Testes automáticos que já passam
 
-`npm test` (135 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (13 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
+`npm test` (145 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (15 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
 
 ## Registro
 

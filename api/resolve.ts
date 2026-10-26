@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './_youtubeSearch.js';
+import { describeResolution, MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './_youtubeSearch.js';
 import { guard, POLICIES } from './_guard.js';
 
 function readText(value: unknown): string | null {
@@ -17,8 +17,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const startTime = Date.now();
   try {
-    const { videoIds, via } = await resolveYouTubeVideos({ artist, title, duration }, { apiKey: process.env.YOUTUBE_API_KEY });
-    console.log(`[Resolve] ${videoIds.length > 0 ? '✅' : '⚠️'} "${artist} - ${title}" → ${videoIds.length} vídeo(s) via ${via} em ${Date.now() - startTime}ms`);
+    const query = { artist, title, duration };
+    const result = await resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY });
+    const { videoIds } = result;
+    console.log(`[Resolve] ${describeResolution(query, result, Date.now() - startTime)}`);
     // An answer of "no video" is cached for an hour too, or each replay of such a track would repeat the paid search; a failure (below) is never cached
     res.setHeader('Cache-Control', videoIds.length > 0 ? 's-maxage=86400, stale-while-revalidate=604800' : 's-maxage=3600');
     return res.status(200).json({ videoIds });

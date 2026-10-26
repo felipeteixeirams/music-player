@@ -62,7 +62,7 @@ const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   await target.route('**/api/**', (route) => {
@@ -86,7 +86,7 @@ export async function stubApi(target: Page): Promise<string[]> {
         genres: [{ id: 'pop', name: 'Pop', stations: [{ id: 1, name: 'Estação Pop', picture: null }, { id: 2, name: 'Estação Hits', picture: null }] }]
       });
     }
-    if (url.pathname === '/api/resolve') return json(route, { videoIds: [] });
+    if (url.pathname === '/api/resolve') return json(route, { videoIds: options.videoIds ?? [] });
     return route.continue();
   });
 
