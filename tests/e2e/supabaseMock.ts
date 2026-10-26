@@ -73,18 +73,21 @@ interface UserStore {
   playlists: Map<string, Row>;
   playlist_tracks: Map<string, Row>;
   video_choices: Map<string, Row>;
+  play_history: Map<string, Row>;
 }
 const KEYS: Record<keyof UserStore, string[]> = {
   favorites: ['track_id'],
   playlists: ['id'],
   playlist_tracks: ['playlist_id', 'track_id'],
-  video_choices: ['track_id']
+  video_choices: ['track_id'],
+  play_history: ['id']
 };
+let nextHistoryId = 1;
 const stores = new Map<string, UserStore>();
 const storeOf = (userId: string): UserStore => {
   let store = stores.get(userId);
   if (!store) {
-    store = { favorites: new Map(), playlists: new Map(), playlist_tracks: new Map(), video_choices: new Map() };
+    store = { favorites: new Map(), playlists: new Map(), playlist_tracks: new Map(), video_choices: new Map(), play_history: new Map() };
     stores.set(userId, store);
   }
   return store;
@@ -94,14 +97,16 @@ const SORTS: Record<keyof UserStore, string[]> = {
   favorites: ['created_at', 'track_id'],
   playlists: ['created_at', 'id'],
   playlist_tracks: ['playlist_id', 'position', 'track_id'],
-  video_choices: ['track_id']
+  video_choices: ['track_id'],
+  play_history: ['played_at', 'id']
 };
 
 function sortRows(table: keyof UserStore, rows: Row[]): Row[] {
+  const sign = table === 'play_history' ? -1 : 1; // the history is read newest first
   return [...rows].sort((a, b) => {
     for (const column of SORTS[table]) {
-      if (a[column]! < b[column]!) return -1;
-      if (a[column]! > b[column]!) return 1;
+      if (a[column]! < b[column]!) return -sign;
+      if (a[column]! > b[column]!) return sign;
     }
     return 0;
   });
@@ -137,6 +142,13 @@ function handleRest(
     const offset = Number(params.get('offset') ?? 0);
     const limit = Number(params.get('limit') ?? all.length);
     return { status: 200, body: all.slice(offset, offset + limit) };
+  }
+  if (method === 'POST' && table === 'play_history') {
+    for (const row of body as Row[]) {
+      const id = nextHistoryId++;
+      rows.set(String(id), { id, ...row });
+    }
+    return { status: 201 };
   }
   if (method === 'POST') {
     for (const row of body as Row[]) {

@@ -12,7 +12,9 @@ import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
 import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
 import { useAuth } from './AuthContext';
-import { emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
+import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
+import { PlayedCounter } from '../utils/playedCounter';
+import { recordPlay } from '../utils/playHistory';
 import { loadChoices, nextVersionIndex, orderVersions, rememberChoice } from '../utils/videoChoice';
 import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
 
@@ -152,6 +154,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
+  // A track counts as played after enough listening (see playedCounter.ts): it goes to the play history
+  const playedCounterRef = useRef<PlayedCounter | null>(null);
+  if (!playedCounterRef.current) {
+    playedCounterRef.current = new PlayedCounter((track) => {
+      recordPlay(storage, track, Date.now());
+      emitHistoryChanged();
+    });
+  }
   const loadTokenRef = useRef(0);
   // Remaining YouTube videos to try for the current track when the embed of one of them fails
   // The YouTube videos found for the track playing, best first, and which one is on: "Outra versão" moves along them
@@ -241,6 +251,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const onTimeUpdate = () => {
       if (audio.currentTime !== undefined) {
         setCurrentTime(audio.currentTime);
+        playedCounterRef.current?.tick(currentTrackRef.current, audio.currentTime);
       }
     };
 
@@ -759,6 +770,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updatePlaybackTime = useCallback((seconds: number) => {
     if (seconds > 0.5) radioSkipsRef.current = 0;
     setCurrentTime(seconds);
+    playedCounterRef.current?.tick(currentTrackRef.current, seconds);
   }, []);
 
   // The headless YouTube player failed (embedding blocked, unavailable video): use the preview if any

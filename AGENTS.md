@@ -86,3 +86,7 @@ Favoritos, playlists e escolhas de versão são da conta: leia e grave sempre pe
 ## Cache de vídeos e cota por usuário
 
 `/api/resolve` passa pelo cache compartilhado (`video_cache`) e pela cota diária (`consume_resolve`) antes de gastar uma busca do YouTube; as regras ficam em `api/_resolveEndpoint.ts`, usadas pela função da Vercel e pelo `server.ts`. O servidor fala com o banco com `DATABASE_SUPABASE_SERVICE_ROLE_KEY` (só variável de ambiente do servidor; nunca em variável com prefixo `VITE_`/`DATABASE_VITE_`, nunca no repositório). Sem ela a rota funciona como antes (sem cache nem limite). Ao mudar o contrato da rota, só acrescente campos (clientes antigos continuam abertos). Migrações novas entram como `0003_*.sql` etc. e o teste de `tests/db/` carrega todas em ordem.
+
+## Histórico de reprodução
+
+O histórico não passa pelo `UserDataSnapshot`: só cresce, então cada reprodução entra numa fila de envio (`recordPlay` em `src/utils/playHistory.ts`) e `PlayHistorySync` a envia e lê a lista da conta. Quem conta a reprodução é `PlayedCounter`, alimentado pelo relógio do player em `AudioContext` (nos dois caminhos: áudio nativo e player oculto); mexer em como o relógio chega lá exige conferir o histórico nos testes e2e (`tests/e2e/history.spec.ts` usa faixas de 4 s com áudio de verdade, silencioso, via `stubApi(page, { shortTracks: true })`). Chamadas REST ao Supabase com o token do usuário usam `createRestCaller` (`src/utils/supabaseRest.ts`).

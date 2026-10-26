@@ -5,6 +5,7 @@ export type LibraryView =
   | { kind: 'playlists' }
   | { kind: 'playlist'; id: string }
   | { kind: 'songs' }
+  | { kind: 'recent' }
   | { kind: 'downloads' }
   | { kind: 'artists' }
   | { kind: 'albums' }
@@ -49,6 +50,7 @@ export function libraryTitle(view: LibraryView | null, playlists: { id: string; 
     case 'playlists': return 'Playlists';
     case 'playlist': return playlists.find((p) => p.id === view.id)?.name ?? 'Playlist';
     case 'songs': return 'Favoritas';
+    case 'recent': return 'Recentes';
     case 'downloads': return 'Downloads';
     case 'artists': return 'Artistas';
     case 'albums': return 'Álbuns';
