@@ -8,6 +8,13 @@ export const TEST_ANON_KEY = 'e2e-anon-key';
 /** Any address under this domain counts as invited; every other one is refused like a closed sign-up would. */
 export const INVITED_DOMAIN = '@convidado.test';
 export const VALID_CODE = '123456';
+/** Like the real server: a code lives 90 s and the same address can ask for another only after 60 s. */
+const CODE_TTL_MS = 90_000;
+const COOLDOWN_MS = 60_000;
+/** Addresses with these prefixes get special treatment, to test what would take too long in real time. */
+export const NO_COOLDOWN_PREFIX = 'rapido';
+export const EXPIRED_CODE_PREFIX = 'expirado';
+const issued = new Map<string, number>();
 
 const base64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-0000000000e2';
@@ -185,12 +192,28 @@ export function startMockSupabase(port = MOCK_PORT) {
         return send(result.status, result.body);
       }
       if (url.pathname === '/auth/v1/otp') {
-        return String(body.email).endsWith(INVITED_DOMAIN)
-          ? send(200)
-          : send(422, { code: 'otp_disabled', error_code: 'otp_disabled', msg: 'Signups not allowed for otp' });
+        const email = String(body.email).toLowerCase();
+        if (!email.endsWith(INVITED_DOMAIN)) {
+          return send(422, { code: 'otp_disabled', error_code: 'otp_disabled', msg: 'Signups not allowed for otp' });
+        }
+        const last = issued.get(email);
+        const cooldown = email.startsWith(NO_COOLDOWN_PREFIX) ? 0 : COOLDOWN_MS;
+        if (last !== undefined && Date.now() - last < cooldown) {
+          const wait = Math.ceil((cooldown - (Date.now() - last)) / 1000);
+          return send(429, {
+            code: 'over_email_send_rate_limit',
+            error_code: 'over_email_send_rate_limit',
+            msg: `For security purposes, you can only request this after ${wait} seconds.`
+          });
+        }
+        // An address that starts with "expirado" gets a code that is already expired
+        issued.set(email, email.startsWith(EXPIRED_CODE_PREFIX) ? Date.now() - CODE_TTL_MS - 1 : Date.now());
+        return send(200);
       }
       if (url.pathname === '/auth/v1/verify') {
-        return body.token === VALID_CODE
+        const issuedAt = issued.get(String(body.email).toLowerCase());
+        const alive = issuedAt !== undefined && Date.now() - issuedAt <= CODE_TTL_MS;
+        return alive && body.token === VALID_CODE
           ? send(200, sessionFor(String(body.email)))
           : send(403, { code: 'otp_expired', error_code: 'otp_expired', msg: 'Token has expired or is invalid' });
       }
