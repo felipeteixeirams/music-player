@@ -27,6 +27,7 @@ O app segue a linguagem visual do Apple Music: fundo preto, texto branco com ní
 2. Cada superfície translúcida usa um dos quatro materiais, nunca `backdrop-blur-*` isolado.
 3. Toda superfície com material precisa de cor opaca de reserva, para não perder legibilidade onde `backdrop-filter` não existe.
 4. Áreas seguras do iPhone continuam obrigatórias (ver `AGENTS.md`).
+5. A tela de login (`LoginScreen`) usa `theme-dark`, material e tokens como as demais, com um fundo de fumaça em WebGL (`SmokeyBackground`) na cor de destaque. O fundo para com o componente, limita-se a 30 quadros por segundo em baixa resolução, desenha um quadro parado sob "reduzir movimento" e, sem WebGL, fica só o brilho em CSS. Não o reutilize em telas de uso contínuo: é um fundo de tela de entrada.
 
 ## Atualização deste master
 
