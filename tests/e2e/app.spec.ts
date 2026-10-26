@@ -254,3 +254,51 @@ test.describe('playlists', () => {
   });
 });
 
+test.describe('catálogo fora do ar', () => {
+  /** Makes /api/feed fail while `down.value` is true, and otherwise lets the normal stub answer. */
+  const feedDown = async (page: import('@playwright/test').Page) => {
+    const down = { value: true };
+    await page.route('**/api/feed', (route) =>
+      down.value
+        ? route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'Catálogo fora do ar' }) })
+        : route.fallback()
+    );
+    return down;
+  };
+
+  test('a home abre com a última lista salva, avisa e atualiza quando o catálogo volta', async ({ page }) => {
+    // beforeEach already loaded the home once with the catalog answering, so a copy is saved on the device
+    const down = await feedDown(page);
+    await page.reload();
+
+    await expect(page.locator('section[aria-label="Top Hits"]')).toBeVisible();
+    await expect(page.getByText(TOP_HITS[0].title).first()).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'mostrando a lista salva' })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+
+    down.value = false;
+    await page.getByRole('button', { name: 'Tentar de novo' }).click();
+    await expect(page.getByText('mostrando a lista salva')).toBeHidden();
+    await expect(page.locator('section[aria-label="Top Hits"]')).toBeVisible();
+  });
+
+  test('sem lista salva, o erro aparece com "Tentar de novo" e a home carrega quando o catálogo volta', async ({ page }) => {
+    await page.evaluate(() => localStorage.removeItem('aurastream_feed_cache'));
+    const down = await feedDown(page);
+    await page.reload();
+
+    await expect(page.getByRole('alert')).toContainText('Catálogo fora do ar');
+    await expect(page.locator('section[aria-label="Top Hits"]')).toBeHidden();
+
+    down.value = false;
+    await page.getByRole('button', { name: 'Tentar de novo' }).click();
+    await expect(page.locator('section[aria-label="Top Hits"]')).toBeVisible();
+  });
+
+  test('a cópia salva é a do último carregamento que deu certo', async ({ page }) => {
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('aurastream_feed_cache') ?? 'null'));
+    expect(saved.feed.categories['top-hits'].tracks).toHaveLength(3);
+    expect(typeof saved.savedAt).toBe('number');
+  });
+});
+

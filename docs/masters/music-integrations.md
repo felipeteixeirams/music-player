@@ -56,6 +56,7 @@ Serviços atuais:
 - `tests/api/deezer.test.ts`: testes do mapper sem rede.
 - `api/_itunes.ts`, `api/_catalog.ts`: mapper/client iTunes e `searchCatalog` (Deezer primeiro, iTunes se falhar ou vier vazio), com `tests/api/itunes.test.ts`.
 - `api/_audioProxy.ts`, `api/audio.ts`, `tests/api/audioProxy.test.ts`: cópia same-origin de prévias para o download offline; só HTTPS e hosts `*.dzcdn.net`, `*.mzstatic.com`, `*.itunes.apple.com`, até 4 MB, sem redirecionamentos.
+- `src/utils/feedCache.ts`: cópia da última home no aparelho, mostrada quando não dá para atualizar.
 - `src/utils/playlists.ts`, `src/context/PlaylistsContext.tsx`, `src/components/AddToPlaylistSheet.tsx` e `src/components/Dialogs.tsx`: playlists criadas pelo usuário (guardadas no aparelho; ver o satélite).
 - `src/utils/likedTracks.ts`: biblioteca de favoritos com metadados (`aurastream_liked_track_objects`), migração dos ids antigos e testes.
 - `api/_youtubeSearch.ts`, `api/resolve.ts` e `tests/api/youtubeSearch.test.ts`: busca do vídeo da faixa (API oficial com `YOUTUBE_API_KEY`, ou busca web não oficial sem chave), ranqueamento por duração/título/canal e testes sem rede.

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { PlaylistsProvider, usePlaylists } from './context/PlaylistsContext';
 import { AddToPlaylistSheet } from './components/AddToPlaylistSheet';
@@ -22,13 +22,14 @@ import { RadioView } from './components/RadioView';
 import { PlaybackNotice } from './components/PlaybackNotice';
 import { LibraryScreen } from './components/LibraryScreen';
 import { getOfflineTracks } from './utils/offlineManager';
+import { formatAge, loadSavedFeed, saveFeed } from './utils/feedCache';
 import { libraryParent, libraryTitle, type LibraryView } from './utils/library';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useScrollChrome } from './hooks/useScrollChrome';
 import type { QueueSource } from './utils/queueSource';
 import { preloadYouTubePlayer } from './components/youtubePlayer';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
-import { Play, Sparkles, Globe, Loader2, AlertCircle } from 'lucide-react';
+import { Play, Sparkles, Globe, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { FeedResponse, Track } from './types/music';
 import { usePagedTracks } from './hooks/usePagedTracks';
 import { fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
@@ -51,7 +52,14 @@ const MusicAppContent: React.FC = () => {
   const { compact, expand } = useScrollChrome();
   const { playlists } = usePlaylists();
 
-  const [feed, setFeed] = useState<FeedResponse | null>(null);
+  // The home opens with the last feed saved on this device while the fresh one is fetched, and keeps it
+  // (with a notice) if the fresh one cannot be had: no network, or the catalog is down
+  const [savedFeed] = useState(() => loadSavedFeed(localStorage));
+  const [feed, setFeed] = useState<FeedResponse | null>(savedFeed?.feed ?? null);
+  const [feedSavedAt, setFeedSavedAt] = useState<number | null>(savedFeed?.savedAt ?? null);
+  const [isFeedStale, setIsFeedStale] = useState<boolean>(false);
+  const feedRef = useRef<FeedResponse | null>(feed);
+  feedRef.current = feed;
   const [isLoadingFeed, setIsLoadingFeed] = useState<boolean>(true);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedAttempt, setFeedAttempt] = useState<number>(0);
@@ -92,12 +100,16 @@ const MusicAppContent: React.FC = () => {
     fetchFeed(controller.signal)
       .then((data) => {
         setFeed(data);
+        saveFeed(localStorage, data);
+        setFeedSavedAt(Date.now());
+        setIsFeedStale(false);
         setIsLoadingFeed(false);
       })
       .catch((err) => {
         if (controller.signal.aborted || err?.name === 'AbortError') return;
         console.warn('Erro ao carregar as coleções:', err);
-        setFeedError(err?.message || 'Não foi possível carregar as coleções agora.');
+        if (feedRef.current) setIsFeedStale(true);
+        else setFeedError(err?.message || 'Não foi possível carregar as coleções agora.');
         setIsLoadingFeed(false);
       });
 
@@ -378,6 +390,20 @@ const MusicAppContent: React.FC = () => {
           ) : (
             /* Home */
             <>
+              {isFeedStale && feedSavedAt !== null && (
+                <div role="status" className="mx-4 mt-3 flex items-center gap-2.5 rounded-card bg-fill-tertiary px-3 py-2 text-[13px] text-label-secondary">
+                  <WifiOff className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span className="flex-1">Não foi possível atualizar agora: mostrando a lista salva {formatAge(feedSavedAt)}.</span>
+                  <button
+                    onClick={() => setFeedAttempt((attempt) => attempt + 1)}
+                    disabled={isLoadingFeed}
+                    className="font-semibold text-accent disabled:opacity-50 active:scale-95"
+                  >
+                    {isLoadingFeed ? 'Tentando...' : 'Tentar de novo'}
+                  </button>
+                </div>
+              )}
+
               {/* Dynamic Live Featured Highlight Banner */}
               {featuredTrack && (
                 <div className="px-4 pt-3">
