@@ -29,6 +29,13 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - A tela "Reproduzidas recentemente" mostra cada faixa uma vez, a mais recente primeiro; "Limpar histórico" apaga na hora no aparelho e deixa um pedido para a conta, que vale em todos os aparelhos.
 - Não faz parte do histórico: busca, favoritos e playlists (esses são da conta por outro caminho), nem o tempo total ouvido.
 
+## Diagnóstico do login (logs e erros)
+
+- O servidor registra o motivo de cada recusa de login, sem token nem chave: `[Auth] 401 no_token GET /api/feed`, `[Auth] 401 invalid_session (HTTP 403 session_not_found...)`, `[Auth] 503 server_key_rejected (...)`, `[Auth] 503 login_not_configured (falta: ...)`, `[Auth] 503 auth_unavailable (...)`. Na primeira chamada de cada instância ele descreve a configuração: o projeto (host) e os **nomes** das variáveis em uso, nunca os valores. As respostas levam `code` com o mesmo motivo (campo a mais, compatível com clientes antigos).
+- 401 quer dizer "entre de novo"; 503 quer dizer "o servidor não sabe": uma chave pública errada no servidor, ou o Supabase fora do ar, vira 503 e **não** desloga ninguém (antes, a chave errada derrubava todos os usuários em laço). Quando o app encerra a sessão, a tela de login diz o motivo ("Sua sessão terminou ou o acesso foi retirado").
+- `/api/health` informa `login` (o servidor tem as variáveis do Supabase) e `cache` (tem a chave de serviço do cache e da cota); é o primeiro lugar a olhar depois de mudar variáveis na Vercel.
+- No pedido de código, o console do navegador (inspetor do Safari) registra `[Login] pedido de código recusado: status=… code=…`, sem e-mail nem código, e a tela distingue: sem conexão, e-mail inválido, o servidor não conseguiu enviar o e-mail (SMTP errado ou recusado pelo provedor), os três limites de envio e código incorreto ou expirado.
+
 ## Código por e-mail: validade, reenvio e abuso
 
 - O código vale 90 s e um novo só pode ser pedido 60 s depois (`CODE_TTL_MS` e `RESEND_COOLDOWN_MS` em `src/utils/loginCode.ts`). Quem de fato expira o código e recusa pedidos cedo demais é o Supabase, por endereço e por rede, então um script que ignore a tela não passa; a tela só mostra a contagem (e a lembra ao recarregar a página).

@@ -16,13 +16,20 @@ test('rotas de dados recusam quem não vem de uma página do site', async ({ req
 
 test('de uma página do site mas sem login, as rotas de dados respondem 401', async ({ request }) => {
   const sameSite = { 'Sec-Fetch-Site': 'same-origin' };
-  expect((await request.get('/api/feed', { headers: sameSite })).status()).toBe(401);
+  const noToken = await request.get('/api/feed', { headers: sameSite });
+  expect(noToken.status()).toBe(401);
+  // The answer says which kind of 401 it is, so the app (and a person reading the log) can tell
+  expect((await noToken.json()).code).toBe('no_token');
   expect((await request.get('/api/resolve?artist=a&title=b&duration=100', { headers: sameSite })).status()).toBe(401);
-  expect((await request.get('/api/feed', { headers: { ...sameSite, Authorization: 'Bearer token-invalido' } })).status()).toBe(401);
+  const bad = await request.get('/api/feed', { headers: { ...sameSite, Authorization: 'Bearer token-invalido' } });
+  expect(bad.status()).toBe(401);
+  expect((await bad.json()).code).toBe('invalid_session');
 });
 
 test('a rota de saúde informa que o login está ligado', async ({ request }) => {
-  expect((await (await request.get('/api/health')).json()).login).toBe(true);
+  const health = await (await request.get('/api/health')).json();
+  expect(health.login).toBe(true);
+  expect(health.cache).toBe(false);
 });
 
 test('logado e vindo de uma página do site, parâmetros inválidos dão 400 sem chamar terceiros', async ({ request }) => {

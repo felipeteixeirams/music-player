@@ -16,6 +16,8 @@ export const NO_COOLDOWN_PREFIX = 'rapido';
 export const EXPIRED_CODE_PREFIX = 'expirado';
 /** The project's e-mails per hour are used up: every request is refused, whoever asks. */
 export const HOURLY_LIMIT_PREFIX = 'limite';
+/** The mail server of the project refuses to send (wrong SMTP settings): Supabase answers 500. */
+export const SMTP_FAILURE_PREFIX = 'smtp';
 const issued = new Map<string, number>();
 
 const base64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -209,6 +211,9 @@ export function startMockSupabase(port = MOCK_PORT) {
         const email = String(body.email).toLowerCase();
         if (!email.endsWith(INVITED_DOMAIN)) {
           return send(422, { code: 'otp_disabled', error_code: 'otp_disabled', msg: 'Signups not allowed for otp' });
+        }
+        if (email.startsWith(SMTP_FAILURE_PREFIX)) {
+          return send(500, { code: 'unexpected_failure', error_code: 'unexpected_failure', msg: 'Error sending magic link email' });
         }
         if (email.startsWith(HOURLY_LIMIT_PREFIX)) {
           return send(429, { code: 'over_email_send_rate_limit', error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' });

@@ -5,6 +5,7 @@ import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from '.
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { resolveRoute } from './api/_resolveEndpoint';
 import { authConfigFromEnv } from './api/_auth';
+import { adminConfigFromEnv } from './api/_supabaseAdmin';
 import { authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,13 +25,13 @@ const policyFor = (path: string): GuardPolicy | null =>
 app.use('/api', async (req, res, next) => {
   const policy = policyFor(req.path);
   if (!policy) return next();
-  const decision = await authorizeRequest(req.headers, policy);
+  const decision = await authorizeRequest(req.headers, policy, { method: req.method, url: req.originalUrl });
   if (decision.ok) {
     res.locals.user = decision.user ?? null;
     return next();
   }
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
-  return res.status(decision.status).json({ error: decision.message });
+  return res.status(decision.status).json({ error: decision.message, ...(decision.code ? { code: decision.code } : {}) });
 });
 
 // In-memory cache for the home feed
@@ -97,6 +98,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     login: authConfigFromEnv() !== null,
+    cache: adminConfigFromEnv() !== null,
     uptimeSeconds: Math.floor(process.uptime())
   });
 });
