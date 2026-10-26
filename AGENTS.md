@@ -94,3 +94,7 @@ O histórico não passa pelo `UserDataSnapshot`: só cresce, então cada reprodu
 ## Falhas de login: 401 e 503
 
 `api/_auth.ts` separa o que é do usuário (401: sem token, sessão inválida) do que é do servidor (503: login não configurado, chave pública recusada, Supabase fora do ar). Mantenha essa separação: o cliente (`apiFetch`) encerra a sessão só num 401, então um erro de configuração que virasse 401 deslogaria todo mundo. Toda recusa vai para o log com `[Auth] <status> <código> (<detalhe>) <método> <caminho>` e nunca com token, chave ou e-mail; ao criar um novo tipo de recusa, dê um `code` e um `detail`, e um teste em `tests/api/auth.test.ts`.
+
+## Verificação da configuração
+
+A configuração de que o app depende é verificada por `api/_config.ts` ao iniciar (log `[Config] …`), em `/api/health` (`?deep=1` consulta o Supabase), no CI (`scripts/check-bundle.mjs`: segredos de mentira não podem ir ao `dist/`) e depois de cada deploy de produção (`.github/workflows/post-deploy.yml` -> `scripts/check-deploy.mjs`). A resposta de `/api/health` é pública: só ids e níveis, nunca nomes de variáveis nem valores; os nomes vão só para o log. Ao criar uma variável de ambiente, declare-a em `.env.example` e em `DOCUMENTED_VARS` de `tests/config.test.ts` (o teste reprova variável não declarada); se algo depender dela, acrescente a verificação e a linha da tabela em [docs/masters/accounts-and-data.md](docs/masters/accounts-and-data.md).

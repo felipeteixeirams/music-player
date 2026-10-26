@@ -1,4 +1,8 @@
 import { authenticate, type AuthUser } from './_auth.js';
+import { reportStartupOnce } from './_config.js';
+
+// A cold start of any guarded function writes the configuration check to the log (once; only in production)
+reportStartupOnce();
 
 type Headers = Record<string, string | string[] | undefined>;
 

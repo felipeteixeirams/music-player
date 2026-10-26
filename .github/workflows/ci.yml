@@ -27,8 +27,20 @@ jobs:
         run: npm run lint
       - name: Unit and handler tests
         run: npm test
-      - name: Build
-        run: npm run build
+      - name: Build with made-up secrets (they must stay out of the bundle)
+        run: |
+          npm run build
+          node scripts/check-bundle.mjs dist
+        env:
+          # Names as the Vercel integration creates them; the values are fake. The first three are secrets and must
+          # not reach dist/; the public ones must (otherwise the login would be missing in the browser).
+          DATABASE_SUPABASE_SERVICE_ROLE_KEY: canary-service-role-key-4f9a1c
+          DATABASE_SUPABASE_JWT_SECRET: canary-jwt-secret-7b2e5d
+          DATABASE_POSTGRES_PASSWORD: canary-postgres-password-9c3d8e
+          DATABASE_VITE_SUPABASE_URL: https://canarycanarycanary00.supabase.co
+          DATABASE_VITE_SUPABASE_ANON_KEY: canary-anon-key-public-2a6b
+          CANARY_SECRET_VARS: DATABASE_SUPABASE_SERVICE_ROLE_KEY,DATABASE_SUPABASE_JWT_SECRET,DATABASE_POSTGRES_PASSWORD
+          CANARY_PUBLIC_VARS: DATABASE_VITE_SUPABASE_URL,DATABASE_VITE_SUPABASE_ANON_KEY
       - name: Build for the end-to-end tests
         run: npm run build:e2e
 
