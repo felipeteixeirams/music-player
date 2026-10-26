@@ -22,7 +22,9 @@ export const HeadlessPlayerFallback: React.FC = () => {
     setDuration,
     userSeekRequest,
     clearUserSeekRequest,
-    handleFallbackError
+    handleFallbackError,
+    engineStarted,
+    engineReady
   } = useAudio();
 
   const playerRef = useRef<any>(null);
@@ -82,10 +84,16 @@ export const HeadlessPlayerFallback: React.FC = () => {
           }}
           onDurationChange={(event: React.SyntheticEvent<HTMLMediaElement>) => {
             const d = event.currentTarget.duration;
-            if (Number.isFinite(d) && d > 0) setDuration(Math.round(d));
+            if (Number.isFinite(d) && d > 0) {
+              setDuration(Math.round(d));
+              engineReady();
+            }
           }}
           onTimeUpdate={(event: React.SyntheticEvent<HTMLMediaElement>) => {
             updatePlaybackTime(event.currentTarget.currentTime);
+          }}
+          onPlaying={() => {
+            engineStarted();
           }}
           onEnded={() => {
             playNext();

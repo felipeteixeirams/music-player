@@ -1,6 +1,7 @@
 {
   "version": 2,
   "framework": "vite",
+  "regions": ["gru1"],
   "functions": {
     "api/resolve.ts": {
       "maxDuration": 20
