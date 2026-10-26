@@ -1,5 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Track } from '../types/music';
+import { useAuth } from './AuthContext';
+import { emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
+import { randomUuid } from '../utils/userData';
 import {
   addTrackToPlaylist,
   createPlaylist,
@@ -31,16 +34,21 @@ interface PlaylistsContextType {
 
 const PlaylistsContext = createContext<PlaylistsContextType | null>(null);
 
-const newId = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+// A uuid: it is also the playlist's id in the account
+const newId = randomUuid;
 
 export const PlaylistsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [playlists, setPlaylists] = useState<Playlist[]>(() => loadPlaylists(localStorage));
+  const { storage } = useAuth();
+  const [playlists, setPlaylists] = useState<Playlist[]>(() => loadPlaylists(storage));
   const [sheetTrack, setSheetTrack] = useState<Track | null>(null);
 
   useEffect(() => {
-    savePlaylists(localStorage, playlists);
-  }, [playlists]);
+    savePlaylists(storage, playlists);
+    emitUserDataChanged();
+  }, [playlists, storage]);
+
+  // The account's playlists arrived (or changed on another device)
+  useEffect(() => onUserDataApplied(() => setPlaylists(loadPlaylists(storage))), [storage]);
 
   const createNew = useCallback(
     (name: string, firstTrack?: Track): string | null => {

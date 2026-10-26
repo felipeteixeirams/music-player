@@ -10,6 +10,8 @@ import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineMan
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
 import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
+import { useAuth } from './AuthContext';
+import { emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
 import { loadChoices, nextVersionIndex, orderVersions, rememberChoice } from '../utils/videoChoice';
 import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
 
@@ -93,6 +95,7 @@ const PlaybackTimeContext = createContext<{ currentTime: number; duration: numbe
 
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { storage } = useAuth();
   const [queue, setQueue] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [radioStation, setRadioStation] = useState<RadioStation | null>(null);
@@ -132,7 +135,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   
   const [likedLibrary, setLikedLibrary] = useState<LikedLibrary>(() => {
     try {
-      return loadLikedLibrary(localStorage);
+      return loadLikedLibrary(storage);
     } catch {
       return { tracks: [], pendingIds: [] };
     }
@@ -286,12 +289,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Save liked tracks (with metadata) to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedLibrary.tracks));
-      localStorage.setItem(LIKED_IDS_KEY, JSON.stringify(likedLibrary.pendingIds));
+      storage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedLibrary.tracks));
+      storage.setItem(LIKED_IDS_KEY, JSON.stringify(likedLibrary.pendingIds));
     } catch {
       // quota or private mode fallback
     }
-  }, [likedLibrary]);
+    emitUserDataChanged();
+  }, [likedLibrary, storage]);
+
+  // The account's favorites arrived (or changed on another device)
+  useEffect(() => onUserDataApplied(() => setLikedLibrary(loadLikedLibrary(storage))), [storage]);
 
   // Audio Visualizer data generator. Only the expanded player draws it, and each update re-renders every
   // consumer of this context, so it runs only while that panel is open and playing, at about 20 frames/s.
@@ -364,7 +371,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const found = await resolveFullTrackVideoIds(track);
       if (loadTokenRef.current !== token) return;
       // The version the user picked before comes first, even when the search no longer returns it
-      const ids = orderVersions(found, loadChoices(localStorage)[track.id]);
+      const ids = orderVersions(found, loadChoices(storage)[track.id]);
       if (ids.length > 0) {
         versionsRef.current = { trackId: track.id, ids, index: 0 };
         setVersionCount(ids.length);
@@ -408,7 +415,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPlaybackStatus({ error: 'Esta faixa não tem prévia disponível.' });
     setIsPlaying(false);
     setIsBuffering(false);
-  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack]);
+  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack, storage]);
 
   // When track finishes (Native audio listener)
   useEffect(() => {
@@ -778,9 +785,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const index = nextVersionIndex(versions.index, versions.ids.length);
     versionsRef.current = { ...versions, index };
     triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: versions.ids[index] } }, true);
-    rememberChoice(localStorage, track.id, versions.ids[index]);
+    rememberChoice(storage, track.id, versions.ids[index]);
+    emitUserDataChanged();
     setPlaybackStatus((prev) => ({ ...prev, notice: `Tocando outra versão (${index + 1} de ${versions.ids.length}).` }));
-  }, [triggerFallbackEngine]);
+  }, [triggerFallbackEngine, storage]);
 
   const clearUserSeekRequest = useCallback(() => {
     setUserSeekRequest(null);

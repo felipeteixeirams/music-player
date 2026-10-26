@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { nav, stubApi } from './fixtures';
-import { INVITED_DOMAIN, VALID_CODE } from './supabaseMock';
+import { INVITED_DOMAIN, testUser, VALID_CODE } from './supabaseMock';
 
 test('sem sessão o app mostra o login e não pede nada ao servidor', async ({ page }) => {
   const requests = await stubApi(page, { signedIn: false });
@@ -47,12 +47,13 @@ test('com convite: e-mail, código e o app abre; as chamadas levam o login', asy
 });
 
 test('Ajustes mostra a conta e Sair volta ao login', async ({ page }) => {
-  await stubApi(page);
+  const user = testUser();
+  await stubApi(page, { user });
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
-  await expect(page.getByTestId('account-email')).toHaveText(`ana${INVITED_DOMAIN}`);
+  await expect(page.getByTestId('account-email')).toHaveText(user.email);
   await page.getByRole('button', { name: 'Sair' }).click();
   await expect(page.getByLabel('E-mail')).toBeVisible();
 
