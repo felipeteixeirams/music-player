@@ -4,7 +4,7 @@ import { guard, POLICIES } from './_guard.js';
 
 // Same-origin copy of a catalog preview so the browser can store it for offline playback (the CDN sends no CORS headers).
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!guard(req, res, POLICIES.audio)) return;
+  if (!(await guard(req, res, POLICIES.audio))) return;
   try {
     const { contentType, body } = await fetchAllowedAudio(req.query.url);
     res.setHeader('Content-Type', contentType);

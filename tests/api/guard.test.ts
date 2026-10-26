@@ -72,18 +72,18 @@ function fakeResponse() {
   return res;
 }
 
-test('guard ignora chamadas sem headers (internas) e responde 403 e Retry-After quando recusa', () => {
+test('guard ignora chamadas sem headers (internas) e responde 403 e Retry-After quando recusa', async () => {
   const policy = { limiter: new RateLimiter(1, 60_000), requireSameOrigin: true };
-  assert.equal(guard({}, fakeResponse(), policy), true);
+  assert.equal(await guard({}, fakeResponse(), policy), true);
 
   const res = fakeResponse();
-  assert.equal(guard({ headers: { host: 'app.example' } }, res, policy), false);
+  assert.equal(await guard({ headers: { host: 'app.example' } }, res, policy), false);
   assert.equal(res.statusCode, 403);
 
   const ok = { headers: { 'sec-fetch-site': 'same-origin', 'x-forwarded-for': '203.0.113.50' } };
-  assert.equal(guard(ok, fakeResponse(), policy), true);
+  assert.equal(await guard(ok, fakeResponse(), policy), true);
   const limited = fakeResponse();
-  assert.equal(guard(ok, limited, policy), false);
+  assert.equal(await guard(ok, limited, policy), false);
   assert.equal(limited.statusCode, 429);
   assert.ok(Number(limited.headers['Retry-After']) >= 1);
 });

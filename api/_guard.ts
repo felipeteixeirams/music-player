@@ -1,3 +1,5 @@
+import { authenticate } from './_auth.js';
+
 type Headers = Record<string, string | string[] | undefined>;
 
 function header(headers: Headers, name: string): string | undefined {
@@ -81,7 +83,7 @@ export interface GuardPolicy {
 
 export type GuardDecision =
   | { ok: true }
-  | { ok: false; status: 403 | 429; message: string; retryAfterSeconds?: number };
+  | { ok: false; status: 401 | 403 | 429 | 503; message: string; retryAfterSeconds?: number };
 
 export function evaluateRequest(headers: Headers, policy: GuardPolicy): GuardDecision {
   if (policy.requireSameOrigin && !isSameOriginRequest(headers)) {
@@ -92,6 +94,17 @@ export function evaluateRequest(headers: Headers, policy: GuardPolicy): GuardDec
     return { ok: false, status: 429, message: 'Muitas requisições. Tente de novo em instantes.', retryAfterSeconds };
   }
   return { ok: true };
+}
+
+/**
+ * The origin and rate checks, then who is calling: the login the app sends with every request. The cheap checks
+ * come first so a flood never reaches Supabase. Health aside, no route answers anonymously.
+ */
+export async function authorizeRequest(headers: Headers, policy: GuardPolicy): Promise<GuardDecision> {
+  const decision = evaluateRequest(headers, policy);
+  if (!decision.ok) return decision;
+  const auth = await authenticate(headers);
+  return auth.ok ? { ok: true } : { ok: false, status: auth.status, message: auth.message };
 }
 
 /** Per-instance policies: the YouTube search and the audio copy cost the most, so they get the tightest limits. */
@@ -113,9 +126,9 @@ interface HttpResponseLike {
  * Applies a policy to a Vercel handler's request; when it refuses, the answer has already been sent and this
  * returns false. A call without a headers object is not an HTTP request (internal calls and unit tests).
  */
-export function guard(req: HttpRequestLike, res: HttpResponseLike, policy: GuardPolicy): boolean {
+export async function guard(req: HttpRequestLike, res: HttpResponseLike, policy: GuardPolicy): Promise<boolean> {
   if (!req.headers) return true;
-  const decision = evaluateRequest(req.headers, policy);
+  const decision = await authorizeRequest(req.headers, policy);
   if (decision.ok) return true;
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
   res.status(decision.status).json({ error: decision.message });

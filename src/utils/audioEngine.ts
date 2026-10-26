@@ -1,4 +1,5 @@
 import { AudioEngineType, RepeatMode, Track } from '../types/music';
+import { apiFetch } from './apiFetch';
 
 /**
  * Formats a duration in seconds into MM:SS format (e.g. 214 -> "03:34")
@@ -133,7 +134,7 @@ export async function resolveFullTrackVideoIds(track: Track, timeoutMs = 6000): 
       title: track.title,
       duration: String(track.duration)
     });
-    const response = await fetch(`/api/resolve?${params}`, { signal: AbortSignal.timeout(timeoutMs) });
+    const response = await apiFetch(`/api/resolve?${params}`, { signal: AbortSignal.timeout(timeoutMs) });
     if (!response.ok) return [];
 
     const data: unknown = await response.json();

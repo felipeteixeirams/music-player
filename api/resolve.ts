@@ -7,7 +7,7 @@ function readText(value: unknown): string | null {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!guard(req, res, POLICIES.resolve)) return;
+  if (!(await guard(req, res, POLICIES.resolve))) return;
   const artist = readText(req.query.artist);
   const title = readText(req.query.title);
   const duration = Number(req.query.duration);

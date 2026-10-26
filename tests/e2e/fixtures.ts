@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import { STORAGE_KEY, STORED_SESSION } from './supabaseMock';
 
 /** A 1x1 cover, inline, so no test reaches for the network. */
 const COVER = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="%23e8344b"/></svg>';
@@ -62,8 +63,20 @@ const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean } = {}): Promise<string[]> {
   const requests: string[] = [];
+
+  // Signed in by default, as a returning user. Seeded once per tab, so signing out (and reloading) stays signed out
+  if (options.signedIn !== false) {
+    await target.addInitScript(
+      ([key, session]) => {
+        if (sessionStorage.getItem('e2e-seeded')) return;
+        sessionStorage.setItem('e2e-seeded', '1');
+        localStorage.setItem(key, session);
+      },
+      [STORAGE_KEY, JSON.stringify(STORED_SESSION)]
+    );
+  }
 
   await target.route('**/api/**', (route) => {
     const url = new URL(route.request().url());
