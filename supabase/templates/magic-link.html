@@ -1,0 +1,66 @@
+<!--
+  E-mail do código de acesso (Supabase: Authentication > Emails > Templates > "Magic link").
+  Assunto: Seu código de acesso ao AuraStream
+  Cole este arquivo inteiro no corpo do modelo. O texto "90 segundos" precisa casar com "Email OTP Expiration"
+  (90) e com CODE_TTL_MS em src/utils/loginCode.ts. Não há link de propósito: o app pede o código digitado, e um
+  link abriria o Safari em vez do app instalado (e leitores de e-mail que pré-abrem links o gastariam).
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Seu código de acesso ao AuraStream</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#000000;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+      Seu código é {{ .Token }}. Ele vale por 90 segundos.
+    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="background-color:#000000;">
+      <tr>
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:420px;">
+            <tr>
+              <td align="center" style="padding-bottom:24px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" valign="middle" width="56" height="56" bgcolor="#eb4854" style="background-color:#eb4854;border-radius:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:28px;line-height:56px;color:#ffffff;">
+                      &#9835;
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td bgcolor="#1c1c1e" style="background-color:#1c1c1e;border:1px solid #2c2c2e;border-radius:24px;padding:36px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;text-align:center;">
+                <h1 style="margin:0 0 8px 0;font-size:24px;line-height:30px;font-weight:700;color:#ffffff;">Seu código de acesso</h1>
+                <p style="margin:0 0 28px 0;font-size:16px;line-height:24px;color:#a1a1a6;">
+                  Digite este código no AuraStream para entrar.
+                </p>
+                <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="#000000" style="background-color:#000000;border:1px solid #3a3a3c;border-radius:16px;padding:18px 28px;font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,'Courier New',monospace;font-size:36px;line-height:44px;font-weight:700;letter-spacing:10px;color:#ffffff;">
+                      {{ .Token }}
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:28px 0 0 0;font-size:14px;line-height:21px;color:#a1a1a6;">
+                  O código vale por <strong style="color:#ffffff;">90 segundos</strong> e só pode ser usado uma vez.
+                  Passado esse tempo, peça um novo na tela de entrada.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:24px 12px 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#6e6e73;">
+                Pediu este código para {{ .Email }}.<br />
+                Se não foi você, ignore este e-mail: sem o código ninguém entra na sua conta.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

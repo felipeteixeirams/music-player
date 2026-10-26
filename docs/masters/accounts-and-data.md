@@ -14,7 +14,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 ## Decisões
 
 - Acesso só por convite: cadastro aberto desligado no Supabase (Authentication > Sign In / Providers > Email > "Allow new users to sign up" desligado); o app pede o código com `shouldCreateUser: false`. O convite é criar o usuário no painel (Authentication > Users > Add user, com e-mail confirmado).
-- Código digitado, não link mágico: no iPhone o link abriria o Safari, cuja sessão é separada do app instalado. O template de e-mail "Magic Link" (Authentication > Emails) precisa mostrar `{{ .Token }}`.
+- Código digitado, não link mágico: no iPhone o link abriria o Safari, cuja sessão é separada do app instalado. O modelo de e-mail "Magic link" (Authentication > Emails > Templates) precisa mostrar `{{ .Token }}` e não ter link: o texto pronto, em português, está em `supabase/templates/magic-link.html` (assunto "Seu código de acesso ao AuraStream").
 - O servidor valida o token chamando o Supabase (`api/_auth.ts`), sem usar o `JWT_SECRET`. Sem as variáveis, o login fica desligado localmente; na Vercel a API recusa (503) em vez de abrir.
 - Respostas cacheadas pela borda da Vercel (`s-maxage`) podem ser servidas sem passar pela função; só trazem dados públicos do catálogo e não gastam a cota do YouTube.
 - O e-mail padrão do Supabase pode só entregar a membros da equipe do projeto e ter limite baixo de envios (não verificado); para convidados externos, configurar SMTP próprio.
@@ -33,7 +33,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 ## Código proprietário
 
-`api/_auth.ts` (verificação e cache do token), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
+`api/_auth.ts` (verificação e cache do token), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
 
 ## Navegação para a especificação
 

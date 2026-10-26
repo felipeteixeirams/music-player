@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight, KeyRound, Loader2, Mail, Music2 } from 'lucide-react';
 import { SmokeyBackground } from './SmokeyBackground';
 import { confirmCode, requestCode } from '../utils/authClient';
+import { CODE_TTL_MS, codeTimers, formatCountdown, lastSentAt, normalizeEmail, RESEND_COOLDOWN_MS, rememberSent } from '../utils/loginCode';
 
 interface FloatingFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   id: string;
@@ -42,29 +43,76 @@ const FloatingField: React.FC<FloatingFieldProps> = ({ id, label, icon, value, c
 const buttonClass =
   'group w-full rounded-card bg-accent py-3.5 text-[17px] font-semibold text-white transition active:scale-[0.98] active:bg-accent-pressed disabled:opacity-50 flex items-center justify-center gap-2';
 
-/** Sign-in by invitation: the e-mail receives a code that is typed here, so it also works inside the installed app. */
+/** Re-renders every second while `active`, to drive the countdowns. */
+function useNow(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
+/**
+ * Sign-in by invitation: the e-mail receives a code that is typed here, so it also works inside the installed app.
+ * The code expires (CODE_TTL_MS) and another can be asked for only after RESEND_COOLDOWN_MS; the server enforces both
+ * limits per address and per network, this screen just shows them (and remembers them across reloads).
+ */
 export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'email' | 'code'>('email');
+  const [sentAt, setSentAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const now = useNow(step === 'code');
+  const timers = sentAt === null ? null : codeTimers(sentAt, now);
+  const expired = timers !== null && timers.codeLeftMs === 0;
 
-  const submitEmail = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
+  const markSent = (at: number) => {
+    setSentAt(at);
+    rememberSent(localStorage, email, at);
+    setCode('');
+    setStep('code');
+  };
+
+  /** Asks for a code, unless one was sent so recently that it is still valid. */
+  const sendCode = async (resend: boolean) => {
     setError(null);
-    const { error: failure } = await requestCode(email.trim());
+    const previous = lastSentAt(localStorage, email);
+    if (!resend && previous !== null && codeTimers(previous, Date.now()).codeLeftMs > 0) {
+      setSentAt(previous);
+      setCode('');
+      setStep('code');
+      return;
+    }
+    if (previous !== null && codeTimers(previous, Date.now()).resendLeftMs > 0) {
+      setError(`Aguarde ${formatCountdown(codeTimers(previous, Date.now()).resendLeftMs)} para pedir outro código.`);
+      return;
+    }
+    setBusy(true);
+    const { error: failure, waitSeconds } = await requestCode(normalizeEmail(email));
     setBusy(false);
+    if (waitSeconds) {
+      // Someone (or another tab) asked just before: count the wait from the server's answer
+      rememberSent(localStorage, email, Date.now() + waitSeconds * 1000 - RESEND_COOLDOWN_MS);
+    }
     if (failure) setError(failure);
-    else setStep('code');
+    else markSent(Date.now());
+  };
+
+  const submitEmail = (event: React.FormEvent) => {
+    event.preventDefault();
+    void sendCode(false);
   };
 
   const submitCode = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: failure } = await confirmCode(email.trim(), code.trim());
+    const { error: failure } = await confirmCode(normalizeEmail(email), code.trim());
     // On success the auth listener swaps this screen for the app
     if (failure) {
       setBusy(false);
@@ -87,7 +135,7 @@ export const LoginScreen: React.FC = () => {
           </div>
           <h1 className="text-[28px] font-bold tracking-tight">AuraStream</h1>
           <p className="text-[15px] text-label-secondary">
-            {step === 'email' ? 'Acesso por convite. Entre com o e-mail que recebeu o convite.' : `Enviamos um código para ${email.trim()}.`}
+            {step === 'email' ? 'Acesso por convite. Entre com o e-mail que recebeu o convite.' : `Se ${email.trim()} tiver convite, o código chega em instantes.`}
           </p>
         </div>
 
@@ -126,10 +174,21 @@ export const LoginScreen: React.FC = () => {
               className="tracking-[0.3em]"
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             />
-            <button type="submit" disabled={busy || code.length < 6} className={buttonClass}>
+            <p className={`text-center text-[13px] ${expired ? 'text-accent' : 'text-label-secondary'}`} role="status" data-testid="code-status">
+              {expired ? 'Código expirado. Peça um novo.' : `O código vale por ${formatCountdown(timers?.codeLeftMs ?? CODE_TTL_MS)}`}
+            </p>
+            <button type="submit" disabled={busy || expired || code.length < 6} className={buttonClass}>
               {submitting}
               Entrar
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              disabled={busy || (timers?.resendLeftMs ?? 0) > 0}
+              onClick={() => void sendCode(true)}
+              className="w-full py-2 text-[15px] text-accent transition-opacity disabled:text-label-secondary disabled:opacity-70"
+            >
+              {(timers?.resendLeftMs ?? 0) > 0 ? `Reenviar código em ${formatCountdown(timers!.resendLeftMs)}` : 'Reenviar código'}
             </button>
             <button
               type="button"
@@ -138,7 +197,7 @@ export const LoginScreen: React.FC = () => {
                 setCode('');
                 setError(null);
               }}
-              className="w-full py-2 text-[15px] text-label-secondary transition-colors hover:text-label"
+              className="w-full py-1 text-[15px] text-label-secondary transition-colors hover:text-label"
             >
               Usar outro e-mail
             </button>
