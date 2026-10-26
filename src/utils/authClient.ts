@@ -18,6 +18,25 @@ export const auth: GoTrueClient | null = config
 
 export const isLoginEnabled = auth !== null;
 
+let sessionNotice: string | null = null;
+
+/** Leaves a message for the login screen, for when the user is sent back to it (the session ended on its own). */
+export function setSessionNotice(message: string): void {
+  sessionNotice = message;
+}
+
+/** The message left for the login screen, once. */
+export function takeSessionNotice(): string | null {
+  const message = sessionNotice;
+  sessionNotice = null;
+  return message;
+}
+
+/** What the browser console (Safari's inspector on the iPhone) shows about a refusal: no e-mail, code or token in it. */
+function logRefusal(what: string, error: { name?: string; status?: number; code?: string; message?: string }): void {
+  console.warn(`[Login] ${what}: status=${error.status ?? 'sem'} code=${error.code ?? 'sem'} (${error.name ?? 'erro'}) ${String(error.message ?? '').slice(0, 120)}`);
+}
+
 export async function getSession(): Promise<Session | null> {
   if (!auth) return null;
   const { data } = await auth.getSession();
@@ -41,6 +60,7 @@ export async function requestCode(email: string): Promise<CodeRequest> {
 
   const text = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
   if (text.includes('signup') || text.includes('not allowed') || text.includes('otp_disabled')) return { error: null };
+  logRefusal('pedido de código recusado', error);
   if (error.status === 429 || text.includes('rate_limit') || text.includes('rate limit')) {
     return describeRateLimit(error);
   }
@@ -50,6 +70,7 @@ export async function requestCode(email: string): Promise<CodeRequest> {
 export async function confirmCode(email: string, code: string): Promise<{ error: string | null }> {
   if (!auth) return { error: 'Login indisponível' };
   const { error } = await auth.verifyOtp({ email, token: code, type: 'email' });
+  if (error) logRefusal('código recusado', error);
   return { error: error ? describeAuthError(error) : null };
 }
 
@@ -57,12 +78,24 @@ export async function signOut(): Promise<void> {
   await auth?.signOut({ scope: 'local' });
 }
 
-function describeAuthError(error: { message?: string; status?: number; code?: string }): string {
+/** The message for an error from the sign-in service, by what the user can do about it. */
+export function describeAuthError(error: { name?: string; message?: string; status?: number; code?: string }): string {
   const text = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
   if (error.status === 429 || text.includes('rate limit') || text.includes('rate_limit')) {
     return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.';
   }
+  // The library calls both "no answer" (status 0) and a server error (5xx) "retryable fetch": the status tells them apart
+  const serverError = text.includes('unexpected_failure') || text.includes('sending') || (error.status !== undefined && error.status >= 500);
+  if (!serverError && (error.name === 'AuthRetryableFetchError' || error.status === 0 || text.includes('failed to fetch') || text.includes('network'))) {
+    return 'Sem conexão. Verifique a internet.';
+  }
+  if (text.includes('email_address_invalid') || text.includes('validation_failed') || text.includes('invalid format')) {
+    return 'Confira o e-mail digitado.';
+  }
+  // The server could not send the mail (the SMTP settings are wrong or the provider refused)
+  if (serverError) {
+    return 'O servidor não conseguiu enviar o e-mail agora. Tente de novo em instantes ou avise quem te convidou.';
+  }
   if (text.includes('expired') || text.includes('invalid')) return 'Código incorreto ou expirado.';
-  if (text.includes('fetch') || text.includes('network')) return 'Sem conexão. Verifique a internet.';
   return 'Não foi possível entrar agora. Tente de novo.';
 }

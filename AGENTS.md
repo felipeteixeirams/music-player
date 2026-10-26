@@ -90,3 +90,7 @@ Favoritos, playlists e escolhas de versão são da conta: leia e grave sempre pe
 ## Histórico de reprodução
 
 O histórico não passa pelo `UserDataSnapshot`: só cresce, então cada reprodução entra numa fila de envio (`recordPlay` em `src/utils/playHistory.ts`) e `PlayHistorySync` a envia e lê a lista da conta. Quem conta a reprodução é `PlayedCounter`, alimentado pelo relógio do player em `AudioContext` (nos dois caminhos: áudio nativo e player oculto); mexer em como o relógio chega lá exige conferir o histórico nos testes e2e (`tests/e2e/history.spec.ts` usa faixas de 4 s com áudio de verdade, silencioso, via `stubApi(page, { shortTracks: true })`). Chamadas REST ao Supabase com o token do usuário usam `createRestCaller` (`src/utils/supabaseRest.ts`).
+
+## Falhas de login: 401 e 503
+
+`api/_auth.ts` separa o que é do usuário (401: sem token, sessão inválida) do que é do servidor (503: login não configurado, chave pública recusada, Supabase fora do ar). Mantenha essa separação: o cliente (`apiFetch`) encerra a sessão só num 401, então um erro de configuração que virasse 401 deslogaria todo mundo. Toda recusa vai para o log com `[Auth] <status> <código> (<detalhe>) <método> <caminho>` e nunca com token, chave ou e-mail; ao criar um novo tipo de recusa, dê um `code` e um `detail`, e um teste em `tests/api/auth.test.ts`.

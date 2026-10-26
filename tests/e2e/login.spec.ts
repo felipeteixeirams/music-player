@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { nav, stubApi } from './fixtures';
-import { EXPIRED_CODE_PREFIX, HOURLY_LIMIT_PREFIX, INVITED_DOMAIN, NO_COOLDOWN_PREFIX, testUser, VALID_CODE } from './supabaseMock';
+import { EXPIRED_CODE_PREFIX, HOURLY_LIMIT_PREFIX, INVITED_DOMAIN, SMTP_FAILURE_PREFIX, NO_COOLDOWN_PREFIX, testUser, VALID_CODE } from './supabaseMock';
 
 test('sem sessão o app mostra o login e não pede nada ao servidor', async ({ page }) => {
   const requests = await stubApi(page, { signedIn: false });
@@ -70,6 +70,8 @@ test('uma sessão recusada pelo servidor (convite retirado) leva de volta ao log
   await page.route('**/auth/v1/token**', (route) => route.fulfill({ status: 400, contentType: 'application/json', body: '{"msg":"invalid"}' }));
   await page.goto('/');
   await expect(page.getByLabel('E-mail')).toBeVisible();
+  // The screen says why the user is back, instead of silently asking again
+  await expect(page.getByTestId('session-notice')).toContainText('sessão terminou ou o acesso foi retirado');
 });
 
 test('o código mostra quanto tempo falta, expira e só pode ser pedido de novo depois de 1 minuto', async ({ page }) => {
@@ -148,4 +150,23 @@ test('quando acabam os e-mails por hora do servidor, a mensagem diz que não é 
   // Nenhum código foi enviado: continua na tela do e-mail, e dá para tentar de novo
   await expect(page.getByLabel('Código')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Receber código' })).toBeEnabled();
+});
+
+test('quando o servidor não consegue enviar o e-mail, a mensagem diz isso (e não "tente de novo mais tarde")', async ({ page }) => {
+  await stubApi(page, { signedIn: false });
+  await page.goto('/');
+  await page.getByLabel('E-mail').fill(testUser(SMTP_FAILURE_PREFIX).email);
+  await page.getByRole('button', { name: 'Receber código' }).click();
+  await expect(page.getByRole('alert')).toContainText('não conseguiu enviar o e-mail');
+  await expect(page.getByLabel('Código')).toHaveCount(0);
+});
+
+test('servidor mal configurado (503) não derruba a sessão do usuário', async ({ page }) => {
+  await stubApi(page);
+  await page.route('**/api/feed', (route) =>
+    route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"Login mal configurado no servidor","code":"server_key_rejected"}' })
+  );
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await expect(page.getByLabel('E-mail')).toHaveCount(0);
 });

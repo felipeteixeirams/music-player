@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, KeyRound, Loader2, Mail, Music2 } from 'lucide-react';
 import { SmokeyBackground } from './SmokeyBackground';
-import { confirmCode, requestCode } from '../utils/authClient';
+import { confirmCode, requestCode, takeSessionNotice } from '../utils/authClient';
 import { CODE_TTL_MS, codeTimers, formatCountdown, lastSentAt, normalizeEmail, RESEND_COOLDOWN_MS, rememberSent } from '../utils/loginCode';
 
 interface FloatingFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -67,6 +67,8 @@ export const LoginScreen: React.FC = () => {
   const [sentAt, setSentAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Why the user is back here, when the session ended on its own
+  const [notice] = useState(() => takeSessionNotice());
   const now = useNow(step === 'code');
   const timers = sentAt === null ? null : codeTimers(sentAt, now);
   const expired = timers !== null && timers.codeLeftMs === 0;
@@ -202,6 +204,12 @@ export const LoginScreen: React.FC = () => {
               Usar outro e-mail
             </button>
           </form>
+        )}
+
+        {notice && !error && step === 'email' && (
+          <p role="status" className="text-center text-[15px] text-label-secondary" data-testid="session-notice">
+            {notice}
+          </p>
         )}
 
         {error && (

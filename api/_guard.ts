@@ -83,7 +83,7 @@ export interface GuardPolicy {
 
 export type GuardDecision =
   | { ok: true; user?: AuthUser | null }
-  | { ok: false; status: 401 | 403 | 429 | 503; message: string; retryAfterSeconds?: number };
+  | { ok: false; status: 401 | 403 | 429 | 503; message: string; code?: string; retryAfterSeconds?: number };
 
 export function evaluateRequest(headers: Headers, policy: GuardPolicy): GuardDecision {
   if (policy.requireSameOrigin && !isSameOriginRequest(headers)) {
@@ -100,11 +100,19 @@ export function evaluateRequest(headers: Headers, policy: GuardPolicy): GuardDec
  * The origin and rate checks, then who is calling: the login the app sends with every request. The cheap checks
  * come first so a flood never reaches Supabase. Health aside, no route answers anonymously.
  */
-export async function authorizeRequest(headers: Headers, policy: GuardPolicy): Promise<GuardDecision> {
+export async function authorizeRequest(
+  headers: Headers,
+  policy: GuardPolicy,
+  request: { method?: string; url?: string } = {}
+): Promise<GuardDecision> {
   const decision = evaluateRequest(headers, policy);
   if (!decision.ok) return decision;
   const auth = await authenticate(headers);
-  return auth.ok ? { ok: true, user: auth.user } : { ok: false, status: auth.status, message: auth.message };
+  if (auth.ok) return { ok: true, user: auth.user };
+  // Say why in the log (no tokens or keys in it): a 401 on its own cannot be told from a misconfigured server
+  const where = `${request.method ?? 'GET'} ${(request.url ?? '').split('?')[0]}`.trim();
+  console.warn(`[Auth] ${auth.status} ${auth.code}${auth.detail ? ` (${auth.detail})` : ''} ${where}`);
+  return { ok: false, status: auth.status, message: auth.message, code: auth.code };
 }
 
 /** Per-instance policies: the YouTube search and the audio copy cost the most, so they get the tightest limits. */
@@ -116,6 +124,8 @@ export const POLICIES = {
 
 interface HttpRequestLike {
   headers?: Headers;
+  method?: string;
+  url?: string;
 }
 interface HttpResponseLike {
   setHeader(name: string, value: string): unknown;
@@ -137,9 +147,9 @@ export async function guardUser(
   policy: GuardPolicy
 ): Promise<{ user: AuthUser | null } | null> {
   if (!req.headers) return { user: null };
-  const decision = await authorizeRequest(req.headers, policy);
+  const decision = await authorizeRequest(req.headers, policy, { method: req.method, url: req.url });
   if (decision.ok) return { user: decision.user ?? null };
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
-  res.status(decision.status).json({ error: decision.message });
+  res.status(decision.status).json({ error: decision.message, ...(decision.code ? { code: decision.code } : {}) });
   return null;
 }
