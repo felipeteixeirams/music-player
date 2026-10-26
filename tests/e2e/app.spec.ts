@@ -122,3 +122,48 @@ test('o menu de ajustes abre o gerenciador de cache', async ({ page }) => {
   await page.getByRole('button', { name: /Gerenciar cache local/ }).click();
   await expect(page.getByText('Gerenciamento de Cache')).toBeVisible();
 });
+
+test('sem outras versões da faixa, o player completo não oferece "Outra versão"', async ({ page }) => {
+  await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
+  await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+  await expect(page.getByLabel('Minimizar player expandido')).toBeVisible();
+  await expect(page.getByLabel('Tocar outra versão desta faixa')).toBeHidden();
+});
+
+test.describe('com duas versões da faixa no YouTube', () => {
+  const FIRST = 'AAAAAAAAAAA';
+  const SECOND = 'BBBBBBBBBBB';
+
+  test.beforeEach(async ({ page }) => {
+    // The hidden player loads a YouTube page; nothing here may reach it
+    await page.route(/youtube\.com|ytimg\.com|googlevideo\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '' }));
+    apiRequests = await stubApi(page, { videoIds: [FIRST, SECOND] });
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  });
+
+  const player = (page: import('@playwright/test').Page) => page.locator('youtube-video');
+
+  test('"Outra versão" troca o vídeo, avisa qual e lembra a escolha depois de recarregar', async ({ page }) => {
+    await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
+    await expect(player(page)).toHaveAttribute('src', new RegExp(FIRST));
+
+    await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+    await page.getByLabel('Tocar outra versão desta faixa').click();
+    await expect(player(page)).toHaveAttribute('src', new RegExp(SECOND));
+    await expect(page.getByText('Tocando outra versão (2 de 2).').first()).toBeVisible();
+
+    // Again: wraps around to the first
+    await page.getByLabel('Tocar outra versão desta faixa').click();
+    await expect(player(page)).toHaveAttribute('src', new RegExp(FIRST));
+    await expect(page.getByText('Tocando outra versão (1 de 2).').first()).toBeVisible();
+
+    // Leave it on the second and play the same track after a reload: the second plays first
+    await page.getByLabel('Tocar outra versão desta faixa').click();
+    await expect(player(page)).toHaveAttribute('src', new RegExp(SECOND));
+    await page.reload();
+    await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
+    await expect(player(page)).toHaveAttribute('src', new RegExp(SECOND));
+  });
+});
+

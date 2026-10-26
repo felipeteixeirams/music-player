@@ -9,7 +9,9 @@ import {
   rankCandidates,
   resolveYouTubeVideoIds,
   resolveYouTubeVideos,
-  type VideoCandidate
+  type VideoCandidate,
+  describeResolution,
+  rankCandidatesDetailed
 } from '../../api/_youtubeSearch';
 
 const query = { artist: 'Metallica', title: 'One', duration: 447 };
@@ -181,7 +183,9 @@ test('resolveYouTubeVideoIds returns alternates in rank order, capped at three',
 
   const ids = await resolveYouTubeVideoIds(query, { fetchImpl });
   assert.equal(ids.length, 3);
-  assert.equal(ids[0], 'AUDIO000001');
+  // The label's own audio upload (Topic channel) outranks an official audio upload
+  assert.equal(ids[0], 'TOPIC000001');
+  assert.equal(ids[1], 'AUDIO000001');
 });
 
 test('parseOfficialCandidates drops videos whose owner disabled embedding', () => {
@@ -230,10 +234,11 @@ test('resolveYouTubeVideos reports which search produced the videos', async () =
     }
     return Response.json({ items: [{ id: 'WM8bTdBs-cw', contentDetails: { duration: 'PT7M27S' } }] });
   }) as unknown as typeof fetch;
-  assert.deepEqual(await resolveYouTubeVideos(query, { apiKey: 'k', fetchImpl: official }), {
-    videoIds: ['WM8bTdBs-cw'],
-    via: 'official'
-  });
+  const resolved = await resolveYouTubeVideos(query, { apiKey: 'k', fetchImpl: official });
+  assert.deepEqual(resolved.videoIds, ['WM8bTdBs-cw']);
+  assert.equal(resolved.via, 'official');
+  assert.equal(resolved.considered, 1);
+  assert.equal(resolved.picks[0].candidate.videoId, 'WM8bTdBs-cw');
 
   const web = (async (url: string) =>
     String(url).includes('/oembed')
@@ -252,3 +257,56 @@ test('resolveYouTubeVideoIds rejects on HTTP errors so callers can fall back to 
   const fetchImpl = (async () => new Response('forbidden', { status: 403 })) as unknown as typeof fetch;
   await assert.rejects(resolveYouTubeVideoIds(query, { fetchImpl }), /HTTP 403/);
 });
+
+const cand = (videoId: string, title: string, channel: string, durationSeconds: number | null) => ({ videoId, title, channel, durationSeconds });
+
+test('rankCandidatesDetailed prefers the Topic channel and a music video comes last', () => {
+  const ranked = rankCandidatesDetailed(
+    [
+      cand('CLIP0000001', 'Metallica - One (Official Music Video)', 'Metallica', 447),
+      cand('AUDIO000001', 'Metallica - One (Official Audio)', 'Metallica', 447),
+      cand('TOPIC000001', 'One', 'Metallica - Topic', 447)
+    ],
+    query
+  );
+  assert.deepEqual(ranked.map((r) => r.candidate.videoId), ['TOPIC000001', 'AUDIO000001', 'CLIP0000001']);
+  assert.equal(ranked[0].topic, true);
+  assert.equal(ranked[2].topic, false);
+});
+
+test('a music video is worse than audio but still accepted when it is all there is', () => {
+  const ranked = rankCandidatesDetailed([cand('CLIP0000001', 'Metallica - One (Official Video)', 'Metallica', 447)], query);
+  assert.equal(ranked.length, 1);
+});
+
+test('the closer the duration, the higher the rank, and more than 15 s away is rejected', () => {
+  const ranked = rankCandidatesDetailed(
+    [
+      cand('FAR00000001', 'Metallica - One', 'Fan', 447 + 10),
+      cand('NEAR0000001', 'Metallica - One', 'Fan', 447 + 4),
+      cand('SAME0000001', 'Metallica - One', 'Fan', 447 + 1),
+      cand('OFF00000001', 'Metallica - One', 'Fan', 447 + 40)
+    ],
+    query
+  );
+  assert.deepEqual(ranked.map((r) => r.candidate.videoId), ['SAME0000001', 'NEAR0000001', 'FAR00000001']);
+  assert.equal(ranked[0].durationDiff, 1);
+});
+
+test('a live take of the right length stays rejected', () => {
+  assert.deepEqual(rankCandidatesDetailed([cand('LIVE0000001', 'Metallica - One (Live)', 'Metallica', 447)], query), []);
+});
+
+test('describeResolution says what was chosen and why, or why nothing was', () => {
+  const picked = describeResolution(
+    query,
+    { videoIds: ['TOPIC000001'], via: 'official', considered: 5, picks: rankCandidatesDetailed([cand('TOPIC000001', 'One', 'Metallica - Topic', 448)], query) },
+    312
+  );
+  assert.match(picked, /✅ "Metallica - One" → 1 vídeo\(s\) via official em 312ms/);
+  assert.match(picked, /escolhido: "One" \(Metallica - Topic\) Δ1s, \d+ pontos, Topic/);
+
+  const none = describeResolution(query, { videoIds: [], via: 'web', considered: 7, picks: [] }, 90);
+  assert.match(none, /⚠️ .* 0 vídeo\(s\) via web em 90ms \| 7 candidato\(s\), nenhum aceito/);
+});
+

@@ -15,7 +15,8 @@ import {
   Radio,
   FileText,
   Activity,
-  Sliders
+  Sliders,
+  Replace
 } from 'lucide-react';
 import { useAudio, usePlaybackTime } from '../context/AudioContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
@@ -34,6 +35,8 @@ export const ExpandedPlayer: React.FC = () => {
     repeatMode,
     isExpanded,
     toggleExpanded,
+    versionCount,
+    switchVersion,
     togglePlayPause,
     playNext,
     playPrevious,
@@ -286,6 +289,17 @@ export const ExpandedPlayer: React.FC = () => {
             </h2>
             <p className="text-[20px] text-label-secondary truncate">{currentTrack.artist}</p>
           </div>
+
+          {!isLive && versionCount > 1 && (
+            <button
+              onClick={switchVersion}
+              aria-label="Tocar outra versão desta faixa"
+              title="Outra versão"
+              className="w-11 h-11 mr-2 rounded-full material-ultrathin flex items-center justify-center shrink-0 active:scale-75 transition-all"
+            >
+              <Replace className="w-5 h-5 text-label" />
+            </button>
+          )}
 
           {isLive ? (
             <div className="w-11 h-11 shrink-0" aria-hidden="true" />
