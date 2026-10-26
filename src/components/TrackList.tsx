@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2, AlertCircle, ListPlus, MinusCircle } from 'lucide-react';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
+import { usePlaylists } from '../context/PlaylistsContext';
 import { formatTime } from '../utils/audioEngine';
 import { LoadMoreSentinel } from './LoadMoreSentinel';
 import {
@@ -14,6 +15,8 @@ interface TrackListProps {
   tracks: Track[];
   title?: string;
   onTrackSelect: (track: Track) => void;
+  /** Inside a playlist: shows a button that takes the track out of it, instead of the one that adds it to a playlist. */
+  onRemove?: (track: Track) => void;
   emptyMessage?: string;
   /** Total in the whole list when it is loaded page by page; shown as "N de TOTAL". */
   totalCount?: number;
@@ -35,6 +38,7 @@ export const TrackList: React.FC<TrackListProps> = ({
   tracks,
   title,
   onTrackSelect,
+  onRemove,
   emptyMessage = 'Nenhuma faixa encontrada nesta seção.',
   totalCount,
   hasMore = false,
@@ -44,6 +48,7 @@ export const TrackList: React.FC<TrackListProps> = ({
   onRetry
 }) => {
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked, audioStreamUrl } = useAudio();
+  const { openAddToPlaylist } = usePlaylists();
   const [downloadingTrackId, setDownloadingTrackId] = useState<string | null>(null);
   const [offlineStatusMap, setOfflineStatusMap] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<ToastNotice | null>(null);
@@ -220,6 +225,30 @@ export const TrackList: React.FC<TrackListProps> = ({
                 <span className="text-[13px] text-label-secondary tabular-nums mr-1">
                   {formatTime(track.duration)}
                 </span>
+
+                {onRemove ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(track);
+                    }}
+                    aria-label={`Remover ${track.title} da playlist`}
+                    className="p-1.5 rounded-full text-label-secondary hover:text-label transition-transform active:scale-75"
+                  >
+                    <MinusCircle className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openAddToPlaylist(track);
+                    }}
+                    aria-label={`Adicionar ${track.title} a uma playlist`}
+                    className="p-1.5 rounded-full text-label-secondary hover:text-label transition-transform active:scale-75"
+                  >
+                    <ListPlus className="w-4 h-4" />
+                  </button>
+                )}
 
                 {/* Offline Download Button */}
                 <button

@@ -16,9 +16,11 @@ import {
   FileText,
   Activity,
   Sliders,
-  Replace
+  Replace,
+  ListPlus
 } from 'lucide-react';
 import { useAudio, usePlaybackTime } from '../context/AudioContext';
+import { usePlaylists } from '../context/PlaylistsContext';
 import { formatTime, formatRemainingTime, calculateProgress, progressToSeconds } from '../utils/audioEngine';
 import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
 import { PlaybackNotice } from './PlaybackNotice';
@@ -52,6 +54,7 @@ export const ExpandedPlayer: React.FC = () => {
     isLive
   } = useAudio();
   const { currentTime, duration } = usePlaybackTime();
+  const { openAddToPlaylist } = usePlaylists();
 
   const [activeTab, setActiveTab] = useState<'artwork' | 'lyrics' | 'visualizer'>('artwork');
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -289,6 +292,17 @@ export const ExpandedPlayer: React.FC = () => {
             </h2>
             <p className="text-[20px] text-label-secondary truncate">{currentTrack.artist}</p>
           </div>
+
+          {!isLive && (
+            <button
+              onClick={() => openAddToPlaylist(currentTrack)}
+              aria-label="Adicionar esta faixa a uma playlist"
+              title="Adicionar à playlist"
+              className="w-11 h-11 mr-2 rounded-full material-ultrathin flex items-center justify-center shrink-0 active:scale-75 transition-all"
+            >
+              <ListPlus className="w-5 h-5 text-label" />
+            </button>
+          )}
 
           {!isLive && versionCount > 1 && (
             <button

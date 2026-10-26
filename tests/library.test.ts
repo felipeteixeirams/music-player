@@ -27,4 +27,8 @@ test('tracksOf, libraryTitle e libraryParent seguem a navegação', () => {
   assert.equal(libraryTitle({ kind: 'artist', name: 'Oasis' }), 'Oasis');
   assert.deepEqual(libraryParent({ kind: 'artist', name: 'x' }), { kind: 'artists' });
   assert.equal(libraryParent({ kind: 'songs' }), null);
+  assert.equal(libraryTitle({ kind: 'playlists' }), 'Playlists');
+  assert.equal(libraryTitle({ kind: 'playlist', id: 'a' }, [{ id: 'a', name: 'Estrada' }]), 'Estrada');
+  assert.equal(libraryTitle({ kind: 'playlist', id: 'zz' }, [{ id: 'a', name: 'Estrada' }]), 'Playlist', 'playlist apagada');
+  assert.deepEqual(libraryParent({ kind: 'playlist', id: 'a' }), { kind: 'playlists' });
 });

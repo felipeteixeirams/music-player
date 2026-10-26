@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
+import { PlaylistsProvider, usePlaylists } from './context/PlaylistsContext';
+import { AddToPlaylistSheet } from './components/AddToPlaylistSheet';
 import { TopBar } from './components/TopBar';
 import { CategoryTiles } from './components/CategoryTiles';
 import { SettingsMenu } from './components/SettingsMenu';
@@ -47,6 +49,7 @@ const searchSource = (query: string, nextIndex: number): QueueSource => ({
 const MusicAppContent: React.FC = () => {
   const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
   const { compact, expand } = useScrollChrome();
+  const { playlists } = usePlaylists();
 
   const [feed, setFeed] = useState<FeedResponse | null>(null);
   const [isLoadingFeed, setIsLoadingFeed] = useState<boolean>(true);
@@ -187,7 +190,7 @@ const MusicAppContent: React.FC = () => {
   const screenTitle = activeCategory
     ? activeCategory.name
     : isLibraryTab
-    ? libraryTitle(libraryView)
+    ? libraryTitle(libraryView, playlists)
     : { home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab];
 
   return (
@@ -210,7 +213,7 @@ const MusicAppContent: React.FC = () => {
           }
           backLabel={
             isLibraryTab && libraryView
-              ? libraryTitle(libraryParent(libraryView))
+              ? libraryTitle(libraryParent(libraryView), playlists)
               : { home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab]
           }
           showSearch={isSearchTab}
@@ -469,6 +472,7 @@ const MusicAppContent: React.FC = () => {
 
       {/* Fullscreen Expanded Player (Modal / Bottom Sheet) */}
       <ExpandedPlayer />
+      <AddToPlaylistSheet />
 
       {/* Floating capsule navigation with the mini player pill above it */}
       <BottomNavBar
@@ -489,7 +493,9 @@ const MusicAppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AudioProvider>
-      <MusicAppContent />
+      <PlaylistsProvider>
+        <MusicAppContent />
+      </PlaylistsProvider>
     </AudioProvider>
   );
 };

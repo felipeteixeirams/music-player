@@ -2,6 +2,8 @@ import type { Track } from '../types/music';
 
 /** Where the user is inside the Library tab; null is the menu of sections. */
 export type LibraryView =
+  | { kind: 'playlists' }
+  | { kind: 'playlist'; id: string }
   | { kind: 'songs' }
   | { kind: 'downloads' }
   | { kind: 'artists' }
@@ -42,8 +44,10 @@ export function groupByAlbum(tracks: Track[]): LibraryGroup[] {
   );
 }
 
-export function libraryTitle(view: LibraryView | null): string {
+export function libraryTitle(view: LibraryView | null, playlists: { id: string; name: string }[] = []): string {
   switch (view?.kind) {
+    case 'playlists': return 'Playlists';
+    case 'playlist': return playlists.find((p) => p.id === view.id)?.name ?? 'Playlist';
     case 'songs': return 'Favoritas';
     case 'downloads': return 'Downloads';
     case 'artists': return 'Artistas';
@@ -58,6 +62,7 @@ export function libraryTitle(view: LibraryView | null): string {
 export function libraryParent(view: LibraryView): LibraryView | null {
   if (view.kind === 'artist') return { kind: 'artists' };
   if (view.kind === 'album') return { kind: 'albums' };
+  if (view.kind === 'playlist') return { kind: 'playlists' };
   return null;
 }
 
