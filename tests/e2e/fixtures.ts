@@ -110,7 +110,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string; shortTracks?: boolean } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -157,7 +157,16 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       return route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(SILENT_PREVIEW.split(',')[1], 'base64') });
     }
     if (url.pathname === '/api/resolve') {
-      if (route.request().method() === 'POST') return json(route, { ok: true });
+      if (route.request().method() === 'POST') {
+        // The app asks which tracks the shared cache already has a video for (no search, no quota)
+        const body = route.request().postDataJSON() as { lookup?: { id: string }[] } | null;
+        if (body?.lookup) {
+          options.lookups?.push(body.lookup.map((item) => item.id));
+          const found = Object.fromEntries(body.lookup.filter((item) => options.cachedVideos?.[item.id]).map((item) => [item.id, options.cachedVideos![item.id]]));
+          return json(route, { found });
+        }
+        return json(route, { ok: true });
+      }
       if (url.searchParams.has('usage')) return json(route, { enabled: true, used: options.usedToday ?? 4, limit: 30 });
       if (options.quotaExceeded) return json(route, { videoIds: [], quota: { used: 30, limit: 30, exceeded: true } });
       return json(route, { videoIds: options.videoIds ?? [] });

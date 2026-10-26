@@ -20,6 +20,8 @@ export interface CachedVideos {
 /** What the resolve route needs from the database. */
 export interface Admin {
   getCached(key: string): Promise<CachedVideos | null>;
+  /** Several keys in one round trip; the keys with nothing cached are missing from the answer. */
+  getCachedMany(keys: string[]): Promise<Record<string, CachedVideos>>;
   putCached(key: string, videoIds: string[], now: number): Promise<void>;
   deleteCached(key: string): Promise<void>;
   /** The user's count for today including this one, or -1 when the daily limit was already reached. */
@@ -60,6 +62,16 @@ export function createAdmin(config: AdminConfig, fetchImpl: typeof fetch = fetch
         resolved_at: string;
       }[];
       return rows[0] ? { videoIds: rows[0].video_ids, resolvedAt: Date.parse(rows[0].resolved_at) } : null;
+    },
+    async getCachedMany(keys) {
+      if (keys.length === 0) return {};
+      const list = encodeURIComponent(`(${keys.map((k) => `"${k.replace(/"/g, '')}"`).join(',')})`);
+      const rows = (await (await call(`/video_cache?select=track_id,video_ids,resolved_at&track_id=in.${list}`)).json()) as {
+        track_id: string;
+        video_ids: string[];
+        resolved_at: string;
+      }[];
+      return Object.fromEntries(rows.map((row) => [row.track_id, { videoIds: row.video_ids, resolvedAt: Date.parse(row.resolved_at) }]));
     },
     async putCached(key, videoIds, now) {
       await call('/video_cache?on_conflict=track_id', {

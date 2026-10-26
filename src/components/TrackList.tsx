@@ -3,6 +3,7 @@ import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2, Aler
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
+import { prefetchResolved } from '../utils/audioEngine';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { formatTime } from '../utils/audioEngine';
 import { LoadMoreSentinel } from './LoadMoreSentinel';
@@ -67,6 +68,11 @@ export const TrackList: React.FC<TrackListProps> = ({
       return same ? prev : status;
     });
   }, [tracks, storage]);
+
+  // Ask the shared cache about the tracks shown, so tapping one somebody already played starts with no wait
+  useEffect(() => {
+    prefetchResolved(tracks.slice(0, 40));
+  }, [tracks]);
 
   // Toast notice timer
   useEffect(() => {
