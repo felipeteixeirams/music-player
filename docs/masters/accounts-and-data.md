@@ -15,12 +15,19 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 ## Decisões
 
 - Acesso só por convite: cadastro aberto desligado no Supabase (Authentication > Sign In / Providers > Email > "Allow new users to sign up" desligado); o app pede o código com `shouldCreateUser: false`. O convite é criar o usuário no painel (Authentication > Users > Add user, com e-mail confirmado).
-- Código digitado, não link mágico: no iPhone o link abriria o Safari, cuja sessão é separada do app instalado. O template de e-mail "Magic Link" (Authentication > Emails) precisa mostrar `{{ .Token }}`.
+- Código digitado, não link mágico: no iPhone o link abriria o Safari, cuja sessão é separada do app instalado. O modelo de e-mail "Magic link" (Authentication > Emails > Templates) precisa mostrar `{{ .Token }}` e não ter link: o texto pronto, em português, está em `supabase/templates/magic-link.html` (assunto "Seu código de acesso ao AuraStream").
 - O servidor valida o token chamando o Supabase (`api/_auth.ts`), sem usar o `JWT_SECRET`. Sem as variáveis, o login fica desligado localmente; na Vercel a API recusa (503) em vez de abrir.
 - Respostas cacheadas pela borda da Vercel (`s-maxage`) podem ser servidas sem passar pela função; só trazem dados públicos do catálogo e não gastam a cota do YouTube.
 - O e-mail padrão do Supabase pode só entregar a membros da equipe do projeto e ter limite baixo de envios (não verificado); para convidados externos, configurar SMTP próprio.
 - Chaves públicas (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) vão para o cliente. `SUPABASE_SERVICE_ROLE_KEY` e a senha do banco ficam só nas variáveis de ambiente da Vercel, nunca no repositório nem em conversas.
 - A cota é de "faixas novas" por dia (resoluções de vídeo, que gastam a YouTube Data API), não de horas de reprodução: tocar não passa pelo servidor.
+
+## Código por e-mail: validade, reenvio e abuso
+
+- O código vale 90 s e um novo só pode ser pedido 60 s depois (`CODE_TTL_MS` e `RESEND_COOLDOWN_MS` em `src/utils/loginCode.ts`). Quem de fato expira o código e recusa pedidos cedo demais é o Supabase, por endereço e por rede, então um script que ignore a tela não passa; a tela só mostra a contagem (e a lembra ao recarregar a página).
+- Ajustes no painel do Supabase que sustentam isso (os nomes podem variar; confira no painel): Authentication > Sign In / Providers > Email: "Email OTP Expiration" = 90 (segundos) e "Email OTP Length" = 6; intervalo mínimo entre e-mails para o mesmo usuário = 60 s; Authentication > Rate Limits: limites de envio de e-mails por hora, de pedidos de código e de verificações por rede a cada 5 minutos, em valores baixos para um grupo pequeno.
+- Sem bloqueio universal: o intervalo mínimo é por usuário e os limites de pedido e de verificação são por rede; errar o código ou pedir demais trava só quem errou. O único teto compartilhado é o de e-mails por hora do projeto (e do provedor de SMTP): quem soubesse o e-mail de um convidado poderia gastá-lo e atrasar o código dos demais. Por isso, mantenha o teto por hora baixo mas folgado para o grupo e use SMTP próprio com limite próprio; endereço sem convite não envia nada (o Supabase recusa), e a tela responde igual para ele, para não revelar quem tem convite.
+- Não implementado de propósito: um controle próprio no servidor. Se o grupo crescer ou houver abuso, o passo seguinte é uma rota que cobre pedido de código com limite por e-mail no banco, sem passar pela rede compartilhada do Supabase.
 
 ## Cota e cache (etapa 3)
 
@@ -41,7 +48,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 ## Código proprietário
 
-`api/_auth.ts` (verificação e cache do token), `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
+`api/_auth.ts` (verificação e cache do token), `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents}.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/db/schema.test.ts`.
 
 ## Navegação para a especificação
 
