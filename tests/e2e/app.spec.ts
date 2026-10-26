@@ -167,3 +167,90 @@ test.describe('com duas versões da faixa no YouTube', () => {
   });
 });
 
+test.describe('playlists', () => {
+  const addToPlaylist = async (page: import('@playwright/test').Page, title: string, playlist: string) => {
+    await page.getByRole('button', { name: `Adicionar ${title} a uma playlist`, exact: true }).click();
+    await page.getByRole('button', { name: new RegExp(playlist) }).click();
+    await page.getByRole('button', { name: 'Pronto' }).click();
+  };
+
+  test('criar, adicionar faixas, tocar, remover e manter depois de recarregar', async ({ page }) => {
+    await nav(page, 'Biblioteca').click();
+    await page.getByRole('button', { name: /^Playlists/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Playlists' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Nova playlist' }).click();
+    await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Estrada');
+    await page.getByRole('button', { name: 'Criar' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Estrada' })).toBeVisible();
+    await expect(page.getByText('Esta playlist está vazia')).toBeVisible();
+
+    // Add two tracks of a collection through the sheet
+    await nav(page, 'Início').click();
+    await page.getByRole('button', { name: 'Ver todas as faixas de Top Hits' }).click();
+    await addToPlaylist(page, TOP_HITS[0].title, 'Estrada');
+    await addToPlaylist(page, TOP_HITS[1].title, 'Estrada');
+
+    await nav(page, 'Biblioteca').click();
+    await page.getByRole('button', { name: /^Playlists/ }).click();
+    await expect(page.getByRole('button', { name: /Estrada/ })).toContainText('2');
+    await page.getByRole('button', { name: /Estrada/ }).click();
+    const rows = page.locator('main [role=button]');
+    await expect(rows).toHaveCount(2);
+
+    await page.getByRole('button', { name: 'Tocar', exact: true }).click();
+    await expect(page.getByRole('button', { name: new RegExp(`Abrir player expandido para ${TOP_HITS[0].title}`) })).toBeVisible();
+
+    await page.getByRole('button', { name: `Remover ${TOP_HITS[0].title} da playlist`, exact: true }).click();
+    await expect(rows).toHaveCount(1);
+
+    await page.reload();
+    await nav(page, 'Biblioteca').click();
+    await page.getByRole('button', { name: /^Playlists/ }).click();
+    await expect(page.getByRole('button', { name: /Estrada/ })).toContainText('1');
+  });
+
+  test('uma faixa pode ir para uma playlist nova direto da folha, e o player completo também a abre', async ({ page }) => {
+    await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
+    await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+    await page.getByLabel('Adicionar esta faixa a uma playlist').click();
+
+    await page.getByRole('button', { name: 'Nova playlist' }).click();
+    await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Treino');
+    await page.getByRole('button', { name: 'Criar' }).click();
+    await expect(page.getByRole('button', { name: /Treino/ })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Pronto' }).click();
+
+    await page.getByLabel('Minimizar player expandido').click();
+    await nav(page, 'Biblioteca').click();
+    await page.getByRole('button', { name: /^Playlists/ }).click();
+    await expect(page.getByRole('button', { name: /Treino/ })).toContainText('1');
+  });
+
+  test('tocar de novo na faixa já adicionada tira da playlist; renomear e apagar funcionam', async ({ page }) => {
+    await page.getByRole('button', { name: 'Ver todas as faixas de Top Hits' }).click();
+    await page.getByRole('button', { name: `Adicionar ${TOP_HITS[0].title} a uma playlist`, exact: true }).click();
+    await page.getByRole('button', { name: 'Nova playlist' }).click();
+    await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Casa');
+    await page.getByRole('button', { name: 'Criar' }).click();
+    // Tapping a playlist that already has the track takes it out
+    await page.getByRole('button', { name: /Casa/ }).click();
+    await expect(page.getByRole('button', { name: /Casa/ })).toHaveAttribute('aria-pressed', 'false');
+    await page.getByRole('button', { name: 'Pronto' }).click();
+
+    await nav(page, 'Biblioteca').click();
+    await page.getByRole('button', { name: /^Playlists/ }).click();
+    await page.getByRole('button', { name: /Casa/ }).click();
+
+    await page.getByRole('button', { name: 'Renomear playlist' }).click();
+    await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Sala');
+    await page.getByRole('button', { name: 'Salvar' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Sala' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Apagar playlist' }).click();
+    await page.getByRole('button', { name: 'Apagar', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Playlists' })).toBeVisible();
+    await expect(page.getByText('Crie uma playlist e adicione faixas')).toBeVisible();
+  });
+});
+

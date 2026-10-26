@@ -22,7 +22,7 @@ function parseArray(raw: string | null): unknown[] {
   }
 }
 
-function isStoredTrack(value: unknown): value is Track {
+export function isStoredTrack(value: unknown): value is Track {
   const track = value as Partial<Track> | null;
   return Boolean(
     track

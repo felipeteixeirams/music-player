@@ -190,21 +190,30 @@ Esperado: rádio ao vivo toca sem controles de playlist, mix é contínuo, menu 
 
 Se falhar: anote o nome da rádio. Uma transmissão fora do ar pede troca da URL em `src/data/liveRadios.ts`.
 
+### T14: playlists
+
+1. Biblioteca > Playlists > "Nova playlist": digite um nome e toque em Criar; a playlist abre vazia.
+2. Em uma lista de faixas ("Ver tudo", Mix, busca ou Biblioteca) toque no botão de lista ao lado do download e escolha a playlist; toque de novo na mesma playlist para tirar a faixa; use "Nova playlist" na própria folha. No player completo há o mesmo botão ao lado do coração.
+3. Abra a playlist: "Tocar" toca do começo e a fila segue pelas faixas da playlist; o botão de menos remove uma faixa; o lápis renomeia; a lixeira apaga (com confirmação).
+4. Recarregue a página e feche e abra o app: as playlists e as faixas continuam.
+5. Confira uma faixa de playlist que já não aparece em nenhum feed: ela ainda toca.
+
+Esperado: tudo funciona sem internet, exceto tocar a faixa completa. Os dados ficam só neste aparelho: limpar os dados do site apaga as playlists.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
 
 1. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
-2. Playlists criadas pelo usuário.
-3. Limite de taxa global das rotas (hoje por instância): firewall da Vercel ou armazenamento compartilhado.
-4. Limpezas pequenas: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
-5. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção.
+2. Limite de taxa global das rotas (hoje por instância): firewall da Vercel ou armazenamento compartilhado.
+3. Limpezas pequenas: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
+4. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção.
 
-Já resolvidas: qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza do código Piped, desempenho de listas longas, fila além da página carregada e integração contínua.
+Já resolvidas: playlists criadas pelo usuário (ver T14), qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza do código Piped, desempenho de listas longas, fila além da página carregada e integração contínua.
 
 ## Testes automáticos que já passam
 
-`npm test` (145 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (15 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
+`npm test` (151 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (18 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
 
 ## Registro
 
@@ -223,3 +232,4 @@ Já resolvidas: qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza 
 | T11 | | | ⬜ | |
 | T12 | | | ⬜ | |
 | T13 | | | ⬜ | |
+| T14 | | | ⬜ | |
