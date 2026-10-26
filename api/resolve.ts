@@ -1,20 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolveYouTubeVideos } from './_youtubeSearch.js';
+import { MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './_youtubeSearch.js';
 import { guard, POLICIES } from './_guard.js';
 
 function readText(value: unknown): string | null {
   return typeof value === 'string' && value.trim() && value.length <= 200 ? value.trim() : null;
 }
 
-/** A song longer than this is not a catalog track: refuse before spending a YouTube search on it. */
-const MAX_DURATION_SECONDS = 7200;
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!guard(req, res, POLICIES.resolve)) return;
   const artist = readText(req.query.artist);
   const title = readText(req.query.title);
   const duration = Number(req.query.duration);
-  if (!artist || !title || !Number.isFinite(duration) || duration <= 0 || duration > MAX_DURATION_SECONDS) {
+  if (!artist || !title || !Number.isFinite(duration) || duration <= 0 || duration > MAX_TRACK_DURATION_SECONDS) {
     return res.status(400).json({ error: 'Os parâmetros artist, title e duration são obrigatórios' });
   }
 

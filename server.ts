@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
-import { resolveYouTubeVideos } from './api/_youtubeSearch';
+import { MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './api/_youtubeSearch';
 import { evaluateRequest, POLICIES, type GuardPolicy } from './api/_guard';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -86,7 +86,8 @@ app.get('/api/resolve', async (req, res) => {
   const { artist, title } = req.query;
   const duration = Number(req.query.duration);
   if (typeof artist !== 'string' || !artist.trim() || typeof title !== 'string' || !title.trim()
-    || !Number.isFinite(duration) || duration <= 0) {
+    || artist.length > 200 || title.length > 200
+    || !Number.isFinite(duration) || duration <= 0 || duration > MAX_TRACK_DURATION_SECONDS) {
     return res.status(400).json({ error: 'artist, title and duration are required' });
   }
 

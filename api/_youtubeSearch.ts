@@ -20,6 +20,9 @@ export interface ResolveOptions {
   fetchImpl?: FetchLike;
 }
 
+/** A song longer than this is not a catalog track: refuse before spending a YouTube search on it. */
+export const MAX_TRACK_DURATION_SECONDS = 7200;
+
 const REQUEST_TIMEOUT_MS = 4000;
 const MAX_DURATION_DIFF_SECONDS = 15;
 const MIN_ACCEPTED_SCORE = 40;
