@@ -1,0 +1,27 @@
+name: Post-deploy check
+
+# After Vercel publishes a deploy, asks the live app whether its configuration works: the variables, the Supabase
+# keys, sign-up closed and the migrations run. The deploy is already live when this runs: a red check here means
+# "fix the configuration", and the log says which check failed. It cannot tell whether the SMTP sends (that needs a real login).
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Address of the app to check (https://...)
+        required: true
+
+jobs:
+  config:
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the live configuration
+        run: node scripts/check-deploy.mjs "$APP_URL"
+        env:
+          APP_URL: ${{ github.event.inputs.url || github.event.deployment_status.environment_url }}

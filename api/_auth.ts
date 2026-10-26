@@ -41,8 +41,8 @@ export function authConfigFromEnv(env: Env = process.env): AuthConfig | null {
   return url && apiKey ? { url: url.replace(/\/+$/, ''), apiKey } : null;
 }
 
-const URL_VARS = ['DATABASE_SUPABASE_URL', 'SUPABASE_URL', 'DATABASE_VITE_SUPABASE_URL', 'VITE_SUPABASE_URL'];
-const KEY_VARS = [
+export const URL_VARS = ['DATABASE_SUPABASE_URL', 'SUPABASE_URL', 'DATABASE_VITE_SUPABASE_URL', 'VITE_SUPABASE_URL'];
+export const KEY_VARS = [
   'DATABASE_VITE_SUPABASE_ANON_KEY',
   'VITE_SUPABASE_ANON_KEY',
   'DATABASE_VITE_SUPABASE_PUBLISHABLE_KEY',

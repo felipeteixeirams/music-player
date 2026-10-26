@@ -4,8 +4,8 @@ import { fileURLToPath } from 'url';
 import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { resolveRoute } from './api/_resolveEndpoint';
-import { authConfigFromEnv } from './api/_auth';
-import { adminConfigFromEnv } from './api/_supabaseAdmin';
+import { healthBody } from './api/_healthEndpoint';
+import { reportStartupOnce } from './api/_config';
 import { authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -93,17 +93,13 @@ app.all('/api/resolve', async (req, res) => {
   return res.status(status).json(body);
 });
 
-// Endpoint: GET /api/health
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    login: authConfigFromEnv() !== null,
-    cache: adminConfigFromEnv() !== null,
-    uptimeSeconds: Math.floor(process.uptime())
-  });
+// Endpoint: GET /api/health (and ?deep=1: also asks the services whether the configuration works)
+app.get('/api/health', async (req, res) => {
+  res.json(await healthBody(req.query.deep !== undefined, { uptimeSeconds: Math.floor(process.uptime()) }));
 });
 
 async function start() {
+  reportStartupOnce();
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (req, res) => {

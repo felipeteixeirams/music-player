@@ -29,6 +29,34 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - A tela "Reproduzidas recentemente" mostra cada faixa uma vez, a mais recente primeiro; "Limpar histórico" apaga na hora no aparelho e deixa um pedido para a conta, que vale em todos os aparelhos.
 - Não faz parte do histórico: busca, favoritos e playlists (esses são da conta por outro caminho), nem o tempo total ouvido.
 
+## Verificação da configuração (pipeline e inicialização)
+
+Tudo que o app precisa do ambiente é verificado em quatro momentos, pelo mesmo código (`api/_config.ts`):
+
+1. **Ao iniciar** (a primeira chamada de cada instância na Vercel, ou o `server.ts` subindo): linhas `[Config] ✅|⚠️|❌ <id>: <mensagem>` no log, só em produção (ou com `CONFIG_REPORT=1`). As mensagens dizem o que falta pelo **nome** da variável, nunca pelo valor. Depois do resumo das variáveis vem o dos serviços, quando o Supabase responde.
+2. **`/api/health`**: `config` (o que se vê só pelas variáveis) e, com `?deep=1`, `services` (o que o Supabase responde: chave pública aceita, cadastro aberto desligado, login por e-mail ligado, chave de serviço aceita, tabelas e funções das migrações presentes). A resposta é pública, então traz só `id` e nível dos problemas, sem nomes de variáveis nem valores; a consulta aos serviços é lembrada por 5 minutos e não escreve nada.
+3. **No CI** (`.github/workflows/ci.yml`): o build roda com segredos de mentira e `scripts/check-bundle.mjs` reprova se algum chegou ao `dist/` ou se as configurações públicas não chegaram; `tests/config.test.ts` reprova se o código ler uma variável de ambiente que ninguém declarou (sistema ou documentada em `.env.example`).
+4. **Depois de cada deploy de produção** (`.github/workflows/post-deploy.yml`, evento de deploy da Vercel; também manual): `scripts/check-deploy.mjs` pede `/api/health?deep=1` ao app no ar e reprova se houver erro, anotando cada id. O deploy já está no ar quando isso roda: o X vermelho significa "corrija a configuração". Não dá para saber por aqui se o SMTP envia (só um login de verdade mostra).
+
+| id | nível | o que significa e o que fazer |
+| --- | --- | --- |
+| `login-url` | erro | Falta a URL do projeto Supabase (`DATABASE_SUPABASE_URL`) ou ela tem formato estranho. |
+| `login-key` | erro | Falta a chave pública (`DATABASE_VITE_SUPABASE_ANON_KEY`) ou foi colocada a de serviço no lugar. |
+| `login-client` | erro | O build não leva o login ao navegador: faltam as variáveis `DATABASE_VITE_*` na hora do build; sem elas o app abre sem tela de login. Defina e faça um novo deploy. |
+| `login-project-match` | erro | A URL do navegador e a do servidor são de projetos diferentes. |
+| `service-key` | aviso/erro | Falta a chave de serviço (`DATABASE_SUPABASE_SERVICE_ROLE_KEY`): cache e cota desligados; ou é a chave pública. |
+| `service-key-differs` | erro | A chave pública e a de serviço são a mesma. |
+| `service-key-public` | erro | A chave de serviço também está numa variável que vai ao navegador (`VITE_*`/`DATABASE_VITE_*`): remova e gere uma nova no Supabase. |
+| `youtube-key` | aviso | Falta `YOUTUBE_API_KEY`: a busca de vídeo usa a busca web não oficial. |
+| `daily-limit` | aviso | `DAILY_NEW_TRACKS` não é um inteiro maior que 0; vale o padrão (30). |
+| `auth-settings` | erro/aviso | O Supabase recusou a chave pública (de outro projeto?) ou não respondeu. |
+| `signup-open` | erro | O cadastro aberto está ligado: desligue em Authentication > Sign In / Providers. |
+| `email-login` | erro | O login por e-mail está desligado no Supabase. |
+| `service-key-valid` | erro/aviso | O Supabase recusou a chave de serviço ou o banco não respondeu. |
+| `migrations` | erro | Faltam tabelas ou funções: rode as migrações de `supabase/migrations/` no SQL Editor (a mensagem do log diz quais). |
+
+Variável nova no código: declare-a em `.env.example` e em `DOCUMENTED_VARS` de `tests/config.test.ts`; se ela for exigida para algo funcionar, acrescente a verificação em `api/_config.ts` com um id novo e uma linha nesta tabela.
+
 ## Diagnóstico do login (logs e erros)
 
 - O servidor registra o motivo de cada recusa de login, sem token nem chave: `[Auth] 401 no_token GET /api/feed`, `[Auth] 401 invalid_session (HTTP 403 session_not_found...)`, `[Auth] 503 server_key_rejected (...)`, `[Auth] 503 login_not_configured (falta: ...)`, `[Auth] 503 auth_unavailable (...)`. Na primeira chamada de cada instância ele descreve a configuração: o projeto (host) e os **nomes** das variáveis em uso, nunca os valores. As respostas levam `code` com o mesmo motivo (campo a mais, compatível com clientes antigos).
@@ -63,7 +91,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 ## Código proprietário
 
-`api/_auth.ts` (verificação e cache do token), `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents,supabaseRest}.ts`, `src/utils/{playedCounter,playHistory,playHistoryRemote,playHistorySync}.ts`, `src/hooks/usePlayHistory.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/playHistory.test.ts`, `tests/e2e/history.spec.ts`, `tests/db/schema.test.ts`.
+`api/_auth.ts` (verificação e cache do token), `api/_config.ts` e `api/_healthEndpoint.ts` (verificação da configuração), `scripts/check-bundle.mjs` e `scripts/check-deploy.mjs`, `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents,supabaseRest}.ts`, `src/utils/{playedCounter,playHistory,playHistoryRemote,playHistorySync}.ts`, `src/hooks/usePlayHistory.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/playHistory.test.ts`, `tests/e2e/history.spec.ts`, `tests/db/schema.test.ts`.
 
 ## Navegação para a especificação
 

@@ -30,6 +30,15 @@ test('a rota de saúde informa que o login está ligado', async ({ request }) =>
   const health = await (await request.get('/api/health')).json();
   expect(health.login).toBe(true);
   expect(health.cache).toBe(false);
+  // The check result is public, so it must carry ids and levels only: no variable names, no values
+  expect(typeof health.config.ok).toBe('boolean');
+  expect(JSON.stringify(health)).not.toMatch(/DATABASE_|e2e-anon-key|localhost:3115/);
+});
+
+test('/api/health?deep=1 também consulta os serviços e responde mesmo que eles não saibam responder', async ({ request }) => {
+  const health = await (await request.get('/api/health?deep=1')).json();
+  expect(health.services).toBeDefined();
+  expect(Array.isArray(health.services.problems)).toBe(true);
 });
 
 test('logado e vindo de uma página do site, parâmetros inválidos dão 400 sem chamar terceiros', async ({ request }) => {
