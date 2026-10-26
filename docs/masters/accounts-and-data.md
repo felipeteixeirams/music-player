@@ -90,6 +90,17 @@ Variável nova no código: declare-a em `.env.example` e em `DOCUMENTED_VARS` de
 - Downloads offline: a **lista** é por usuário no aparelho (chaves sufixadas pelo id, como favoritos e playlists), então duas pessoas no mesmo aparelho veem só o que cada uma baixou; quem entra primeiro leva a lista de antes das contas. Os **arquivos** de áudio ficam no CacheStorage do navegador, compartilhados por id da faixa: remover o download só apaga o arquivo quando ninguém mais do aparelho o lista. Não vão para a conta (são do aparelho).
 - Não sincronizado, de propósito: a lista de início salva e o limite de cache (do aparelho), e os próprios downloads.
 
+## Invariantes de contas e dados (não quebre)
+
+Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.test.ts` confere). O que vale em cada ambiente está na [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md).
+
+- **INV-AUTH-01:** 401 é só do usuário (sem token, sessão inválida); erro do servidor (login não configurado, chave pública recusada, Supabase fora do ar) é 503 e nunca desloga ninguém.
+- **INV-AUTH-02:** nenhum segredo (chave de serviço, segredo do JWT, senha do banco) chega ao pacote do navegador.
+- **INV-AUTH-03:** a resposta pública de `/api/health` traz só ids e níveis, nunca nomes de variáveis nem valores.
+- **INV-AUTH-04:** a tela de login responde igual para um e-mail com e sem convite.
+- **INV-DATA-01:** favoritos, playlists, downloads e histórico de uma pessoa nunca aparecem para outra no mesmo aparelho.
+- **INV-DATA-02:** uma alteração feita sem conexão nunca é perdida pela cópia mais antiga da conta.
+
 ## Código proprietário
 
 `api/_auth.ts` (verificação e cache do token), `api/_config.ts` e `api/_healthEndpoint.ts` (verificação da configuração), `scripts/check-bundle.mjs` e `scripts/check-deploy.mjs`, `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents,supabaseRest}.ts`, `src/utils/{playedCounter,playHistory,playHistoryRemote,playHistorySync}.ts`, `src/hooks/usePlayHistory.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/playHistory.test.ts`, `tests/e2e/history.spec.ts`, `tests/db/schema.test.ts`.
@@ -97,3 +108,4 @@ Variável nova no código: declare-a em `.env.example` e em `DOCUMENTED_VARS` de
 ## Navegação para a especificação
 
 - [Esquema, RLS e cota por usuário](../specs/current/user-data-schema.spec.md)
+- [Matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md) (login e sincronização por ambiente)

@@ -81,7 +81,7 @@ test('primeiro login com dados antigos junta aparelho e conta', async () => {
   assert.equal(readSyncFlag(t.storage), null);
 });
 
-test('sem conexão nada é perdido: a marca fica e a alteração segue na próxima tentativa', async () => {
+test('INV-DATA-02: sem conexão nada é perdido: a marca fica e a alteração segue na próxima tentativa', async () => {
   const t = setup(snap(), snap());
   t.state.failWith = new RemoteError('Sem conexão', 0);
   t.sync.start();

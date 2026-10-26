@@ -37,7 +37,7 @@ test('um favorito vai para a conta e aparece em outro aparelho', async ({ page, 
   await other.close();
 });
 
-test('dois usuários no mesmo aparelho não misturam favoritos', async ({ page, context }) => {
+test('INV-DATA-01: dois usuários no mesmo aparelho não misturam favoritos', async ({ page, context }) => {
   const ana = testUser('ana');
   const bia = testUser('bia');
   const favorites = (target: Page) => target.getByRole('button', { name: /Músicas favoritas/ });
@@ -96,7 +96,7 @@ test('os dados de antes das contas vão para quem entra primeiro, e saem das cha
   expect(await page.evaluate(() => localStorage.getItem('aurastream_liked_track_objects'))).toBeNull();
 });
 
-test('uma alteração feita sem conexão chega à conta na próxima abertura', async ({ page, request }) => {
+test('INV-DATA-02: uma alteração feita sem conexão chega à conta na próxima abertura', async ({ page, request }) => {
   const user = testUser();
   await openApp(page, user);
 

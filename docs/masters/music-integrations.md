@@ -97,7 +97,20 @@ Leia [Contratos, mappers e testes](../specs/current/music-integration-contracts.
 - matriz de testes e critérios de aceite;
 - limitações da validação já executada.
 
+Leia a [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md) para saber o que funciona em cada ambiente (navegador do iPhone, app instalado, teste automático) e com que evidência, e o [roteiro de validação](../specs/current/validation-checklist.spec.md) para repetir os testes no aparelho.
+
 Com dependências instaladas, execute `npm test` para os testes determinísticos. Execute `npm run test:integrations:live` separadamente quando houver acesso à rede; esse comando consulta serviços públicos e pode falhar por indisponibilidade externa.
+
+## Invariantes da reprodução (não quebre)
+
+Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.test.ts` reprova se algum ficar sem teste, ou se um teste citar um id que não existe aqui). O que vale em cada ambiente está na [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md).
+
+- **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (ou 1,5 s depois de o player carregar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
+- **INV-PLAY-02:** uma faixa com vídeo já conhecido (no aparelho ou no cache compartilhado) começa sem pedir nada à rede no toque.
+- **INV-PLAY-03:** só a resolução, no toque, de uma faixa que ninguém tocou antes gasta busca do YouTube e cota; a consulta em lote ao cache nunca busca nem consome.
+- **INV-PLAY-04:** o toque numa faixa desbloqueia o elemento de áudio do navegador, e os eventos do clipe de silêncio nunca contam como música.
+- **INV-PLAY-05:** sair do app e voltar com a prévia tocando não pausa a faixa nem mostra aviso.
+- **INV-PLAY-06:** a mesma música com outro id aproveita o vídeo já achado; o vídeo denunciado sai das duas chaves do cache.
 
 ## Atualização deste master
 

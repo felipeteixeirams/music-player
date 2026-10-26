@@ -105,7 +105,7 @@ test('authorizeRequest checa origem e limite antes de consultar o login', async 
   assert.equal(!foreign.ok && foreign.status, 403);
 });
 
-test('cada recusa tem um código e um motivo: sem token, sessão inválida, chave do servidor recusada, Supabase fora', async () => {
+test('INV-AUTH-01: cada recusa tem um código e um motivo: sem token, sessão inválida, chave do servidor recusada, Supabase fora', async () => {
   const quiet = (handler: Parameters<typeof fakeSupabase>[0]) =>
     createAuthenticator({ config: CONFIG, fetchImpl: fakeSupabase(handler).fetchImpl, log: () => undefined });
 

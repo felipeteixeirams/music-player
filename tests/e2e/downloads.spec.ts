@@ -13,7 +13,7 @@ const openTopHits = (page: Page) => page.getByRole('button', { name: 'Ver todas 
 
 const downloadsRow = (page: Page) => page.getByRole('button', { name: /^Downloads/ });
 
-test('os downloads são de cada usuário: duas pessoas no mesmo aparelho não veem os um do outro', async ({ page, context }) => {
+test('INV-DATA-01: os downloads são de cada usuário: duas pessoas no mesmo aparelho não veem os um do outro', async ({ page, context }) => {
   const ana = testUser('ana');
   const bia = testUser('bia');
 

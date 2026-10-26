@@ -130,7 +130,7 @@ test('"não achei" da busca web não vai para o cache (ela falha em silêncio)',
   assert.equal(t.cache.size, 0);
 });
 
-test('acima do limite diário não busca nem grava: avisa que a cota acabou; o cache continua valendo', async () => {
+test('INV-PLAY-03: acima do limite diário não busca nem grava: avisa que a cota acabou; o cache continua valendo', async () => {
   const t = setup({ limit: 2 });
   await resolveEndpoint({ ...QUERY, id: 'deezer-1', title: 'Um' }, USER, t.deps);
   await resolveEndpoint({ ...QUERY, id: 'deezer-2', title: 'Dois' }, USER, t.deps);
@@ -252,7 +252,7 @@ test('createAdmin fala com as tabelas e funções certas com a chave de serviço
 
 const SONG = { artist: 'Artista', title: 'Faixa', duration: 200 };
 
-test('a mesma música com outro id (Deezer e iTunes, reedição) aproveita o vídeo já achado: uma busca só', async () => {
+test('INV-PLAY-06: a mesma música com outro id (Deezer e iTunes, reedição) aproveita o vídeo já achado: uma busca só', async () => {
   const t = setup();
   await resolveEndpoint(QUERY, USER, t.deps);
   assert.deepEqual([...t.cache.keys()].sort(), ['deezer-7', aliasKeyFor(SONG)].sort());
@@ -273,7 +273,7 @@ test('as chaves de uma faixa: o id do catálogo e a da música, sem repetir', ()
   assert.equal(cacheKeyFor(SONG, 'deezer-7'), 'deezer-7');
 });
 
-test('a denúncia com os dados da música tira o vídeo ruim das duas chaves', async () => {
+test('INV-PLAY-06: a denúncia com os dados da música tira o vídeo ruim das duas chaves', async () => {
   const t = setup();
   await t.admin.putCached('deezer-7', [VIDEO, 'BBBBBBBBBBB'], 5);
   await t.admin.putCached(aliasKeyFor(SONG), [VIDEO, 'BBBBBBBBBBB'], 5);
@@ -282,7 +282,7 @@ test('a denúncia com os dados da música tira o vídeo ruim das duas chaves', a
   assert.deepEqual(t.cache.get(aliasKeyFor(SONG))?.videoIds, ['BBBBBBBBBBB']);
 });
 
-test('lookup: devolve só as faixas que já têm vídeo no cache, sem buscar nem gastar cota', async () => {
+test('INV-PLAY-03: lookup: devolve só as faixas que já têm vídeo no cache, sem buscar nem gastar cota', async () => {
   const t = setup();
   await t.admin.putCached('deezer-1', [VIDEO], t.deps.now());
   await t.admin.putCached(aliasKeyFor({ artist: 'B', title: 'Outra', duration: 100 }), ['CCCCCCCCCCC'], t.deps.now());

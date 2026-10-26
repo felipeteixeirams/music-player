@@ -79,7 +79,7 @@ test('DAILY_NEW_TRACKS inválido avisa; válido ou ausente não', () => {
   assert.equal(level({ ...GOOD, DAILY_NEW_TRACKS: '20' }, 'daily-limit'), undefined);
 });
 
-test('o relatório público traz só ids e níveis: nenhum nome de variável nem valor', () => {
+test('INV-AUTH-03: o relatório público traz só ids e níveis: nenhum nome de variável nem valor', () => {
   const secret = 'segredo-xyz-123';
   const report = publicReport(checkStaticConfig({ DATABASE_SUPABASE_URL: URL_OK, DATABASE_SUPABASE_SERVICE_ROLE_KEY: secret }));
   const text = JSON.stringify(report);
@@ -182,7 +182,7 @@ test('check-deploy: erro nas variáveis ou nos serviços reprova; aviso não', (
   assert.deepEqual(evaluate({}).errors, ['health:status']);
 });
 
-test('check-bundle: acha segredo no build e acusa configuração pública ausente', () => {
+test('INV-AUTH-02: check-bundle: acha segredo no build e acusa configuração pública ausente', () => {
   const dir = mkdtempSync(join(tmpdir(), 'bundle-'));
   writeFileSync(join(dir, 'index.js'), 'const url="https://pub.supabase.co";');
   const env = { SECRET_A: 'segredo-aaa', PUBLIC_A: 'https://pub.supabase.co', PUBLIC_B: 'nao-esta' };

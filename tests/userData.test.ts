@@ -32,7 +32,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
   );
 }
 
-test('scopedStorage separa as chaves por usuário e usa as chaves puras sem usuário', () => {
+test('INV-DATA-01: scopedStorage separa as chaves por usuário e usa as chaves puras sem usuário', () => {
   const backing = memoryStorage();
   scopedStorage('u1', backing).setItem('k', 'a');
   scopedStorage('u2', backing).setItem('k', 'b');

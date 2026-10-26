@@ -1,6 +1,14 @@
 import React, { useState, useSyncExternalStore } from 'react';
 import { Activity, Copy } from 'lucide-react';
-import { clearPlaybackLog, formatPlaybackLog, getPlaybackLog, subscribePlaybackLog } from '../utils/playbackDiagnostics';
+import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, subscribePlaybackLog } from '../utils/playbackDiagnostics';
+
+/** The running build and whether this is the installed app or a browser tab: the first thing a report needs. */
+function currentEnvironment(): string {
+  const standalone =
+    (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches) ||
+    (typeof navigator !== 'undefined' && (navigator as Navigator & { standalone?: boolean }).standalone === true);
+  return describeEnvironment({ version: __APP_VERSION__, standalone: Boolean(standalone), userAgent: navigator.userAgent });
+}
 
 /** What happened the last times a track was started, in the user's own words: to report a track that does not play. */
 export const PlaybackDiagnostics: React.FC = () => {
@@ -10,7 +18,7 @@ export const PlaybackDiagnostics: React.FC = () => {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(formatPlaybackLog(entries));
+      await navigator.clipboard.writeText(`${currentEnvironment()}\n${formatPlaybackLog(entries)}`);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -26,6 +34,9 @@ export const PlaybackDiagnostics: React.FC = () => {
       </button>
       {open && (
         <div className="mt-2 space-y-2">
+          <p data-testid="playback-environment" className="text-[11px] font-semibold leading-4 text-label">
+            {currentEnvironment()}
+          </p>
           <pre
             data-testid="playback-log"
             className="max-h-44 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-4 text-label-secondary"
