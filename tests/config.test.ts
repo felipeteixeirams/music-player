@@ -13,7 +13,7 @@ import {
   summarize,
   cachedDeepConfig
 } from '../api/_config';
-import { evaluate } from '../scripts/check-deploy.mjs';
+import { evaluate, functionRegion } from '../scripts/check-deploy.mjs';
 import { scan } from '../scripts/check-bundle.mjs';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -228,4 +228,14 @@ test('.env.example menciona cada variável documentada', () => {
   const example = readFileSync('.env.example', 'utf8');
   const missing = DOCUMENTED_VARS.filter((name) => !example.includes(name));
   assert.deepEqual(missing, [], `Faltam no .env.example: ${missing.join(', ')}`);
+});
+
+test('check-deploy: a região das funções vem do x-vercel-id e fora de São Paulo vira aviso', () => {
+  assert.equal(functionRegion('gru1::gru1::abc-123'), 'gru1');
+  assert.equal(functionRegion('iad1::iad1::abc'), 'iad1');
+  assert.equal(functionRegion('gru1::iad1::abc'), 'iad1', 'a segunda é onde a função rodou');
+  assert.equal(functionRegion(null), null);
+  const base = { status: 'ok', config: { ok: true, problems: [] }, services: { ok: true, problems: [] } };
+  assert.deepEqual(evaluate({ ...base, region: 'gru1' }).warnings, []);
+  assert.match(evaluate({ ...base, region: 'iad1' }).warnings[0], /iad1/);
 });

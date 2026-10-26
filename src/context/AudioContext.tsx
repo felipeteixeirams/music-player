@@ -14,6 +14,8 @@ import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '.
 import { useAuth } from './AuthContext';
 import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
 import { PlayedCounter } from '../utils/playedCounter';
+import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
+import { logPlayback } from '../utils/playbackDiagnostics';
 import { recordPlay } from '../utils/playHistory';
 import { loadChoices, nextVersionIndex, orderVersions, rememberChoice } from '../utils/videoChoice';
 import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
@@ -70,6 +72,10 @@ interface AudioContextType {
   setDuration: (seconds: number) => void;
   clearUserSeekRequest: () => void;
   handleFallbackError: () => void;
+  /** The hidden YouTube player reports sound coming out. */
+  engineStarted: () => void;
+  /** The hidden YouTube player reports that the video is loaded. */
+  engineReady: () => void;
   setVolume: (val: number) => void;
   toggleMute: () => void;
   toggleShuffle: () => void;
@@ -97,6 +103,15 @@ const AudioContext = createContext<AudioContextType | null>(null);
 const PlaybackTimeContext = createContext<{ currentTime: number; duration: number }>({ currentTime: 0, duration: 0 });
 
 
+/**
+ * How long a track that was told to play may stay silent before the screen admits it is not playing: long enough for
+ * a slow network to load the YouTube player, and short once the player says it is loaded and still does not play.
+ */
+const START_WATCH_MS = 6000;
+const READY_WATCH_MS = 1500;
+const TAP_NOTICE = 'O iPhone não deixou a música começar sozinha. Toque em ▶ para ouvir.';
+const BACKGROUND_NOTICE = 'O iPhone pausou a faixa completa ao sair do app. Toque em ▶ para continuar.';
+
 const QUOTA_NOTICE = 'Você chegou ao limite de faixas novas de hoje. Tocando a prévia de 30s; as faixas que já ouviu seguem completas.';
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -121,6 +136,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const durationRef = useRef(0);
   currentTimeRef.current = currentTime;
   durationRef.current = duration;
+  const isPlayingRef = useRef(false);
+  const activeEngineRef = useRef<AudioEngineType>('fallback');
   const mediaActionsRef = useRef<{ togglePlayPause: () => void; playNext: () => void; playPrevious: () => void; seekTo: (seconds: number) => void } | null>(null);
   const [volume, setVolumeState] = useState<number>(0.85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -181,6 +198,49 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     radioStationRef.current = radioStation;
   }, [radioStation]);
+
+  // A track told to play that stays silent (the browser refused to start it without a tap) must not look like it is
+  // playing: after START_WATCH_MS the screen says so and the next tap on play, which the browser allows, starts it.
+  const startWatchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapAtRef = useRef(0);
+
+  const clearStartWatch = useCallback(() => {
+    if (startWatchRef.current) clearTimeout(startWatchRef.current);
+    startWatchRef.current = null;
+  }, []);
+
+  const watchReasonRef = useRef('o toque');
+
+  const expectPlayback = useCallback((why: string, waitMs = START_WATCH_MS) => {
+    clearStartWatch();
+    if (waitMs === START_WATCH_MS) tapAtRef.current = performance.now();
+    watchReasonRef.current = why;
+    startWatchRef.current = setTimeout(() => {
+      startWatchRef.current = null;
+      logPlayback(`sem som ${Math.round((performance.now() - tapAtRef.current) / 1000)} s depois de ${why}: o navegador bloqueou o início automático`);
+      setIsPlaying(false);
+      setIsBuffering(false);
+      setPlaybackStatus((prev) => ({ ...prev, notice: TAP_NOTICE }));
+    }, START_WATCH_MS);
+  }, [clearStartWatch]);
+
+  /** The YouTube player has loaded the video: if it does not play now, it is not going to without a tap. */
+  const engineReady = useCallback(() => {
+    if (startWatchRef.current) {
+      logPlayback(`player do YouTube carregado ${Math.round(performance.now() - tapAtRef.current)} ms depois do toque`);
+      expectPlayback(watchReasonRef.current, READY_WATCH_MS);
+    }
+  }, [expectPlayback]);
+
+  /** Sound is really coming out: the wait is over, and a slow start that was already given up on is taken back. */
+  const playbackStarted = useCallback((source: string) => {
+    const waiting = startWatchRef.current !== null;
+    clearStartWatch();
+    if (waiting) logPlayback(`começou a tocar (${source}) ${Math.round(performance.now() - tapAtRef.current)} ms depois do toque`);
+    setIsPlaying(true);
+    setIsBuffering(false);
+    setPlaybackStatus((prev) => (prev.notice === TAP_NOTICE || prev.notice === BACKGROUND_NOTICE ? { ...prev, notice: undefined } : prev));
+  }, [clearStartWatch]);
 
   const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
     setActiveEngine('fallback');
@@ -249,6 +309,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audioRef.current = audio;
 
     const onTimeUpdate = () => {
+      if (isUnlockClip(audio)) return;
       if (audio.currentTime !== undefined) {
         setCurrentTime(audio.currentTime);
         playedCounterRef.current?.tick(currentTrackRef.current, audio.currentTime);
@@ -256,21 +317,26 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const onDurationChange = () => {
+      if (isUnlockClip(audio)) return;
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
       }
     };
 
-    const onWaiting = () => setIsBuffering(true);
-    const onPlaying = () => {
-      radioSkipsRef.current = 0;
-      setIsBuffering(false);
-      setIsPlaying(true);
+    const onWaiting = () => {
+      if (!isUnlockClip(audio)) setIsBuffering(true);
     };
-    const onPause = () => setIsPlaying(false);
+    const onPlaying = () => {
+      if (isUnlockClip(audio)) return;
+      radioSkipsRef.current = 0;
+      playbackStarted('áudio do navegador');
+    };
+    const onPause = () => {
+      if (!isUnlockClip(audio)) setIsPlaying(false);
+    };
     const onError = () => {
       // Clearing the source (switching to the YouTube engine) also raises an error event
-      if (!audio.getAttribute('src')) return;
+      if (!audio.getAttribute('src') || isUnlockClip(audio)) return;
       console.warn('Native AudioElement playback error, failing over to YouTube fallback engine');
       setIsBuffering(false);
       if (currentTrackRef.current && currentTrackRef.current.sources.youtubeId) {
@@ -298,7 +364,50 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('error', onError);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [triggerFallbackEngine]);
+  }, [triggerFallbackEngine, playbackStarted]);
+
+  isPlayingRef.current = isPlaying;
+  activeEngineRef.current = activeEngine;
+  useEffect(() => clearStartWatch, [clearStartWatch]);
+
+  // Leaving the app: the iPhone stops the hidden YouTube player. Say so, instead of leaving a screen that "plays".
+  useEffect(() => {
+    let hiddenAt = 0;
+    let timeAtHide = 0;
+    let wasPlaying = false;
+    let recheck: ReturnType<typeof setTimeout> | null = null;
+
+    const onChange = () => {
+      if (document.visibilityState === 'hidden') {
+        wasPlaying = isPlayingRef.current;
+        timeAtHide = currentTimeRef.current;
+        hiddenAt = Date.now();
+        logPlayback(`app em segundo plano (${wasPlaying ? 'tocando' : 'parado'}, motor ${activeEngineRef.current === 'fallback' ? 'YouTube' : 'áudio do navegador'})`);
+        return;
+      }
+      if (!hiddenAt) return;
+      const away = Math.round((Date.now() - hiddenAt) / 1000);
+      const timeAtShow = currentTimeRef.current;
+      hiddenAt = 0;
+      if (!wasPlaying) return;
+      logPlayback(`voltou ao app depois de ${away} s; a faixa avançou ${Math.round(timeAtShow - timeAtHide)} s enquanto estava fora`);
+      // The player may take a moment to wake up: if the clock is still where it was, it was stopped
+      if (recheck) clearTimeout(recheck);
+      recheck = setTimeout(() => {
+        if (isPlayingRef.current && Math.abs(currentTimeRef.current - timeAtShow) < 0.5) {
+          logPlayback('a faixa parou enquanto o app estava fora: o sistema pausou o áudio');
+          setIsPlaying(false);
+          setPlaybackStatus((prev) => ({ ...prev, notice: BACKGROUND_NOTICE }));
+        }
+      }, 1500);
+    };
+
+    document.addEventListener('visibilitychange', onChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onChange);
+      if (recheck) clearTimeout(recheck);
+    };
+  }, []);
 
   // Save liked tracks (with metadata) to localStorage
   useEffect(() => {
@@ -350,6 +459,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
     const token = ++loadTokenRef.current;
+    if (shouldPlay) {
+      logPlayback(`toque em "${track.title}"`);
+      expectPlayback('o toque');
+    }
     setPlaybackStatus((prev) => (prev.error || prev.notice ? { ...prev, error: undefined, notice: undefined } : prev));
     setIsBuffering(true);
     setVersionCount(0);
@@ -383,8 +496,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let quotaExceeded = false;
     if (!track.sources.youtubeId && !track.sources.localUrl) {
       audioRef.current?.pause();
+      const resolveStart = performance.now();
       const resolution = await resolveFullTrack(track);
       const found = resolution.videoIds;
+      logPlayback(`vídeo resolvido em ${Math.round(performance.now() - resolveStart)} ms (${found.length} versão(ões)${resolution.quotaExceeded ? ', cota do dia acabada' : ''})`);
       quotaExceeded = resolution.quotaExceeded;
       if (loadTokenRef.current !== token) return;
       // The version the user picked before comes first, even when the search no longer returns it
@@ -432,7 +547,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPlaybackStatus({ error: 'Esta faixa não tem prévia disponível.' });
     setIsPlaying(false);
     setIsBuffering(false);
-  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack, storage]);
+  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack, storage, expectPlayback]);
 
   // When track finishes (Native audio listener)
   useEffect(() => {
@@ -543,12 +658,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Main playback controls
   const playTrack = useCallback((track: Track, customQueue?: Track[], source?: QueueSource) => {
-    // Synchronously prime audio gesture permission
-    if (audioRef.current) {
-      audioRef.current.play().then(() => {
-        audioRef.current?.pause();
-      }).catch(() => {});
-    }
+    // Inside the tap: let the audio element play (a silent clip), so the track that arrives later may start on its own
+    unlockAudioElement(audioRef.current);
 
     if (customQueue) {
       setRadioStation(null);
@@ -574,15 +685,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (activeEngine === 'fallback' || (currentTrack && currentTrack.sources.youtubeId && !audioStreamUrl.startsWith('http') && !audioStreamUrl.startsWith('blob'))) {
+      // This tap is what lets the hidden YouTube player start: the notice that asked for it goes away
+      if (isPlaying) clearStartWatch();
+      else {
+        setPlaybackStatus((prev) => (prev.notice === TAP_NOTICE || prev.notice === BACKGROUND_NOTICE ? { ...prev, notice: undefined } : prev));
+        logPlayback('toque em ▶ (retomar)');
+        expectPlayback('retomar');
+      }
       setIsPlaying((prev) => !prev);
       return;
     }
 
     if (audioRef.current) {
       if (isPlaying) {
+        clearStartWatch();
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
+        logPlayback('toque em ▶ (retomar)');
+        expectPlayback('retomar');
         // Live: whatever was buffered while paused is old, so tune in again
         if (currentTrack.sources.localUrl && (isLiveTrack(currentTrack) || !audioRef.current.src)) {
           audioRef.current.src = currentTrack.sources.localUrl;
@@ -595,7 +716,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
       }
     }
-  }, [currentTrack, activeEngine, audioStreamUrl, isPlaying, queue, playTrack]);
+  }, [currentTrack, activeEngine, audioStreamUrl, isPlaying, queue, playTrack, clearStartWatch, expectPlayback]);
 
   // Asks the station for another shuffle and adds what was not heard recently; resolves with what was added
   const refillRadio = useCallback(async (): Promise<Track[]> => {
@@ -771,7 +892,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (seconds > 0.5) radioSkipsRef.current = 0;
     setCurrentTime(seconds);
     playedCounterRef.current?.tick(currentTrackRef.current, seconds);
-  }, []);
+    // The YouTube player's clock moving is the proof that it plays
+    if (seconds > 0.3 && startWatchRef.current) playbackStarted('player do YouTube');
+  }, [playbackStarted]);
 
   // The headless YouTube player failed (embedding blocked, unavailable video): use the preview if any
   const handleFallbackError = useCallback(() => {
@@ -883,6 +1006,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // showing it (the full-screen player) render on every tick, and not every list that reads `useAudio()`.
   const playbackTime = useMemo(() => ({ currentTime, duration }), [currentTime, duration]);
 
+  const engineStarted = useCallback(() => playbackStarted('player do YouTube'), [playbackStarted]);
+
   const audioValue = useMemo(
     () => ({
       currentTrack,
@@ -912,6 +1037,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setDuration,
       clearUserSeekRequest,
       handleFallbackError,
+      engineStarted,
+      engineReady,
       setVolume,
       toggleMute,
       toggleShuffle,
@@ -957,6 +1084,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setDuration,
       clearUserSeekRequest,
       handleFallbackError,
+      engineStarted,
+      engineReady,
       setVolume,
       toggleMute,
       toggleShuffle,

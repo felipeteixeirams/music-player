@@ -1,4 +1,4 @@
-import { auth, getSession, setSessionNotice, signOut } from './authClient';
+import { auth, getSessionFast, setSessionNotice, signOut } from './authClient';
 
 /**
  * fetch for the app's own /api routes: sends the login with the request. A 401 means the token went stale (or the
@@ -7,7 +7,7 @@ import { auth, getSession, setSessionNotice, signOut } from './authClient';
  */
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const send = async () => {
-    const session = await getSession();
+    const session = await getSessionFast();
     const headers = new Headers(init.headers);
     if (session) headers.set('Authorization', `Bearer ${session.access_token}`);
     return fetch(input, { ...init, headers });

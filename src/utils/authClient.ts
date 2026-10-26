@@ -18,6 +18,25 @@ export const auth: GoTrueClient | null = config
 
 export const isLoginEnabled = auth !== null;
 
+// The access token, kept in memory as the library reports it. Asking the library each time (`getSession`) takes its
+// internal lock and may refresh the token over the network: on the tap that starts a track that delay is enough for
+// iOS to refuse the playback, which needs to start within about a second of the tap.
+let liveSession: Session | null = null;
+let liveSessionKnown = false;
+if (auth) {
+  auth.onAuthStateChange((_event, session) => {
+    liveSession = session;
+    liveSessionKnown = true;
+  });
+}
+
+/** The current session without waiting for anything when it is known and far from expiring; otherwise the library is asked. */
+export async function getSessionFast(): Promise<Session | null> {
+  const soon = Math.floor(Date.now() / 1000) + 30;
+  if (liveSessionKnown && liveSession && (liveSession.expires_at ?? 0) > soon) return liveSession;
+  return getSession();
+}
+
 let sessionNotice: string | null = null;
 
 /** Leaves a message for the login screen, for when the user is sent back to it (the session ended on its own). */

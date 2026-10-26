@@ -21,7 +21,15 @@ export function evaluate(health) {
   take('variáveis', health?.config);
   take('serviços', health?.services);
   if (health && !health.services) warnings.push('serviços:não consultados');
+  // Each Supabase call from a function in another continent costs well over 100 ms, and playback waits on them
+  if (health?.region && health.region !== 'gru1') warnings.push(`região das funções: ${health.region} (esperado gru1, perto do banco)`);
   return { errors, warnings };
+}
+
+/** Where the functions ran, from the `x-vercel-id` header ("gru1::gru1::..."): they must sit next to the database (São Paulo). */
+export function functionRegion(vercelId) {
+  const match = /^([a-z]{3}\d)::(?:([a-z]{3}\d)::)?/.exec(vercelId ?? '');
+  return match ? (match[2] ?? match[1]) : null;
 }
 
 async function fetchHealth(base, attempts = 6, waitMs = 10_000) {
@@ -29,7 +37,7 @@ async function fetchHealth(base, attempts = 6, waitMs = 10_000) {
   for (let i = 0; i < attempts; i++) {
     try {
       const response = await fetch(`${base.replace(/\/+$/, '')}/api/health?deep=1`, { signal: AbortSignal.timeout(20_000) });
-      if (response.ok) return await response.json();
+      if (response.ok) return { ...(await response.json()), region: functionRegion(response.headers.get('x-vercel-id')) };
       last = new Error(`HTTP ${response.status}`);
     } catch (err) {
       last = err;

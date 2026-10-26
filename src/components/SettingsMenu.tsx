@@ -3,6 +3,7 @@ import { Database, Disc3, LogOut, X } from 'lucide-react';
 import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
+import { PlaybackDiagnostics } from './PlaybackDiagnostics';
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -83,6 +84,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
             </button>
           </div>
         )}
+
+        <PlaybackDiagnostics />
 
         <div className="flex justify-start">
           <PWAInstallButton />
