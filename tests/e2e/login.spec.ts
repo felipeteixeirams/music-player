@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { nav, stubApi } from './fixtures';
-import { EXPIRED_CODE_PREFIX, INVITED_DOMAIN, NO_COOLDOWN_PREFIX, testUser, VALID_CODE } from './supabaseMock';
+import { EXPIRED_CODE_PREFIX, HOURLY_LIMIT_PREFIX, INVITED_DOMAIN, NO_COOLDOWN_PREFIX, testUser, VALID_CODE } from './supabaseMock';
 
 test('sem sessão o app mostra o login e não pede nada ao servidor', async ({ page }) => {
   const requests = await stubApi(page, { signedIn: false });
@@ -137,4 +137,15 @@ test('recarregar a página não zera a espera: o e-mail já usado volta ao códi
   await page.getByLabel('Código').fill(VALID_CODE);
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+});
+
+test('quando acabam os e-mails por hora do servidor, a mensagem diz que não é culpa do usuário', async ({ page }) => {
+  await stubApi(page, { signedIn: false });
+  await page.goto('/');
+  await page.getByLabel('E-mail').fill(testUser(HOURLY_LIMIT_PREFIX).email);
+  await page.getByRole('button', { name: 'Receber código' }).click();
+  await expect(page.getByRole('alert')).toContainText('limite de e-mails por hora do servidor');
+  // Nenhum código foi enviado: continua na tela do e-mail, e dá para tentar de novo
+  await expect(page.getByLabel('Código')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Receber código' })).toBeEnabled();
 });

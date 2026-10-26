@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   CODE_TTL_MS,
   codeTimers,
+  describeRateLimit,
   formatCountdown,
   lastSentAt,
   parseWaitSeconds,
@@ -56,4 +57,19 @@ test('o modelo de e-mail traz o código, sem link, em português, e o tempo casa
   assert.doesNotMatch(html, /ConfirmationURL|href=/);
   assert.match(html, /lang="pt-BR"/);
   assert.match(html, new RegExp(`${CODE_TTL_MS / 1000} segundos`));
+});
+
+test('cada limite do servidor tem a sua mensagem', () => {
+  // o mesmo endereço pediu cedo demais: diz quanto esperar
+  assert.deepEqual(
+    describeRateLimit({ code: 'over_email_send_rate_limit', message: 'For security purposes, you can only request this after 42 seconds.' }),
+    { error: 'Aguarde 42 s para pedir outro código.', waitSeconds: 42 }
+  );
+  // os e-mails por hora do projeto acabaram: nada que o usuário tenha feito
+  const hourly = describeRateLimit({ code: 'over_email_send_rate_limit', message: 'email rate limit exceeded' });
+  assert.match(hourly.error, /limite de e-mails por hora do servidor/);
+  assert.equal(hourly.waitSeconds, undefined);
+  // pedidos demais da mesma rede
+  assert.match(describeRateLimit({ code: 'over_request_rate_limit', message: 'Request rate limit reached' }).error, /desta rede/);
+  assert.match(describeRateLimit({ message: 'algo' }).error, /Aguarde alguns minutos/);
 });
