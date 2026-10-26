@@ -1,5 +1,6 @@
 import React from 'react';
-import { Database, X } from 'lucide-react';
+import { Database, LogOut, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface SettingsMenuProps {
@@ -10,6 +11,7 @@ interface SettingsMenuProps {
 
 /** What used to crowd the header: local storage and installing the app. */
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onOpenCacheSettings }) => {
+  const { enabled, email, signOut } = useAuth();
   if (!isOpen) return null;
 
   return (
@@ -44,6 +46,22 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           <Database className="w-4 h-4 text-accent" aria-hidden="true" />
           <span>Gerenciar cache local</span>
         </button>
+
+        {enabled && (
+          <div className="rounded-card bg-fill-tertiary px-3 py-2.5 text-[15px]">
+            {email && <p className="truncate text-label-secondary" data-testid="account-email">{email}</p>}
+            <button
+              onClick={() => {
+                onClose();
+                void signOut();
+              }}
+              className="mt-1 flex items-center gap-2 text-accent"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span>Sair</span>
+            </button>
+          </div>
+        )}
 
         <div className="flex justify-start">
           <PWAInstallButton />

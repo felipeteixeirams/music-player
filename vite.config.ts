@@ -17,6 +17,9 @@ function versionFile(): Plugin {
 
 export default defineConfig(({command}) => {
   return {
+    // The Vercel integration names the public Supabase variables DATABASE_VITE_*, which Vite would not expose on its own.
+    // The prefix is narrow on purpose: DATABASE_SUPABASE_SERVICE_ROLE_KEY and the Postgres variables stay out of the bundle.
+    envPrefix: ['VITE_', 'DATABASE_VITE_'],
     plugins: [react(), tailwindcss(), versionFile()],
     define: {
       // 'dev' turns the update check off while developing

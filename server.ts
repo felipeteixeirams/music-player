@@ -4,7 +4,8 @@ import { fileURLToPath } from 'url';
 import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
 import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { describeResolution, MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos } from './api/_youtubeSearch';
-import { evaluateRequest, POLICIES, type GuardPolicy } from './api/_guard';
+import { authConfigFromEnv } from './api/_auth';
+import { authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,16 +15,16 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Same protection as the Vercel functions: same-origin pages only, and a per-address rate limit
+// Same protection as the Vercel functions: same-origin pages only, a per-address rate limit and a signed-in user
 const policyFor = (path: string): GuardPolicy | null =>
   path.startsWith('/health') ? null
   : path.startsWith('/resolve') ? POLICIES.resolve
   : path.startsWith('/audio') ? POLICIES.audio
   : POLICIES.catalog;
-app.use('/api', (req, res, next) => {
+app.use('/api', async (req, res, next) => {
   const policy = policyFor(req.path);
   if (!policy) return next();
-  const decision = evaluateRequest(req.headers, policy);
+  const decision = await authorizeRequest(req.headers, policy);
   if (decision.ok) return next();
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
   return res.status(decision.status).json({ error: decision.message });
@@ -108,6 +109,7 @@ app.get('/api/resolve', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
+    login: authConfigFromEnv() !== null,
     uptimeSeconds: Math.floor(process.uptime())
   });
 });

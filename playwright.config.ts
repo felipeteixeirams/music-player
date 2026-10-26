@@ -1,10 +1,14 @@
 import { defineConfig } from '@playwright/test';
 
+import { MOCK_PORT, MOCK_URL, TEST_ANON_KEY } from './tests/e2e/supabaseMock';
+
 const PORT = 3114;
 
 /**
  * End-to-end tests of the built app, served by the same Express server that runs locally and on AI Studio.
  * The catalog APIs are stubbed per test (tests/e2e/fixtures.ts), so nothing depends on Deezer, YouTube or the network.
+ * Login talks to a mock of the Supabase Auth API (tests/e2e/supabaseMock.ts); the app is built with --mode e2e so
+ * its public Supabase settings point at that mock.
  */
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -24,12 +28,24 @@ export default defineConfig({
     trace: 'retain-on-failure',
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}
   },
-  webServer: {
-    // CI builds in its own step, so the server only needs to start there
-    command: `${process.env.E2E_SKIP_BUILD ? '' : 'npm run build && '}npx tsx server.ts`,
-    env: { PORT: String(PORT), NODE_ENV: 'production' },
-    url: `http://localhost:${PORT}/api/health`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000
-  }
+  webServer: [
+    {
+      command: 'npx tsx tests/e2e/supabaseMockServer.ts',
+      url: `http://localhost:${MOCK_PORT}/health`,
+      reuseExistingServer: !process.env.CI
+    },
+    {
+      // CI builds in its own step, so the server only needs to start there
+      command: `${process.env.E2E_SKIP_BUILD ? '' : 'npm run build:e2e && '}npx tsx server.ts`,
+      env: {
+        PORT: String(PORT),
+        NODE_ENV: 'production',
+        DATABASE_VITE_SUPABASE_URL: MOCK_URL,
+        DATABASE_VITE_SUPABASE_ANON_KEY: TEST_ANON_KEY
+      },
+      url: `http://localhost:${PORT}/api/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000
+    }
+  ]
 });

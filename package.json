@@ -7,6 +7,7 @@
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
     "build": "vite build",
+    "build:e2e": "vite build --mode e2e",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "test": "tsx --test \"src/**/*.test.ts\" \"tests/**/*.test.ts\"",
@@ -15,6 +16,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@supabase/auth-js": "^2.118.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "express": "^4.21.2",

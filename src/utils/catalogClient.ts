@@ -1,4 +1,5 @@
 import type { FeedResponse, RadioGenre, Track, TrackPage } from '../types/music';
+import { apiFetch } from './apiFetch';
 
 /** Raised for any answer that is not a usable page, with a message fit for the user. */
 export class CatalogError extends Error {}
@@ -16,7 +17,7 @@ function isTrackPage(value: unknown): value is TrackPage {
 async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(url, { signal });
+    response = await apiFetch(url, { signal });
   } catch (err) {
     if ((err as Error)?.name === 'AbortError') throw err;
     throw new CatalogError('Sem conexão com o servidor. Verifique a internet e tente de novo.');

@@ -1,4 +1,5 @@
 import { Track } from '../types/music';
+import { apiFetch } from './apiFetch';
 
 /**
  * Offline Track Manager Utility
@@ -81,7 +82,7 @@ export async function downloadTrackForOffline(
     const cache = await caches.open(OFFLINE_CACHE_NAME);
 
     // Fetch and cache audio stream response
-    const audioRes = await fetch(resolvedAudioUrl, { mode: 'cors' }).catch(() => null);
+    const audioRes = await (resolvedAudioUrl.startsWith('/api/') ? apiFetch(resolvedAudioUrl) : fetch(resolvedAudioUrl, { mode: 'cors' })).catch(() => null);
     if (!audioRes || !audioRes.ok) {
       return { success: false, error: 'Falha na conexão ao baixar o arquivo de áudio.' };
     }

@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
+import { AuthProvider } from './context/AuthContext';
 import { PlaylistsProvider, usePlaylists } from './context/PlaylistsContext';
 import { AddToPlaylistSheet } from './components/AddToPlaylistSheet';
 import { TopBar } from './components/TopBar';
@@ -518,11 +519,13 @@ const MusicAppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AudioProvider>
-      <PlaylistsProvider>
-        <MusicAppContent />
-      </PlaylistsProvider>
-    </AudioProvider>
+    <AuthProvider>
+      <AudioProvider>
+        <PlaylistsProvider>
+          <MusicAppContent />
+        </PlaylistsProvider>
+      </AudioProvider>
+    </AuthProvider>
   );
 };
 
