@@ -1,5 +1,7 @@
 import { Track } from '../types/music';
 import { apiFetch } from './apiFetch';
+import { OFFLINE_META_KEY, OFFLINE_TRACKS_KEY } from './offlineKeys';
+import { scopedStorage, type KeyValueStorage } from './scopedStorage';
 
 /**
  * Offline Track Manager Utility
@@ -8,13 +10,17 @@ import { apiFetch } from './apiFetch';
  */
 
 const OFFLINE_CACHE_NAME = 'aurastream_offline_tracks_v1';
-const OFFLINE_TRACKS_KEY = 'aurastream_offline_track_ids';
-/** Metadata of downloaded tracks (id -> Track), so the Downloads screen can list them. */
-const OFFLINE_META_KEY = 'aurastream_offline_track_meta';
 
-function readOfflineMeta(): Record<string, Track> {
+/**
+ * The downloads are listed per user (the `storage` argument is the signed-in user's, from useAuth): two people on
+ * one device each see only what they downloaded. The audio files themselves live in CacheStorage, shared by track id.
+ * Without a `storage` the plain keys are used (login off, and the unit tests).
+ */
+const plainStorage = (): KeyValueStorage => scopedStorage(null);
+
+function readOfflineMeta(storage: KeyValueStorage): Record<string, Track> {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(OFFLINE_META_KEY) ?? '{}');
+    const parsed: unknown = JSON.parse(storage.getItem(OFFLINE_META_KEY) ?? '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, Track>) : {};
   } catch {
     return {};
@@ -25,25 +31,25 @@ function readOfflineMeta(): Record<string, Track> {
  * The downloaded tracks, in download order. Downloads made before metadata was stored are listed only when
  * `known` (favorites, for instance) has the track.
  */
-export function getOfflineTracks(known: Track[] = []): Track[] {
-  const meta = readOfflineMeta();
+export function getOfflineTracks(known: Track[] = [], storage: KeyValueStorage = plainStorage()): Track[] {
+  const meta = readOfflineMeta(storage);
   const byId = new Map(known.map((track) => [track.id, track]));
-  return getOfflineTrackIds()
+  return getOfflineTrackIds(storage)
     .map((id) => meta[id] ?? byId.get(id))
     .filter((track): track is Track => Boolean(track));
 }
 
-export function getOfflineTrackIds(): string[] {
+export function getOfflineTrackIds(storage: KeyValueStorage = plainStorage()): string[] {
   try {
-    const saved = localStorage.getItem(OFFLINE_TRACKS_KEY);
+    const saved = storage.getItem(OFFLINE_TRACKS_KEY);
     return saved ? JSON.parse(saved) : [];
   } catch {
     return [];
   }
 }
 
-export function isTrackOfflineAvailable(trackId: string): boolean {
-  const offlineIds = getOfflineTrackIds();
+export function isTrackOfflineAvailable(trackId: string, storage: KeyValueStorage = plainStorage()): boolean {
+  const offlineIds = getOfflineTrackIds(storage);
   return offlineIds.includes(trackId);
 }
 
@@ -52,7 +58,8 @@ export function isTrackOfflineAvailable(trackId: string): boolean {
  */
 export async function downloadTrackForOffline(
   track: Track,
-  currentAudioStreamUrl?: string
+  currentAudioStreamUrl?: string,
+  storage: KeyValueStorage = plainStorage()
 ): Promise<{ success: boolean; error?: string; previewOnly?: boolean }> {
   if (!('caches' in window)) {
     return { success: false, error: 'O seu navegador não suporta armazenamento offline.' };
@@ -98,12 +105,12 @@ export async function downloadTrackForOffline(
       }
     }
 
-    const offlineIds = getOfflineTrackIds();
+    const offlineIds = getOfflineTrackIds(storage);
     if (!offlineIds.includes(track.id)) {
       offlineIds.push(track.id);
-      localStorage.setItem(OFFLINE_TRACKS_KEY, JSON.stringify(offlineIds));
+      storage.setItem(OFFLINE_TRACKS_KEY, JSON.stringify(offlineIds));
     }
-    localStorage.setItem(OFFLINE_META_KEY, JSON.stringify({ ...readOfflineMeta(), [track.id]: track }));
+    storage.setItem(OFFLINE_META_KEY, JSON.stringify({ ...readOfflineMeta(storage), [track.id]: track }));
 
     console.log(`[Offline Manager] ⬇️ Faixa ${track.id} baixada e armazenada para uso offline.`);
     return { success: true, previewOnly: Boolean(previewUrl) };
@@ -133,20 +140,43 @@ export async function getOfflineAudioUrl(trackId: string): Promise<string | null
 }
 
 /**
- * Removes track and its cover from offline CacheStorage and localStorage list.
+ * How many users of this device (the signed-in one included) list the track as downloaded. The audio file is shared
+ * by track id, so it may only be deleted when nobody else on the device still lists it.
  */
-export async function removeOfflineTrack(trackId: string): Promise<boolean> {
+function listedByOthers(trackId: string, own: KeyValueStorage): boolean {
+  try {
+    const ownHas = getOfflineTrackIds(own).includes(trackId);
+    let holders = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(OFFLINE_TRACKS_KEY)) continue;
+      const ids: unknown = JSON.parse(localStorage.getItem(key) ?? '[]');
+      if (Array.isArray(ids) && ids.includes(trackId)) holders++;
+    }
+    return holders - (ownHas ? 1 : 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Removes the track from the user's downloads and, when no other user of the device has it, its audio and cover
+ * from CacheStorage.
+ */
+export async function removeOfflineTrack(trackId: string, storage: KeyValueStorage = plainStorage()): Promise<boolean> {
   if (!('caches' in window)) return false;
 
   try {
-    const cache = await caches.open(OFFLINE_CACHE_NAME);
-    await cache.delete(`/offline-audio/${trackId}`);
-    await cache.delete(`/offline-cover/${trackId}`);
+    if (!listedByOthers(trackId, storage)) {
+      const cache = await caches.open(OFFLINE_CACHE_NAME);
+      await cache.delete(`/offline-audio/${trackId}`);
+      await cache.delete(`/offline-cover/${trackId}`);
+    }
 
-    const offlineIds = getOfflineTrackIds().filter((id) => id !== trackId);
-    localStorage.setItem(OFFLINE_TRACKS_KEY, JSON.stringify(offlineIds));
-    const { [trackId]: _removed, ...remainingMeta } = readOfflineMeta();
-    localStorage.setItem(OFFLINE_META_KEY, JSON.stringify(remainingMeta));
+    const offlineIds = getOfflineTrackIds(storage).filter((id) => id !== trackId);
+    storage.setItem(OFFLINE_TRACKS_KEY, JSON.stringify(offlineIds));
+    const { [trackId]: _removed, ...remainingMeta } = readOfflineMeta(storage);
+    storage.setItem(OFFLINE_META_KEY, JSON.stringify(remainingMeta));
 
     console.log(`[Offline Manager] 🗑️ Faixa ${trackId} removida do armazenamento offline.`);
     return true;

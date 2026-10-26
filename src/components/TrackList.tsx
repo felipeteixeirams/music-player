@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, Heart, Music, ArrowDownCircle, CheckCircle2, Loader2, AlertCircle, ListPlus, MinusCircle } from 'lucide-react';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
+import { useAuth } from '../context/AuthContext';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { formatTime } from '../utils/audioEngine';
 import { LoadMoreSentinel } from './LoadMoreSentinel';
@@ -49,6 +50,7 @@ export const TrackList: React.FC<TrackListProps> = ({
 }) => {
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked, audioStreamUrl } = useAudio();
   const { openAddToPlaylist } = usePlaylists();
+  const { storage } = useAuth();
   const [downloadingTrackId, setDownloadingTrackId] = useState<string | null>(null);
   const [offlineStatusMap, setOfflineStatusMap] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<ToastNotice | null>(null);
@@ -56,7 +58,7 @@ export const TrackList: React.FC<TrackListProps> = ({
   useEffect(() => {
     const status: Record<string, boolean> = {};
     tracks.forEach((t) => {
-      status[t.id] = isTrackOfflineAvailable(t.id);
+      status[t.id] = isTrackOfflineAvailable(t.id, storage);
     });
     // Keep the previous object when nothing changed, so an identical status does not re-render
     setOfflineStatusMap((prev) => {
@@ -64,7 +66,7 @@ export const TrackList: React.FC<TrackListProps> = ({
       const same = ids.length === Object.keys(prev).length && ids.every((id) => prev[id] === status[id]);
       return same ? prev : status;
     });
-  }, [tracks]);
+  }, [tracks, storage]);
 
   // Toast notice timer
   useEffect(() => {
@@ -78,7 +80,7 @@ export const TrackList: React.FC<TrackListProps> = ({
     const isCurrentlyOffline = offlineStatusMap[track.id];
 
     if (isCurrentlyOffline) {
-      await removeOfflineTrack(track.id);
+      await removeOfflineTrack(track.id, storage);
       setOfflineStatusMap((prev) => ({ ...prev, [track.id]: false }));
       setToast({
         id: Date.now().toString(),
@@ -88,7 +90,7 @@ export const TrackList: React.FC<TrackListProps> = ({
     } else {
       setDownloadingTrackId(track.id);
       const streamUrlToCache = currentTrack?.id === track.id && audioStreamUrl ? audioStreamUrl : '';
-      const result = await downloadTrackForOffline(track, streamUrlToCache);
+      const result = await downloadTrackForOffline(track, streamUrlToCache, storage);
       setDownloadingTrackId(null);
 
       if (result.success) {

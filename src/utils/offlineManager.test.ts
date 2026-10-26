@@ -7,6 +7,7 @@ import {
   removeOfflineTrack
 } from './offlineManager';
 import { Track } from '../types/music';
+import { scopedStorage } from './scopedStorage';
 
 // Mock localStorage and window.caches in Node test context
 class LocalStorageMock {
@@ -173,5 +174,53 @@ describe('Offline Manager Unit Tests', () => {
     assert.strictEqual(result.success, false);
     assert.match(result.error ?? '', /YouTube/);
     assert.strictEqual(isTrackOfflineAvailable('deezer-2'), false);
+  });
+});
+
+describe('Downloads por usuário', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  test('cada usuário lista só os próprios downloads', async () => {
+    const ana = scopedStorage('ana');
+    const bia = scopedStorage('bia');
+    ana.setItem('aurastream_offline_track_ids', JSON.stringify(['t1']));
+    assert.strictEqual(isTrackOfflineAvailable('t1', ana), true);
+    assert.strictEqual(isTrackOfflineAvailable('t1', bia), false);
+    assert.deepStrictEqual(getOfflineTrackIds(bia), []);
+  });
+
+  test('o áudio só é apagado do cache quando mais ninguém do aparelho tem a faixa', async () => {
+    const deleted: string[] = [];
+    const cache = { delete: async (url: string) => (deleted.push(url), true), put: async () => {}, match: async () => null };
+    (global as any).caches = (global as any).window.caches = { open: async () => cache };
+    // o armazenamento falso precisa de length e key para o código enxergar as listas dos outros usuários
+    const real = (global as any).localStorage;
+    const store = new Map<string, string>();
+    const wrapped = {
+      get length() { return store.size; },
+      key: (i: number) => [...store.keys()][i] ?? null,
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k)
+    };
+    (global as any).localStorage = wrapped;
+    try {
+      const ana = scopedStorage('ana', wrapped);
+      const bia = scopedStorage('bia', wrapped);
+      ana.setItem('aurastream_offline_track_ids', JSON.stringify(['t1']));
+      bia.setItem('aurastream_offline_track_ids', JSON.stringify(['t1']));
+
+      await removeOfflineTrack('t1', ana);
+      assert.deepStrictEqual(deleted, [], 'a Bia ainda tem a faixa: o arquivo fica');
+      assert.strictEqual(isTrackOfflineAvailable('t1', ana), false);
+      assert.strictEqual(isTrackOfflineAvailable('t1', bia), true);
+
+      await removeOfflineTrack('t1', bia);
+      assert.deepStrictEqual(deleted, ['/offline-audio/t1', '/offline-cover/t1']);
+    } finally {
+      (global as any).localStorage = real;
+    }
   });
 });

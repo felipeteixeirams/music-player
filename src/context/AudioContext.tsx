@@ -358,7 +358,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentTime(0);
 
     // 1. First priority: Check if track is cached for offline playback
-    if (isTrackOfflineAvailable(track.id)) {
+    if (isTrackOfflineAvailable(track.id, storage)) {
       const offlineBlobUrl = await getOfflineAudioUrl(track.id);
       if (offlineBlobUrl && audioRef.current) {
         audioRef.current.pause();
