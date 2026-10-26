@@ -1,5 +1,5 @@
 import { GoTrueClient, type Session } from '@supabase/auth-js';
-import { parseWaitSeconds } from './loginCode';
+import { describeRateLimit } from './loginCode';
 import { readSupabaseConfig } from './supabaseConfig';
 
 const config = readSupabaseConfig();
@@ -42,10 +42,7 @@ export async function requestCode(email: string): Promise<CodeRequest> {
   const text = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
   if (text.includes('signup') || text.includes('not allowed') || text.includes('otp_disabled')) return { error: null };
   if (error.status === 429 || text.includes('rate_limit') || text.includes('rate limit')) {
-    const waitSeconds = parseWaitSeconds(error.message);
-    return waitSeconds
-      ? { error: `Aguarde ${waitSeconds} s para pedir outro código.`, waitSeconds }
-      : { error: 'Muitos pedidos de código. Aguarde alguns minutos e tente de novo.' };
+    return describeRateLimit(error);
   }
   return { error: describeAuthError(error) };
 }

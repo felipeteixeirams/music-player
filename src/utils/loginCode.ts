@@ -64,3 +64,28 @@ export function parseWaitSeconds(message: string | undefined): number | null {
   const match = message?.match(/after (\d+) seconds?/i);
   return match ? Number(match[1]) : null;
 }
+
+export interface RateLimitMessage {
+  error: string;
+  /** Set when the server said how long to wait: that wait, in seconds. */
+  waitSeconds?: number;
+}
+
+/**
+ * What to tell the user when the server refuses to send a code because of a rate limit. Supabase has three:
+ * the same address asked too soon (it says how many seconds), the project's e-mails per hour were all used
+ * (nothing the user did, and it can last up to an hour), and too many requests from one network.
+ */
+export function describeRateLimit(error: { code?: string; message?: string }): RateLimitMessage {
+  const waitSeconds = parseWaitSeconds(error.message);
+  if (waitSeconds) return { error: `Aguarde ${waitSeconds} s para pedir outro código.`, waitSeconds };
+
+  const text = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
+  if (text.includes('over_email_send_rate_limit') || text.includes('email rate limit')) {
+    return { error: 'O limite de e-mails por hora do servidor foi atingido. Tente de novo mais tarde ou avise quem te convidou.' };
+  }
+  if (text.includes('over_request_rate_limit') || text.includes('request rate limit')) {
+    return { error: 'Muitos pedidos vindos desta rede. Aguarde alguns minutos e tente de novo.' };
+  }
+  return { error: 'Muitos pedidos de código. Aguarde alguns minutos e tente de novo.' };
+}
