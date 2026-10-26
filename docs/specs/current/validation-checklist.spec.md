@@ -200,20 +200,29 @@ Se falhar: anote o nome da rádio. Uma transmissão fora do ar pede troca da URL
 
 Esperado: tudo funciona sem internet, exceto tocar a faixa completa. Os dados ficam só neste aparelho: limpar os dados do site apaga as playlists.
 
+### T15: home sem conexão ou com o catálogo fora do ar
+
+1. Abra o app com internet e deixe a home carregar (isso salva uma cópia no aparelho).
+2. Ative o modo avião e abra o app de novo: a home deve aparecer na hora, com os mesmos carrosséis, e um aviso "Não foi possível atualizar agora: mostrando a lista salva há N min".
+3. Desative o modo avião e toque em "Tentar de novo" no aviso: ele some e a lista é atualizada.
+4. Toque em "Ver tudo" de uma coleção ainda sem internet: aparecem as faixas da primeira página; ao rolar, o carregamento das próximas mostra um erro com "Tentar de novo".
+5. Num aparelho em que o app nunca abriu com internet, sem rede: deve aparecer o erro com "Tentar de novo", sem tela vazia.
+
+Esperado: a home nunca fica vazia depois de ter carregado uma vez. Observação: abrir o app offline depende também do service worker guardar a página e os arquivos do app; no iPhone, só vale depois de a página ter carregado uma vez com internet.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
 
-1. Feed com a última versão guardada no aparelho e com reserva se o Deezer cair.
-2. Limite de taxa global das rotas (hoje por instância): firewall da Vercel ou armazenamento compartilhado.
-3. Limpezas pequenas: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
-4. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção.
+1. Limite de taxa global das rotas (hoje por instância): firewall da Vercel ou armazenamento compartilhado.
+2. Limpezas pequenas: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
+3. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção.
 
-Já resolvidas: playlists criadas pelo usuário (ver T14), qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza do código Piped, desempenho de listas longas, fila além da página carregada e integração contínua.
+Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14), qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza do código Piped, desempenho de listas longas, fila além da página carregada e integração contínua.
 
 ## Testes automáticos que já passam
 
-`npm test` (151 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (18 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
+`npm test` (156 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (21 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
 
 ## Registro
 
@@ -233,3 +242,4 @@ Já resolvidas: playlists criadas pelo usuário (ver T14), qualidade da escolha 
 | T12 | | | ⬜ | |
 | T13 | | | ⬜ | |
 | T14 | | | ⬜ | |
+| T15 | | | ⬜ | |
