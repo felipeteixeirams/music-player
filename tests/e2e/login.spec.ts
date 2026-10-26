@@ -11,7 +11,7 @@ test('sem sessão o app mostra o login e não pede nada ao servidor', async ({ p
   expect(requests).toEqual([]);
 });
 
-test('um e-mail sem convite recebe a mesma resposta, e nenhum código vale (não revela quem tem convite)', async ({ page }) => {
+test('INV-AUTH-04: um e-mail sem convite recebe a mesma resposta, e nenhum código vale (não revela quem tem convite)', async ({ page }) => {
   await stubApi(page, { signedIn: false });
   await page.goto('/');
   await page.getByLabel('E-mail').fill('curioso@exemplo.com');
@@ -163,7 +163,7 @@ test('quando o servidor não consegue enviar o e-mail, a mensagem diz isso (e n�
   await expect(page.getByLabel('Código')).toHaveCount(0);
 });
 
-test('servidor mal configurado (503) não derruba a sessão do usuário', async ({ page }) => {
+test('INV-AUTH-01: servidor mal configurado (503) não derruba a sessão do usuário', async ({ page }) => {
   await stubApi(page);
   await page.route('**/api/feed', (route) =>
     route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"Login mal configurado no servidor","code":"server_key_rejected"}' })

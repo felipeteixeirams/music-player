@@ -32,3 +32,31 @@ export function clearPlaybackLog(): void {
   entries = [];
   listeners.forEach((listener) => listener());
 }
+
+export interface EnvironmentInfo {
+  /** The build of the app (`__APP_VERSION__`). */
+  version: string;
+  /** Opened from the Home Screen icon (no address bar). */
+  standalone: boolean;
+  userAgent: string;
+}
+
+/**
+ * The line that opens a diagnostic report: which build, whether it runs as the installed app or in a browser tab,
+ * and on what. "Is it the installed app or the browser?" decides whether a report is a regression or a known limit
+ * (see the compatibility matrix), so it must never need asking.
+ */
+export function describeEnvironment({ version, standalone, userAgent }: EnvironmentInfo): string {
+  const ios = /OS (\d+)[_.](\d+)/.exec(userAgent);
+  const system = ios ? `iOS ${ios[1]}.${ios[2]}` : /Android (\d+)/.exec(userAgent) ? `Android ${/Android (\d+)/.exec(userAgent)![1]}` : 'sistema não identificado';
+  const browser = /EdgiOS|EdgA|Edg\//.test(userAgent)
+    ? 'Edge'
+    : /CriOS|Chrome\//.test(userAgent)
+    ? 'Chrome'
+    : /FxiOS|Firefox\//.test(userAgent)
+    ? 'Firefox'
+    : /Version\/[\d.]+.*Safari/.test(userAgent)
+    ? 'Safari'
+    : 'WebKit';
+  return `versão ${version} · ${standalone ? 'APP INSTALADO (PWA)' : 'NAVEGADOR'} · ${system} · ${browser}`;
+}

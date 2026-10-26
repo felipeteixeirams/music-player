@@ -28,7 +28,7 @@ test('a tela pergunta ao cache compartilhado, em lote, por quais faixas já têm
   expect(new Set(asked).size).toBe(asked.length);
 });
 
-test('faixa que já está no cache toca sem esperar o servidor: nenhuma busca no toque', async ({ page }) => {
+test('INV-PLAY-02: faixa que já está no cache toca sem esperar o servidor: nenhuma busca no toque', async ({ page }) => {
   const requests = await openApp(page, { videoIds: [SEARCHED], cachedVideos: { [TOP_HITS[0].id]: [CACHED] }, lookups: [] });
   // Give the lookup time to answer before the tap
   await expect.poll(() => requests.length).toBeGreaterThan(0);
@@ -48,7 +48,7 @@ test('faixa que ninguém tocou ainda faz a busca no toque, uma vez só', async (
   expect(resolveCalls(requests)).toHaveLength(1);
 });
 
-test('o que foi descoberto fica no aparelho: tocar de novo depois de recarregar não pergunta nada', async ({ page }) => {
+test('INV-PLAY-02: o que foi descoberto fica no aparelho: tocar de novo depois de recarregar não pergunta nada', async ({ page }) => {
   const requests = await openApp(page, { videoIds: [SEARCHED], lookups: [] });
   await topHit(page, 1).click();
   await expect(player(page)).toHaveAttribute('src', new RegExp(SEARCHED));

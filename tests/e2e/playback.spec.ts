@@ -13,7 +13,7 @@ async function openApp(page: Page, options: Parameters<typeof stubApi>[1]) {
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
 }
 
-test('a faixa completa que o navegador não deixa começar sozinha não finge que toca: avisa e o ▶ resolve', async ({ page }) => {
+test('INV-PLAY-01: a faixa completa que o navegador não deixa começar sozinha não finge que toca: avisa e o ▶ resolve', async ({ page }) => {
   await openApp(page, { videoIds: [FIRST] });
   await topHit(page).click();
   await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
@@ -45,12 +45,14 @@ test('o diagnóstico de reprodução conta o que aconteceu, nos Ajustes', async 
 
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  // The report opens with the build and whether this is the installed app or a browser tab
+  await expect(page.getByTestId('playback-environment')).toContainText(/versão .+ · NAVEGADOR · /);
   const log = page.getByTestId('playback-log');
   await expect(log).toContainText('toque em "Primeira Faixa"');
   await expect(log).toContainText('começou a tocar (áudio do navegador)');
 });
 
-test('sair do app e voltar com a prévia tocando não pausa a faixa nem avisa nada', async ({ page }) => {
+test('INV-PLAY-05: sair do app e voltar com a prévia tocando não pausa a faixa nem avisa nada', async ({ page }) => {
   await openApp(page, { previewUrl: silentClip(12) });
   await topHit(page).click();
   await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();

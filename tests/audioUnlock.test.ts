@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { isUnlockClip, SILENT_CLIP, unlockAudioElement } from '../src/utils/audioUnlock';
-import { clearPlaybackLog, formatPlaybackLog, getPlaybackLog, logPlayback, subscribePlaybackLog } from '../src/utils/playbackDiagnostics';
+import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, logPlayback, subscribePlaybackLog } from '../src/utils/playbackDiagnostics';
 
 function fakeAudio(initialSrc = '', playResult: 'ok' | 'rejects' = 'ok') {
   let src = initialSrc;
@@ -29,7 +29,7 @@ test('o clipe de silêncio é um WAV curto e válido', () => {
   assert.ok(bytes.length < 2000);
 });
 
-test('unlockAudioElement toca o clipe num elemento parado', () => {
+test('INV-PLAY-04: unlockAudioElement toca o clipe num elemento parado', () => {
   const { audio, plays, src } = fakeAudio();
   unlockAudioElement(audio);
   assert.equal(plays(), 1);
@@ -37,7 +37,7 @@ test('unlockAudioElement toca o clipe num elemento parado', () => {
   assert.equal(isUnlockClip(audio), true);
 });
 
-test('unlockAudioElement não mexe num elemento que já tem uma faixa carregada', () => {
+test('INV-PLAY-04: unlockAudioElement não mexe num elemento que já tem uma faixa carregada', () => {
   const { audio, plays, src } = fakeAudio('https://cdn/faixa.mp3');
   unlockAudioElement(audio);
   assert.equal(plays(), 0);
@@ -71,4 +71,17 @@ test('o registro de reprodução guarda os últimos eventos, avisa quem assina e
   assert.match(formatPlaybackLog(entries.slice(-1)), /evento 69$/);
   clearPlaybackLog();
   assert.deepEqual(getPlaybackLog(), []);
+});
+
+test('o ambiente do relatório diz versão, se é o app instalado ou o navegador, o sistema e o navegador', () => {
+  const edgeIos = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 EdgiOS/124.2478.50 Mobile/15E148 Safari/605.1.15';
+  const safariIos = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1';
+  const pwaIos = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+  const chromeAndroid = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+
+  assert.equal(describeEnvironment({ version: 'abc123', standalone: false, userAgent: edgeIos }), 'versão abc123 · NAVEGADOR · iOS 17.5 · Edge');
+  assert.equal(describeEnvironment({ version: 'abc123', standalone: false, userAgent: safariIos }), 'versão abc123 · NAVEGADOR · iOS 16.6 · Safari');
+  assert.equal(describeEnvironment({ version: 'abc123', standalone: true, userAgent: pwaIos }), 'versão abc123 · APP INSTALADO (PWA) · iOS 17.5 · WebKit');
+  assert.equal(describeEnvironment({ version: 'dev', standalone: false, userAgent: chromeAndroid }), 'versão dev · NAVEGADOR · Android 14 · Chrome');
+  assert.match(describeEnvironment({ version: 'x', standalone: false, userAgent: '' }), /sistema não identificado/);
 });

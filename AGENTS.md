@@ -106,3 +106,13 @@ No iPhone um áudio só começa por causa de um toque e logo depois dele: nada q
 ## Vídeo conhecido antes do toque
 
 Tocar uma faixa não deve esperar a rede quando o vídeo já é conhecido: `resolveFullTrack` responde na hora com o que o aparelho guarda (`ResolvedStore`) e `prefetchResolved` (carrosséis, listas e a fila) pergunta em lote ao cache compartilhado (`POST /api/resolve` com `lookup`, que nunca busca nem gasta cota). Ao criar uma lista ou carrossel de faixas novo, chame `prefetchResolved`; ao mexer no cache do servidor, mantenha as duas chaves (id do catálogo e música, `cacheKeysFor`) e a denúncia que limpa as duas. A única coisa que gasta busca do YouTube é a resolução no toque de uma faixa que ninguém tocou.
+
+## Triagem: relato de problema ou "regressão"
+
+Antes de dizer que algo regrediu (ou que "não tem como resolver"), nesta ordem:
+
+1. **Ambiente:** é o app instalado (PWA, sem barra de endereço) ou o navegador? Qual versão do app? O relatório de Ajustes > Diagnóstico de reprodução abre com isso (versão, `APP INSTALADO (PWA)` ou `NAVEGADOR`, sistema e navegador): peça-o inteiro.
+2. **Matriz:** a linha da [matriz de compatibilidade](docs/specs/current/compatibility-matrix.spec.md) para essa capacidade e esse ambiente diz ✅, ❌ ou ⬜? ❌ já conhecido é limite, não regressão; ✅ que agora falha é regressão, e o PR suspeito entra na observação da linha.
+3. **Roteiro e histórico:** o item do [roteiro de validação](docs/specs/current/validation-checklist.spec.md) tem resultado registrado? O que mudou nos arquivos da capacidade desde então (`git log -- <arquivos>`)?
+4. **Evidência antes de afirmar:** não escreva "o iPhone sempre faz X" ou "não há como evitar" sem uma linha da matriz ou um teste que o prove; diga "hipótese" quando for suposição. Ao confirmar ou desmentir algo no aparelho, atualize a matriz no mesmo dia.
+5. **Regra dos invariantes:** cada master lista invariantes (`INV-…`) e `tests/docs.test.ts` exige um teste que cite cada um. Ao criar ou mudar uma regra que não pode quebrar, dê-lhe um id no master e ponha o id no título do teste que a garante.
