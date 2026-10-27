@@ -133,6 +133,15 @@ test('INV-LIVE-04: a Rádio lista emissoras ao vivo por estilo, toca uma delas p
   expect(apiRequests.some((r) => r.startsWith('/api/resolve?') && !r.includes('usage'))).toBe(false);
 });
 
+test('INV-UI-01: carrosséis e listas não mostram o total de faixas', async ({ page }) => {
+  await expect(page.getByRole('region', { name: 'Top Hits' })).toBeVisible();
+  await expect(page.getByText(/^\d+ (de \d+ )?faixas?$/)).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Ver todas as faixas de Top Hits' }).click();
+  await expect(page.getByRole('heading', { name: 'Top Hits' }).first()).toBeVisible();
+  await expect(page.getByText(/^\d+ (de \d+ )?faixas?$/)).toHaveCount(0);
+});
+
 test('o menu de ajustes abre o gerenciador de cache', async ({ page }) => {
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: /Gerenciar cache local/ }).click();

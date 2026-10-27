@@ -10,7 +10,6 @@ interface TrackCarouselProps {
   tracks: Track[];
   onTrackSelect: (track: Track) => void;
   /** Size of the whole collection when `tracks` is only its first page. */
-  totalCount?: number;
   /** Opens the whole collection. */
   onSeeAll?: () => void;
 }
@@ -20,7 +19,6 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
   subtitle,
   tracks,
   onTrackSelect,
-  totalCount,
   onSeeAll
 }) => {
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked } = useAudio();
@@ -45,9 +43,6 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
           )}
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
-          <span className="text-[13px] text-label-secondary tabular-nums">
-            {totalCount ?? tracks.length} {(totalCount ?? tracks.length) === 1 ? 'faixa' : 'faixas'}
-          </span>
           {onSeeAll && (
             <button
               onClick={onSeeAll}

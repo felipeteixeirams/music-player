@@ -21,7 +21,6 @@ interface TrackListProps {
   onRemove?: (track: Track) => void;
   emptyMessage?: string;
   /** Total in the whole list when it is loaded page by page; shown as "N de TOTAL". */
-  totalCount?: number;
   /** Pagination: pass `onLoadMore` to load the next page as the end of the list nears the screen. */
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -42,7 +41,6 @@ export const TrackList: React.FC<TrackListProps> = ({
   onTrackSelect,
   onRemove,
   emptyMessage = 'Nenhuma faixa encontrada nesta seção.',
-  totalCount,
   hasMore = false,
   isLoadingMore = false,
   error = null,
@@ -152,11 +150,6 @@ export const TrackList: React.FC<TrackListProps> = ({
       {title && (
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-[22px] font-bold text-label tracking-tight">{title}</h2>
-          <span className="text-[13px] text-label-tertiary tabular-nums">
-            {totalCount !== undefined && totalCount > tracks.length
-              ? `${tracks.length} de ${totalCount} faixas`
-              : `${tracks.length} ${tracks.length === 1 ? 'faixa' : 'faixas'}`}
-          </span>
         </div>
       )}
 
