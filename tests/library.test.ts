@@ -20,9 +20,8 @@ test('groupByAlbum separa álbuns iguais de artistas diferentes', () => {
 });
 
 test('tracksOf, libraryTitle e libraryParent seguem a navegação', () => {
-  assert.equal(tracksOf({ kind: 'artist', name: 'Oasis' }, liked, []).length, 3);
-  assert.equal(tracksOf({ kind: 'album', name: 'Be Here Now', artist: 'Oasis' }, liked, []).length, 1);
-  assert.equal(tracksOf({ kind: 'downloads' }, liked, [liked[0]]).length, 1);
+  assert.equal(tracksOf({ kind: 'artist', name: 'Oasis' }, liked).length, 3);
+  assert.equal(tracksOf({ kind: 'album', name: 'Be Here Now', artist: 'Oasis' }, liked).length, 1);
   assert.equal(libraryTitle(null), 'Biblioteca');
   assert.equal(libraryTitle({ kind: 'artist', name: 'Oasis' }), 'Oasis');
   assert.deepEqual(libraryParent({ kind: 'artist', name: 'x' }), { kind: 'artists' });

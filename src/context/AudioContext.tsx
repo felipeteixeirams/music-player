@@ -9,7 +9,6 @@ import {
   prefetchResolved,
   knownVideoIds
 } from '../utils/audioEngine';
-import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
 import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
@@ -616,28 +615,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentTrack(track);
     setDuration(track.duration);
     setCurrentTime(0);
-
-    // 1. First priority: Check if track is cached for offline playback
-    if (isTrackOfflineAvailable(track.id, storage)) {
-      const offlineBlobUrl = await getOfflineAudioUrl(track.id);
-      if (offlineBlobUrl && audioRef.current) {
-        pauseAudio();
-        audioRef.current.src = offlineBlobUrl;
-        setActiveEngine('native');
-        setAudioStreamUrl(offlineBlobUrl);
-        setPlaybackStatus({ quality: 'Offline Cache', instanceUsed: 'Local Cache Storage' });
-        if (shouldPlay) {
-          try {
-            await audioRef.current.play();
-            setIsPlaying(true);
-          } catch (err) {
-            console.warn('Offline stream playback notice:', err);
-          }
-        }
-        setIsBuffering(false);
-        return;
-      }
-    }
 
     // 2. Full recording of a catalog track: find its YouTube video and play it in the headless engine
     let quotaExceeded = false;
