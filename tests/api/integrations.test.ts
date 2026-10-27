@@ -1,3 +1,4 @@
+import { CATEGORY_IDS } from '../../api/_categories';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -198,8 +199,8 @@ test('feed endpoint returns the first page of every category and a featured trac
 
   const body = response.body as { categories: Record<string, { tracks: any[]; total: number; nextIndex: number | null }>; featured: any };
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(Object.keys(body.categories).sort(), ['alternative-pop', 'classic-rock', 'lofi-chill', 'synthwave', 'top-hits']);
-  assert.equal(requested.length, 5);
+  assert.deepEqual(Object.keys(body.categories).sort(), [...CATEGORY_IDS].sort());
+  assert.equal(requested.length, CATEGORY_IDS.length);
   assert.ok(requested.every((url) => /\/playlist\/\d+\/tracks\?index=0&limit=15$/.test(url)), requested.join('\n'));
   for (const category of Object.values(body.categories)) {
     assert.equal(category.tracks.length, 2);

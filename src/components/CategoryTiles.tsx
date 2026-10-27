@@ -6,6 +6,15 @@ import type { TrackPage } from '../types/music';
 /** Tile color of each collection; the collection's first cover is laid over it as a duotone. */
 const TILE_COLORS: Record<string, string> = {
   'top-hits': '#e8344b',
+  sertanejo: '#d98b2b',
+  pagode: '#2fa36b',
+  funk: '#c43fd0',
+  forro: '#d4a017',
+  mpb: '#3f9b4f',
+  gospel: '#3a8fd6',
+  'pop-internacional': '#e0507a',
+  'hip-hop': '#6b7a8f',
+  eletronica: '#1fa3c4',
   'classic-rock': '#d98b2b',
   'alternative-pop': '#e0507a',
   'lofi-chill': '#5b7fe8',

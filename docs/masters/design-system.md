@@ -35,6 +35,7 @@ O app segue a linguagem visual do Apple Music: fundo preto, texto branco com ní
 
 - **INV-UI-01:** carrosséis e listas não mostram o total de faixas (o "100 faixas" era o tamanho da playlist do catálogo, sem sentido para quem ouve); só o que está carregado é mostrado, e o resto chega pela rolagem.
 - **INV-UI-04:** Ajustes > Aparência (Automático, Claro, Escuro) é escolha do aparelho (`aurastream_appearance` em `localStorage`, `src/utils/appearance.ts`). Automático segue o sistema só no navegador (no app instalado fica escuro); Claro e Escuro valem em qualquer modo. A classe `scheme-light` em `<html>` é aplicada antes da primeira pintura (script em `index.html`). No app instalado em Claro, a faixa sobre a barra de status (`.status-strip`) fica preta, pois o iOS fixa o texto dela em branco (hipótese: conferir no aparelho).
+- **INV-UI-05:** a home abre com a prateleira "Tocadas recentemente" (as últimas 20 faixas distintas do histórico) só quando há histórico; depois vêm as coleções, uma por playlist editorial do Deezer (`api/_categories.ts`: Top Hits, Sertanejo, Pagode e Samba, Funk, Forró, MPB, Gospel, Pop Internacional, Rap e Hip Hop, Eletrônica, Classic Rock, Alternative, Lofi, Synthwave). O feed e as páginas de coleção ficam 30 min no CDN (antes 2 h e 1 h), para a home refletir as playlists atualizadas pelos editores.
 
 ## Atualização deste master
 

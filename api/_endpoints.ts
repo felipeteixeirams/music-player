@@ -18,7 +18,7 @@ export async function feedEndpoint(): Promise<EndpointResult> {
   const hasTracks = Object.values(feed.categories).some((page) => page.tracks.length > 0);
   // A feed with every category empty means the catalog is down: do not let the CDN keep it.
   if (!hasTracks) return failure(502, 'Não foi possível carregar as coleções agora');
-  return { status: 200, body: feed, cacheControl: 's-maxage=7200, stale-while-revalidate=86400' };
+  return { status: 200, body: feed, cacheControl: 's-maxage=1800, stale-while-revalidate=3600' };
 }
 
 export async function categoryEndpoint(query: { id?: unknown; index?: unknown; limit?: unknown }): Promise<EndpointResult> {
@@ -30,7 +30,7 @@ export async function categoryEndpoint(query: { id?: unknown; index?: unknown; l
   try {
     const page = await fetchCategoryPage(id, { index, limit });
     console.log(`[Category] ✅ ${id} index=${index} → ${page.tracks.length} faixa(s) de ${page.total} em ${Date.now() - startTime}ms`);
-    return { status: 200, body: page, cacheControl: 's-maxage=3600, stale-while-revalidate=86400' };
+    return { status: 200, body: page, cacheControl: 's-maxage=1800, stale-while-revalidate=3600' };
   } catch (err: any) {
     console.warn(`[Category] ⚠️ ${id} index=${index} falhou: ${err?.message || err}`);
     return failure(502, 'Não foi possível carregar esta coleção agora');
