@@ -28,6 +28,33 @@ test('INV-PLAY-01: a faixa completa que o navegador não deixa começar sozinha 
   await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
 });
 
+test('INV-PLAY-07: faixa nova com prévia toca a prévia no primeiro toque enquanto o vídeo carrega, e "Ouvir completa" assume', async ({ page }) => {
+  await openApp(page, { videoIds: [FIRST], previewUrl: silentClip(20) });
+  // The search for a track nobody played yet takes a while: the preview must not wait for it
+  await page.route('**/api/resolve?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
+  });
+  await topHit(page).click();
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+
+  // Sound before the video is even known, and no "the iPhone did not let it start" notice
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  await expect(page.getByTestId('playback-log')).toContainText('começou a tocar (áudio do navegador)');
+  await page.getByRole('button', { name: 'Fechar ajustes' }).click();
+  await expect(page.getByText(/não deixou a música começar sozinha/)).toHaveCount(0);
+
+  // The video's player loads but is not allowed to start: the preview keeps playing and the full track is a button
+  const full = page.getByRole('button', { name: 'Ouvir completa' });
+  await expect(full).toBeVisible({ timeout: 15_000 });
+  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+
+  await full.click();
+  await expect(full).toHaveCount(0);
+  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+});
+
 test('a prévia toca no primeiro toque, sem aviso nem segundo toque', async ({ page }) => {
   await openApp(page, { previewUrl: silentClip(8) });
   await topHit(page).click();

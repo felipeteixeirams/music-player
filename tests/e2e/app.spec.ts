@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { nav, SILENT_PREVIEW, stubApi, TOP_HITS } from './fixtures';
+import { nav, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const COLLECTION_NAMES = ['Top Hits', 'Classic Rock', 'Alternative & Indie', 'Lofi Chill', 'Synthwave & Retrowave'];
 
@@ -314,7 +314,8 @@ test.describe('cota diária de faixas novas', () => {
   });
 
   test('com a cota acabada a faixa toca a prévia e avisa o motivo', async ({ page }) => {
-    await stubApi(page, { quotaExceeded: true, previewUrl: SILENT_PREVIEW });
+    // A real preview lasts 30 s: long enough for the answer about the quota to arrive while it plays
+    await stubApi(page, { quotaExceeded: true, previewUrl: silentClip(20) });
     await page.reload();
     await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
     await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();

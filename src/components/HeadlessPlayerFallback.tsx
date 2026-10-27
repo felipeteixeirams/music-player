@@ -24,7 +24,8 @@ export const HeadlessPlayerFallback: React.FC = () => {
     clearUserSeekRequest,
     handleFallbackError,
     engineStarted,
-    engineReady
+    engineReady,
+    trialVideoUrl
   } = useAudio();
 
   const playerRef = useRef<any>(null);
@@ -38,7 +39,9 @@ export const HeadlessPlayerFallback: React.FC = () => {
   }, [userSeekRequest, clearUserSeekRequest]);
 
   const isFallbackActive = activeEngine === 'fallback' && Boolean(audioStreamUrl);
-  const targetUrl = isFallbackActive ? audioStreamUrl : '';
+  // While the preview plays, the full track's player may already load (and take over when it starts)
+  const isTrial = !isFallbackActive && Boolean(trialVideoUrl);
+  const targetUrl = isFallbackActive ? audioStreamUrl : isTrial ? trialVideoUrl : '';
   const originUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
   return (
@@ -61,7 +64,7 @@ export const HeadlessPlayerFallback: React.FC = () => {
         <PlayerComponent
           ref={playerRef}
           src={targetUrl}
-          playing={isPlaying && isFallbackActive}
+          playing={isPlaying && (isFallbackActive || isTrial)}
           volume={isMuted ? 0 : volume}
           width="320px"
           height="180px"
@@ -85,12 +88,12 @@ export const HeadlessPlayerFallback: React.FC = () => {
           onDurationChange={(event: React.SyntheticEvent<HTMLMediaElement>) => {
             const d = event.currentTarget.duration;
             if (Number.isFinite(d) && d > 0) {
-              setDuration(Math.round(d));
-              engineReady();
+              if (!isTrial) setDuration(Math.round(d));
+              engineReady(d);
             }
           }}
           onTimeUpdate={(event: React.SyntheticEvent<HTMLMediaElement>) => {
-            updatePlaybackTime(event.currentTarget.currentTime);
+            if (!isTrial) updatePlaybackTime(event.currentTarget.currentTime);
           }}
           onPlaying={() => {
             engineStarted();
