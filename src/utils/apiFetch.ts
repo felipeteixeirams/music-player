@@ -1,4 +1,20 @@
 import { auth, getSessionFast, setSessionNotice, signOut } from './authClient';
+import { logPlayback } from './playbackDiagnostics';
+
+/** How long a request waits for the session library before going on (it can stall on iOS after the app was away). */
+const SESSION_WAIT_MS = 2500;
+const REFRESH_WAIT_MS = 6000;
+const TIMED_OUT = Symbol('timed out');
+
+function within<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMED_OUT> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(TIMED_OUT), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); }
+    );
+  });
+}
 
 /**
  * fetch for the app's own /api routes: sends the login with the request. A 401 means the token went stale (or the
@@ -7,7 +23,9 @@ import { auth, getSessionFast, setSessionNotice, signOut } from './authClient';
  */
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const send = async () => {
-    const session = await getSessionFast();
+    const waited = await within(getSessionFast(), SESSION_WAIT_MS);
+    if (waited === TIMED_OUT) logPlayback(`a sessão demorou mais de ${SESSION_WAIT_MS / 1000} s para responder: o pedido seguiu sem esperar`);
+    const session = waited === TIMED_OUT ? null : waited;
     const headers = new Headers(init.headers);
     if (session) headers.set('Authorization', `Bearer ${session.access_token}`);
     return fetch(input, { ...init, headers });
@@ -16,7 +34,13 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
   const response = await send();
   if (response.status !== 401 || !auth) return response;
 
-  const { data, error } = await auth.refreshSession();
+  const refreshed = await within(auth.refreshSession(), REFRESH_WAIT_MS);
+  if (refreshed === TIMED_OUT) {
+    // The session was not judged (the library stalled): never end it for that, only answer this request as refused
+    logPlayback(`a renovação da sessão demorou mais de ${REFRESH_WAIT_MS / 1000} s: a sessão foi mantida`);
+    return response;
+  }
+  const { data, error } = refreshed;
   if (data.session) {
     const retry = await send();
     if (retry.status !== 401) return retry;

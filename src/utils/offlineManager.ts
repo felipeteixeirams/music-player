@@ -1,6 +1,8 @@
 import { Track } from '../types/music';
 import { apiFetch } from './apiFetch';
+import { fetchFreshPreviewUrl } from './catalogClient';
 import { OFFLINE_META_KEY, OFFLINE_TRACKS_KEY } from './offlineKeys';
+import { isPreviewStale } from './previewUrl';
 import { scopedStorage, type KeyValueStorage } from './scopedStorage';
 
 /**
@@ -72,7 +74,9 @@ export async function downloadTrackForOffline(
     // Catalog previews: the CDN sends no CORS headers, so the copy goes through the same-origin proxy.
     // A full track playing from YouTube cannot be downloaded; only the 30s preview is stored.
     if (previewUrl) {
-      resolvedAudioUrl = `/api/audio?url=${encodeURIComponent(previewUrl)}`;
+      // The catalog's signed address expires in ~15 minutes while lists live for hours: renew an old one first
+      const address = isPreviewStale(previewUrl) ? (await fetchFreshPreviewUrl(track.id)) ?? previewUrl : previewUrl;
+      resolvedAudioUrl = `/api/audio?url=${encodeURIComponent(address)}`;
     } else if (!resolvedAudioUrl || resolvedAudioUrl.includes('youtube.com/watch')) {
       if (track.sources.localUrl) {
         resolvedAudioUrl = track.sources.localUrl;
@@ -89,7 +93,12 @@ export async function downloadTrackForOffline(
     const cache = await caches.open(OFFLINE_CACHE_NAME);
 
     // Fetch and cache audio stream response
-    const audioRes = await (resolvedAudioUrl.startsWith('/api/') ? apiFetch(resolvedAudioUrl) : fetch(resolvedAudioUrl, { mode: 'cors' })).catch(() => null);
+    let audioRes = await (resolvedAudioUrl.startsWith('/api/') ? apiFetch(resolvedAudioUrl) : fetch(resolvedAudioUrl, { mode: 'cors' })).catch(() => null);
+    // Refused although the address looked valid (a clock a bit off, a signature revoked): one new address
+    if ((!audioRes || !audioRes.ok) && previewUrl && track.id.startsWith('deezer-')) {
+      const fresh = await fetchFreshPreviewUrl(track.id);
+      if (fresh && fresh !== previewUrl) audioRes = await apiFetch(`/api/audio?url=${encodeURIComponent(fresh)}`).catch(() => null);
+    }
     if (!audioRes || !audioRes.ok) {
       return { success: false, error: 'Falha na conexão ao baixar o arquivo de áudio.' };
     }
