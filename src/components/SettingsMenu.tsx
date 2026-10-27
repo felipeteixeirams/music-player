@@ -4,6 +4,9 @@ import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
 import { PlaybackDiagnostics } from './PlaybackDiagnostics';
+import { APPEARANCES, readAppearance, saveAppearance, type Appearance } from '../utils/appearance';
+
+const APPEARANCE_LABELS: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -15,6 +18,7 @@ interface SettingsMenuProps {
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onOpenCacheSettings }) => {
   const { enabled, email, signOut } = useAuth();
   const [usage, setUsage] = useState<DailyUsage | null>(null);
+  const [appearance, setAppearance] = useState<Appearance>(readAppearance);
 
   useEffect(() => {
     if (!isOpen || !enabled) return;
@@ -47,6 +51,28 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        <div className="rounded-card bg-fill-tertiary px-3 py-2.5">
+          <p className="mb-2 text-[15px] text-label">Aparência</p>
+          <div role="radiogroup" aria-label="Aparência" className="flex rounded-lg bg-fill-tertiary p-0.5">
+            {APPEARANCES.map((value) => (
+              <button
+                key={value}
+                role="radio"
+                aria-checked={appearance === value}
+                onClick={() => {
+                  setAppearance(value);
+                  saveAppearance(value);
+                }}
+                className={`flex-1 rounded-md py-1 text-[13px] transition-colors ${
+                  appearance === value ? 'bg-segment font-semibold text-label shadow-sm' : 'text-label-secondary'
+                }`}
+              >
+                {APPEARANCE_LABELS[value]}
+              </button>
+            ))}
+          </div>
         </div>
 
         <button

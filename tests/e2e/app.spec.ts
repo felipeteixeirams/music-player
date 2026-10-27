@@ -345,3 +345,18 @@ test.describe('cota diária de faixas novas', () => {
     await expect(page.getByText(/limite de faixas novas de hoje/).first()).toBeVisible();
   });
 });
+
+test('INV-UI-04: Ajustes > Aparência troca o esquema e lembra a escolha', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/');
+  const root = page.locator('html');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  const group = page.getByRole('radiogroup', { name: 'Aparência' });
+  await group.getByRole('radio', { name: 'Claro' }).click();
+  await expect(root).toHaveClass(/scheme-light/);
+  await page.reload();
+  await expect(root).toHaveClass(/scheme-light/);
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('radiogroup', { name: 'Aparência' }).getByRole('radio', { name: 'Escuro' }).click();
+  await expect(root).not.toHaveClass(/scheme-light/);
+});
