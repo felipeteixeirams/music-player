@@ -83,3 +83,18 @@ export interface LiveRadioGroup {
   name: string;
   stations: LiveStation[];
 }
+
+/** An artist of the online catalog: what the search lists and the artist page opens with. */
+export interface ArtistSummary {
+  id: string;
+  name: string;
+  pictureUrl: string;
+  /** Followers on Deezer; 0 when unknown. */
+  fans: number;
+}
+
+/** Artist page: the artist and the most played tracks, one page at a time. */
+export interface ArtistPage {
+  artist: ArtistSummary;
+  top: TrackPage;
+}

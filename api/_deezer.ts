@@ -1,4 +1,4 @@
-import type { FeedResponse, RadioGenre, Track, TrackPage } from '../src/types/music';
+import type { ArtistPage, ArtistSummary, FeedResponse, RadioGenre, Track, TrackPage } from '../src/types/music';
 import { CATEGORY_IDS, CATEGORY_PLAYLISTS, type CategoryId } from './_categories.js';
 import { RADIO_GENRES, type RadioStationConfig } from './_radios.js';
 
@@ -123,6 +123,41 @@ export async function searchDeezerPage(query: string, options: DeezerPageOptions
     options.fetchImpl
   );
   return mapDeezerPage(payload, { ...options, index });
+}
+
+export function mapDeezerArtist(input: unknown): ArtistSummary | null {
+  const item = asRecord(input);
+  if (!item) return null;
+  const rawId = typeof item.id === 'number' || typeof item.id === 'string' ? String(item.id) : '';
+  const name = asText(item.name);
+  if (!/^\d+$/.test(rawId) || !name) return null;
+  const fans = item.nb_fan;
+  return {
+    id: rawId,
+    name,
+    pictureUrl: asHttpUrl(item.picture_big) ?? asHttpUrl(item.picture_medium) ?? asHttpUrl(item.picture_xl) ?? FALLBACK_COVER,
+    fans: typeof fans === 'number' && Number.isFinite(fans) && fans > 0 ? Math.round(fans) : 0
+  };
+}
+
+/** The artists whose name matches the text, best first (Deezer orders by relevance). */
+export async function searchDeezerArtists(query: string, limit = 3, fetchImpl?: FetchLike): Promise<ArtistSummary[]> {
+  const payload = await requestDeezer(`/search/artist?q=${encodeURIComponent(query)}&limit=${limit}`, fetchImpl);
+  const data = asRecord(payload)?.data;
+  if (!Array.isArray(data)) return [];
+  return data.map(mapDeezerArtist).filter((artist): artist is ArtistSummary => artist !== null);
+}
+
+/** The artist and a page of their most played tracks. */
+export async function fetchArtistPage(artistId: string, options: DeezerPageOptions = {}): Promise<ArtistPage> {
+  const index = options.index ?? 0;
+  const [info, top] = await Promise.all([
+    requestDeezer(`/artist/${artistId}`, options.fetchImpl),
+    requestDeezer(`/artist/${artistId}/top?index=${index}&limit=${options.limit ?? 20}`, options.fetchImpl)
+  ]);
+  const artist = mapDeezerArtist(info);
+  if (!artist) throw new Error('Artista não encontrado');
+  return { artist, top: mapDeezerPage(top, { ...options, index, style: artist.name }) };
 }
 
 export async function searchDeezerTracks(query: string, options: DeezerPageOptions = {}): Promise<Track[]> {

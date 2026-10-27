@@ -34,7 +34,9 @@ import { CATEGORIES, getCategoryById } from './data/musicCatalog';
 import { Play, Sparkles, Globe, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { FeedResponse, Track } from './types/music';
 import { usePagedTracks } from './hooks/usePagedTracks';
-import { fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
+import { fetchArtistSearch, fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
+import { ArtistScreen } from './components/ArtistScreen';
+import type { ArtistSummary } from './types/music';
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
 const MIX_TRACKS_PER_CATEGORY = 2;
@@ -130,6 +132,7 @@ const MusicAppContent: React.FC = () => {
     setActiveTab(tab);
     // Each tab opens at its own first screen, not inside a collection left open elsewhere
     setSelectedCategoryId(null);
+    setSelectedArtist(null);
     // Tapping Library again goes back to its menu
     setLibraryView(null);
     // Text typed in the search box belongs to the search screen; left behind it would filter the others
@@ -153,6 +156,17 @@ const MusicAppContent: React.FC = () => {
     submittedSearch ? `search:${submittedSearch.id}:${submittedSearch.query}` : null,
     (index, signal) => fetchSearchPage(submittedSearch!.query, index, signal)
   );
+
+  // Artists matching the submitted search, and the artist page open on top of it
+  const [searchArtists, setSearchArtists] = useState<ArtistSummary[]>([]);
+  const [selectedArtist, setSelectedArtist] = useState<ArtistSummary | null>(null);
+  useEffect(() => {
+    setSearchArtists([]);
+    if (!submittedSearch) return;
+    const controller = new AbortController();
+    fetchArtistSearch(submittedSearch.query, controller.signal).then(setSearchArtists, () => undefined);
+    return () => controller.abort();
+  }, [submittedSearch]);
 
   const performOnlineSearch = useCallback(() => {
     const query = searchQuery.trim();
@@ -200,11 +214,14 @@ const MusicAppContent: React.FC = () => {
   }, [allLiveTracks, searchQuery, searchScope, likedTracks, activeTab]);
 
   const featuredTrack = feed?.featured ?? null;
-  const isSearchTab = activeTab === 'search' && !activeCategory;
-  const isRadioTab = activeTab === 'radio' && !activeCategory;
-  const isLibraryTab = activeTab === 'library' && !activeCategory;
+  const inDetail = Boolean(activeCategory || selectedArtist);
+  const isSearchTab = activeTab === 'search' && !inDetail;
+  const isRadioTab = activeTab === 'radio' && !inDetail;
+  const isLibraryTab = activeTab === 'library' && !inDetail;
   const hasTypedQuery = searchQuery.trim().length > 0;
-  const screenTitle = activeCategory
+  const screenTitle = selectedArtist
+    ? selectedArtist.name
+    : activeCategory
     ? activeCategory.name
     : isLibraryTab
     ? libraryTitle(libraryView, playlists)
@@ -222,14 +239,18 @@ const MusicAppContent: React.FC = () => {
         <TopBar
           title={screenTitle}
           onBack={
-            activeCategory
+            selectedArtist
+              ? () => setSelectedArtist(null)
+              : activeCategory
               ? () => setSelectedCategoryId(null)
               : isLibraryTab && libraryView
               ? () => setLibraryView(libraryParent(libraryView))
               : undefined
           }
           backLabel={
-            isLibraryTab && libraryView
+            selectedArtist
+              ? 'Buscar'
+              : isLibraryTab && libraryView
               ? libraryTitle(libraryParent(libraryView), playlists)
               : { home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab]
           }
@@ -260,7 +281,9 @@ const MusicAppContent: React.FC = () => {
         />
 
         <main className="flex-1 space-y-4">
-          {activeCategory ? (
+          {selectedArtist ? (
+            <ArtistScreen artistId={selectedArtist.id} />
+          ) : activeCategory ? (
             /* One collection, loaded page by page */
             <div className="pt-1 space-y-3">
               <p className="px-4 text-[13px] text-label-secondary">
@@ -315,6 +338,20 @@ const MusicAppContent: React.FC = () => {
                   <p className="text-xs">Buscando faixas online...</p>
                 </div>
               ) : onlineSearch.tracks.length > 0 ? (
+                <>
+                {searchArtists.length > 0 && (
+                  <section aria-label="Artistas" className="px-4 pb-2">
+                    <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">Artistas</h2>
+                    <div className="flex gap-4 overflow-x-auto">
+                      {searchArtists.map((artist) => (
+                        <button key={artist.id} onClick={() => setSelectedArtist(artist)} className="flex w-24 shrink-0 flex-col items-center gap-1.5 active:opacity-60">
+                          <img src={artist.pictureUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-24 w-24 rounded-full object-cover bg-fill-tertiary" />
+                          <span className="w-full truncate text-center text-[13px] text-label">{artist.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 <TrackList
                   tracks={onlineSearch.tracks}
                   title="Músicas Encontradas"
@@ -325,6 +362,7 @@ const MusicAppContent: React.FC = () => {
                   onLoadMore={onlineSearch.loadMore}
                   onRetry={onlineSearch.retry}
                 />
+                </>
               ) : submittedSearch || onlineSearch.error || hasTypedQuery ? (
                 <div className="px-4 py-10 text-center text-label-secondary text-xs space-y-2">
                   <div className="w-12 h-12 rounded-card bg-fill-tertiary flex items-center justify-center mx-auto text-accent">

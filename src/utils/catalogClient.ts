@@ -1,4 +1,4 @@
-import type { FeedResponse, LiveStation, RadioGenre, Track, TrackPage } from '../types/music';
+import type { ArtistPage, ArtistSummary, FeedResponse, LiveStation, RadioGenre, Track, TrackPage } from '../types/music';
 import { apiFetch } from './apiFetch';
 import { isPreviewStale } from './previewUrl';
 
@@ -56,6 +56,23 @@ export async function fetchSearchPage(query: string, index: number, signal?: Abo
   const body = await getJson(`/api/search?q=${encodeURIComponent(query)}&index=${index}`, signal);
   if (!isTrackPage(body)) throw new CatalogError('Resposta inesperada do servidor ao buscar.');
   return body as TrackPage & { source?: string };
+}
+
+const isArtist = (value: unknown): value is ArtistSummary => {
+  const artist = value as Partial<ArtistSummary> | null;
+  return Boolean(artist && typeof artist.id === 'string' && typeof artist.name === 'string' && typeof artist.pictureUrl === 'string');
+};
+
+/** The few artists whose name matches the text; empty when none does. */
+export async function fetchArtistSearch(query: string, signal?: AbortSignal): Promise<ArtistSummary[]> {
+  const body = (await getJson(`/api/search?artists=${encodeURIComponent(query)}`, signal)) as { artists?: unknown } | null;
+  return Array.isArray(body?.artists) ? body.artists.filter(isArtist) : [];
+}
+
+export async function fetchArtistPage(artistId: string, index: number, signal?: AbortSignal): Promise<ArtistPage> {
+  const body = (await getJson(`/api/search?artist=${encodeURIComponent(artistId)}&index=${index}`, signal)) as Partial<ArtistPage> | null;
+  if (!body || !isArtist(body.artist) || !isTrackPage(body.top)) throw new CatalogError('Resposta inesperada do servidor ao carregar o artista.');
+  return { artist: body.artist, top: body.top };
 }
 
 export async function fetchRadioGenres(signal?: AbortSignal): Promise<RadioGenre[]> {

@@ -1,6 +1,6 @@
 import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
-import { buildDeezerFeed, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks } from './_deezer.js';
+import { buildDeezerFeed, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
 import { findRadioStation } from './_radios.js';
 import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick } from './_radioBrowser.js';
 
@@ -41,10 +41,12 @@ export async function categoryEndpoint(query: { id?: unknown; index?: unknown; l
 const MAX_QUERY_LENGTH = 200;
 
 export async function searchEndpoint(
-  query: { q?: unknown; index?: unknown; limit?: unknown; preview?: unknown },
+  query: { q?: unknown; index?: unknown; limit?: unknown; preview?: unknown; artists?: unknown; artist?: unknown },
   fetchImpl?: typeof fetch
 ): Promise<EndpointResult> {
   if (query.preview !== undefined) return previewEndpoint(query.preview, fetchImpl);
+  if (query.artists !== undefined) return artistSearchEndpoint(query.artists, fetchImpl);
+  if (query.artist !== undefined) return artistEndpoint(query.artist, query, fetchImpl);
   const text = Array.isArray(query.q) ? query.q[0] : query.q;
   if (typeof text !== 'string' || !text.trim()) return failure(400, 'O parâmetro q é obrigatório');
   if (text.length > MAX_QUERY_LENGTH) return failure(400, `O parâmetro q aceita até ${MAX_QUERY_LENGTH} caracteres`);
@@ -62,6 +64,36 @@ export async function searchEndpoint(
   } catch (err: any) {
     console.warn(`[Search] ⚠️ Falha em todos os catálogos para "${text.trim()}": ${err?.message || err}`);
     return failure(502, 'Não foi possível buscar agora');
+  }
+}
+
+const firstText = (value: unknown): unknown => (Array.isArray(value) ? value[0] : value);
+
+/** `GET /api/search?artists=<text>`: the few artists whose name matches. An empty list is a valid answer. */
+async function artistSearchEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<EndpointResult> {
+  const text = firstText(raw);
+  if (typeof text !== 'string' || !text.trim()) return failure(400, 'O parâmetro artists é obrigatório');
+  if (text.length > MAX_QUERY_LENGTH) return failure(400, `O parâmetro artists aceita até ${MAX_QUERY_LENGTH} caracteres`);
+  try {
+    const artists = await searchDeezerArtists(text.trim(), 3, fetchImpl);
+    return { status: 200, body: { artists }, cacheControl: artists.length > 0 ? 's-maxage=1800, stale-while-revalidate=3600' : undefined };
+  } catch (err: any) {
+    console.warn(`[Search] ⚠️ Artistas de "${text.trim()}" falharam: ${err?.message || err}`);
+    return failure(502, 'Não foi possível buscar artistas agora');
+  }
+}
+
+/** `GET /api/search?artist=<id>`: the artist and a page of their most played tracks. */
+async function artistEndpoint(raw: unknown, query: { index?: unknown; limit?: unknown }, fetchImpl?: typeof fetch): Promise<EndpointResult> {
+  const id = firstText(raw);
+  if (typeof id !== 'string' || !/^\d{1,12}$/.test(id)) return failure(400, 'Artista inválido');
+  const { index, limit } = readPageParams(query);
+  try {
+    const page = await fetchArtistPage(id, { index, limit, fetchImpl });
+    return { status: 200, body: page, cacheControl: 's-maxage=1800, stale-while-revalidate=3600' };
+  } catch (err: any) {
+    console.warn(`[Search] ⚠️ Artista ${id} falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível carregar este artista agora');
   }
 }
 
