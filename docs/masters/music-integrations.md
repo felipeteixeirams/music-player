@@ -55,7 +55,7 @@ Serviços atuais:
 - `api/_deezer.ts`: mapper e client Deezer compartilhados; `api/_categories.ts`: playlist de cada coleção; `api/_endpoints.ts`: lógica de feed, categoria e busca usada pelas funções da Vercel (`api/feed.ts`, `api/category.ts`, `api/search.ts`) e por `server.ts`, que só tratam HTTP/cache.
 - `tests/api/deezer.test.ts`: testes do mapper sem rede.
 - `api/_itunes.ts`, `api/_catalog.ts`: mapper/client iTunes e `searchCatalog` (Deezer primeiro, iTunes se falhar ou vier vazio), com `tests/api/itunes.test.ts`.
-- `api/_audioProxy.ts`, `api/audio.ts`, `tests/api/audioProxy.test.ts`: cópia same-origin de prévias para o download offline; só HTTPS e hosts `*.dzcdn.net`, `*.mzstatic.com`, `*.itunes.apple.com`, até 4 MB, sem redirecionamentos.
+- `api/_audioProxy.ts`, `api/audio.ts`, `tests/api/audioProxy.test.ts`: cópia same-origin de prévias, **sem uso desde 2026-10-28** (o download offline foi retirado; remover a rota quando o usuário decidir); só HTTPS e hosts `*.dzcdn.net`, `*.mzstatic.com`, `*.itunes.apple.com`, até 4 MB, sem redirecionamentos.
 - `src/utils/feedCache.ts`: cópia da última home no aparelho, mostrada quando não dá para atualizar.
 - `src/utils/playlists.ts`, `src/context/PlaylistsContext.tsx`, `src/components/AddToPlaylistSheet.tsx` e `src/components/Dialogs.tsx`: playlists criadas pelo usuário (guardadas no aparelho; ver o satélite).
 - `src/utils/likedTracks.ts`: biblioteca de favoritos com metadados (`aurastream_liked_track_objects`), migração dos ids antigos e testes.
@@ -114,7 +114,6 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-PREV-01:** o link de prévia do Deezer é assinado e vence em cerca de 15 minutos (`hdnea=exp=…`); o app lê o vencimento do próprio link e nunca dá por vencido um link sem assinatura (iTunes, rádios).
 - **INV-PREV-02:** `GET /api/search?preview=deezer-<id>` devolve um link novo de prévia, sem cache, e só aceita ids do Deezer.
 - **INV-PREV-03:** antes de tocar uma prévia com o link vencido (ou quando o navegador recusa o link com `NotSupportedError`), o app pede um link novo e toca, sem aviso nem segundo toque.
-- **INV-PREV-04:** o download de uma prévia também renova o link vencido antes de copiar o áudio (e tenta uma vez com um link novo se o primeiro for recusado).
 - **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (a contagem recomeça uma vez, por mais 6 s, quando o player do YouTube termina de carregar; 15 s numa rádio ao vivo, cuja transmissão pode demorar a começar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
 - **INV-PLAY-12:** uma rádio ao vivo tem 15 s para começar antes de o aviso aparecer: uma transmissão que demora 7 s a começar toca sem aviso.
 - **INV-PLAY-13:** com a prévia tocando, o player do YouTube é chamado uma vez só (ao carregar o vídeo): nem as tentativas por timer, nem os toques na tela, nem o ▶ o acordam. No aparelho (2026-10-28) cada tentativa de iniciar um vídeo que o iOS recusava tirava o som da prévia ao lado: ela tocava meio segundo e parava. Quem quer a faixa completa toca na faixa de novo (o vídeo já é conhecido).

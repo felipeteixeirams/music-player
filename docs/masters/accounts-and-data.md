@@ -87,8 +87,8 @@ Variável nova no código: declare-a em `.env.example` e em `DOCUMENTED_VARS` de
 - Primeiro login num aparelho com dados de antes das contas: quem entra primeiro leva os dados (as chaves antigas são apagadas, ninguém mais herda) e eles são mesclados com a conta; ids de playlist antigos que não eram uuid ganham um uuid.
 - A sincronização roda ao abrir, ao voltar ao primeiro plano (no máximo a cada 30 s) e ao voltar a conexão. Uma recusa definitiva da conta (por exemplo, um limite) devolve ao aparelho o estado da conta.
 - Os contextos não conhecem a sincronização: avisam `emitUserDataChanged()` depois de salvar e releem o armazenamento em `onUserDataApplied` (`src/utils/userDataEvents.ts`). "Limpar cache" não apaga mais favoritos: eles são da conta.
-- Downloads offline: a **lista** é por usuário no aparelho (chaves sufixadas pelo id, como favoritos e playlists), então duas pessoas no mesmo aparelho veem só o que cada uma baixou; quem entra primeiro leva a lista de antes das contas. Os **arquivos** de áudio ficam no CacheStorage do navegador, compartilhados por id da faixa: remover o download só apaga o arquivo quando ninguém mais do aparelho o lista. Não vão para a conta (são do aparelho).
-- Não sincronizado, de propósito: a lista de início salva e o limite de cache (do aparelho), e os próprios downloads.
+- Downloads offline: **retirados em 2026-10-28** (o botão guardava só a prévia de 30 s). `purgeLegacyDownloads` remove, uma vez por aparelho, o áudio guardado e as listas de todas as pessoas (INV-UI-03 no master de design).
+- Não sincronizado, de propósito: a lista de início salva e o limite de cache (do aparelho).
 
 ## Invariantes de contas e dados (não quebre)
 
@@ -99,7 +99,7 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-AUTH-03:** a resposta pública de `/api/health` traz só ids e níveis, nunca nomes de variáveis nem valores.
 - **INV-AUTH-04:** a tela de login responde igual para um e-mail com e sem convite.
 - **INV-CFG-01:** na Vercel a partida da função não consulta o Supabase (os serviços são conferidos por `/api/health?deep=1`); onde o processo é de longa duração (`server.ts`), a consulta ao subir continua.
-- **INV-DATA-01:** favoritos, playlists, downloads e histórico de uma pessoa nunca aparecem para outra no mesmo aparelho.
+- **INV-DATA-01:** favoritos, playlists e histórico de uma pessoa nunca aparecem para outra no mesmo aparelho.
 - **INV-DATA-02:** uma alteração feita sem conexão nunca é perdida pela cópia mais antiga da conta.
 
 ## Código proprietário

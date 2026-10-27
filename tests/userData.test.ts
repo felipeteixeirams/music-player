@@ -126,16 +126,3 @@ test('adoptLegacyData não faz nada sem dados antigos', () => {
   assert.equal(readSyncFlag(scopedStorage('u1', backing)), null);
 });
 
-test('adoptLegacyData também leva a lista de downloads ao primeiro usuário e a tira das chaves puras', () => {
-  const backing = memoryStorage();
-  const legacy = scopedStorage(null, backing);
-  legacy.setItem('aurastream_offline_track_ids', '["deezer-1"]');
-  legacy.setItem('aurastream_offline_track_meta', '{}');
-
-  adoptLegacyData(legacy, scopedStorage('u1', backing));
-  assert.equal(scopedStorage('u1', backing).getItem('aurastream_offline_track_ids'), '["deezer-1"]');
-  assert.equal(legacy.getItem('aurastream_offline_track_ids'), null);
-
-  adoptLegacyData(legacy, scopedStorage('u2', backing));
-  assert.equal(scopedStorage('u2', backing).getItem('aurastream_offline_track_ids'), null, 'a segunda pessoa não herda');
-});

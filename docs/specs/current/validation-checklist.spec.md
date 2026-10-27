@@ -88,7 +88,7 @@ Resultado de 2026-10-25: no navegador funcionou; só o app instalado (PWA) pausa
 4. Descurta uma e recarregue de novo.
 5. Se você tinha favoritos de antes das últimas versões, confira se eles aparecem quando a faixa reaparece em uma lista.
 
-Esperado: favoritos persistem entre recargas e não dependem do que o feed trouxe. "Downloads" lista as faixas baixadas (os downloads feitos antes desta versão só aparecem se a faixa também estiver nos favoritos).
+Esperado: favoritos persistem entre recargas e não dependem do que o feed trouxe.
 
 Se falhar: favorito que some indica problema em `src/utils/likedTracks.ts` ou limpeza do armazenamento do navegador (conferir se o modo anônimo ou a limpeza de cache não está ativo).
 
@@ -105,17 +105,9 @@ Se falhar: linhas parecidas que confundem justificam mostrar o álbum na linha d
 
 ## Rodada 4: offline e erros
 
-### T07: download offline de prévia
+### T07: download offline de prévia (retirado em 2026-10-28)
 
-1. Toque o ícone de download em uma faixa. O aviso deve dizer "Prévia de 30s ... salva para ouvir offline".
-2. Ative o modo avião e toque a faixa baixada. Deve tocar os 30s.
-3. Tente baixar uma faixa que só toca pelo YouTube (sem prévia). Deve aparecer a explicação de que faixas completas do YouTube não podem ser baixadas.
-4. Remova o download e confirme que o ícone volta ao estado normal.
-5. Abra o gerenciador de cache do app e confira o espaço usado.
-
-Esperado: a prévia toca offline, e o app nunca promete a música inteira offline.
-
-Se falhar: erro ao baixar indica o proxy `/api/audio` (conferir o log) ou limite de armazenamento do navegador.
+A função foi retirada: o botão guardava só a prévia de 30 s, o que enganava. Não há o que validar. Para conferir a limpeza: abra o app, vá em Biblioteca (não há "Downloads") e numa lista de faixas (não há botão de baixar).
 
 ### T08: estados de erro e recuperação
 
@@ -193,7 +185,7 @@ Se falhar: anote o nome da rádio. Uma transmissão fora do ar pede troca da URL
 ### T14: playlists
 
 1. Biblioteca > Playlists > "Nova playlist": digite um nome e toque em Criar; a playlist abre vazia.
-2. Em uma lista de faixas ("Ver tudo", Mix, busca ou Biblioteca) toque no botão de lista ao lado do download e escolha a playlist; toque de novo na mesma playlist para tirar a faixa; use "Nova playlist" na própria folha. No player completo há o mesmo botão ao lado do coração.
+2. Em uma lista de faixas ("Ver tudo", Mix, busca ou Biblioteca) toque no botão de lista ao lado do coração e escolha a playlist; toque de novo na mesma playlist para tirar a faixa; use "Nova playlist" na própria folha. No player completo há o mesmo botão ao lado do coração.
 3. Abra a playlist: "Tocar" toca do começo e a fila segue pelas faixas da playlist; o botão de menos remove uma faixa; o lápis renomeia; a lixeira apaga (com confirmação).
 4. Recarregue a página e feche e abra o app: as playlists e as faixas continuam.
 5. Confira uma faixa de playlist que já não aparece em nenhum feed: ela ainda toca.

@@ -27,8 +27,7 @@ Colunas de aparelho: **Navegador** é uma aba do Safari ou do Edge no iPhone (te
 | --- | --- | --- | --- | --- |
 | Entrar com o código por e-mail | ✅ (`tests/e2e/login.spec.ts`, Supabase simulado) | ⬜ | ✅ | 2026-10-26, relato do usuário: "o código chegou, consegui entrar" (envio por SMTP do Gmail). O modo exato (navegador ou instalado) não foi informado: confirmar. |
 | Favoritos e playlists só da conta, em dois aparelhos | ✅ (`tests/e2e/sync.spec.ts`) | ⬜ | ⬜ | Falta testar com dois aparelhos reais e duas contas. |
-| Dois usuários no mesmo aparelho não se misturam | ✅ (`tests/e2e/sync.spec.ts`, `downloads.spec.ts`, `history.spec.ts`) | ⬜ | ⬜ | |
-| Download offline de prévia | ✅ (`tests/e2e/downloads.spec.ts`) | ⬜ | ⬜ | |
+| Dois usuários no mesmo aparelho não se misturam | ✅ (`tests/e2e/sync.spec.ts`, `history.spec.ts`) | ⬜ | ⬜ | |
 | Histórico "Reproduzidas recentemente" | ✅ (`tests/e2e/history.spec.ts`) | ⬜ | ⬜ | |
 
 ## Como manter
