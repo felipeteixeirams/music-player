@@ -85,7 +85,7 @@ class YouTubeEngine {
   private iframe: HTMLIFrameElement | null = null;
   private api: YouTubeApi | null = null;
   private ready = false;
-  private queued: { id: string; play: boolean; retry: boolean } | null = null;
+  private queued: { id: string; play: boolean } | null = null;
   private videoId = '';
   private wantPlay = false;
   private volume = 1;
@@ -94,8 +94,6 @@ class YouTubeEngine {
   private retry: ReturnType<typeof setTimeout> | null = null;
   private retries = 0;
   private started = false;
-  /** Whether a start the browser refused is asked again (by timer and by touch). Off while a preview plays: see `load`. */
-  private retryEnabled = true;
 
   setEvents(events: YouTubeEvents | null): void {
     this.events = events;
@@ -165,15 +163,9 @@ class YouTubeEngine {
       });
   }
 
-  /**
-   * Plays this video (or only cues it, when `play` is false). Creates the frame if the tap had not.
-   * With `retry` off the player is asked to start once and then left alone: on the iPhone every attempt to start a
-   * video that the system refuses still takes the sound away from the preview playing beside it (measured: the
-   * preview stopped half a second after each ▶ while the player kept being asked to play).
-   */
-  load(videoId: string, play: boolean, retry = true): void {
+  /** Plays this video (or only cues it, when `play` is false). Creates the frame if the tap had not. */
+  load(videoId: string, play: boolean): void {
     this.prime();
-    this.retryEnabled = retry;
 
     this.videoId = videoId;
     this.wantPlay = play;
@@ -181,13 +173,13 @@ class YouTubeEngine {
     this.started = false;
     this.cancelRetry();
     if (!this.ready || !this.api) {
-      this.queued = { id: videoId, play, retry };
+      this.queued = { id: videoId, play };
       return;
     }
     this.queued = null;
     if (play) this.api.loadVideoById(videoId);
     else this.api.cueVideoById(videoId);
-    if (play && retry) this.armRetry();
+    if (play) this.armRetry();
   }
 
   play(): void {
@@ -196,7 +188,7 @@ class YouTubeEngine {
     if (this.queued) this.queued.play = true;
     if (!this.ready || !this.api) return;
     this.api.playVideo();
-    if (!this.started && this.retryEnabled) this.armRetry();
+    if (!this.started) this.armRetry();
   }
 
   pause(): void {
@@ -231,8 +223,8 @@ class YouTubeEngine {
     logPlayback('player do YouTube pronto');
     this.api?.setVolume(Math.round(this.volume * 100));
     if (this.queued) {
-      const { id, play, retry } = this.queued;
-      this.load(id, play, retry);
+      const { id, play } = this.queued;
+      this.load(id, play);
     }
   }
 
@@ -313,7 +305,7 @@ class YouTubeEngine {
   private lastNudgeAt = 0;
 
   private nudge = (): void => {
-    if (!this.retryEnabled || !this.wantPlay || this.started || !this.api || !this.ready || !this.videoId) return;
+    if (!this.wantPlay || this.started || !this.api || !this.ready || !this.videoId) return;
     // One touch raises pointerup, touchend and click: one attempt per touch
     const now = performance.now();
     if (now - this.lastNudgeAt < 600) return;

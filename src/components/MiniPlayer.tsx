@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { Play, Pause, SkipForward } from 'lucide-react';
+import { SkipForward } from 'lucide-react';
+import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { useAudio } from '../context/AudioContext';
 import { swipeAction } from '../utils/scrollChrome';
 
 export const MiniPlayer: React.FC = () => {
+  const playback = usePlaybackState();
   const {
     currentTrack,
-    isPlaying,
     togglePlayPause,
     playNext,
     playPrevious,
@@ -111,14 +112,11 @@ export const MiniPlayer: React.FC = () => {
                   e.stopPropagation();
                   togglePlayPause();
                 }}
-                aria-label={isPlaying ? 'Pausar música' : 'Reproduzir música'}
+                aria-label={playbackLabel(playback, { pause: 'Pausar música', play: 'Reproduzir música', loading: 'Carregando música' })}
+                aria-busy={playback === 'loading'}
                 className="w-10 h-10 rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
               >
-                {isPlaying ? (
-                  <Pause className="w-6 h-6 fill-current" />
-                ) : (
-                  <Play className="w-6 h-6 fill-current ml-0.5" />
-                )}
+                <PlaybackIcon state={playback} className="w-6 h-6" />
               </button>
 
               {!isLive && (

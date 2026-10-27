@@ -4,8 +4,6 @@ import {
   Heart,
   Shuffle,
   SkipBack,
-  Play,
-  Pause,
   SkipForward,
   Repeat,
   Repeat1,
@@ -26,8 +24,10 @@ import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
 import { PlaybackNotice } from './PlaybackNotice';
 import { useCoverColor } from '../hooks/useCoverColor';
 import { isLiveTrack } from '../utils/liveRadio';
+import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 
 export const ExpandedPlayer: React.FC = () => {
+  const playback = usePlaybackState();
   const {
     currentTrack,
     isPlaying,
@@ -405,14 +405,11 @@ export const ExpandedPlayer: React.FC = () => {
           {/* Prominent Play/Pause Button (68px Circular) */}
           <button
             onClick={togglePlayPause}
-            aria-label={isPlaying ? 'Pausar reprodução' : 'Iniciar reprodução'}
+            aria-label={playbackLabel(playback, { pause: 'Pausar reprodução', play: 'Iniciar reprodução', loading: 'Carregando reprodução' })}
+            aria-busy={playback === 'loading'}
             className="w-[68px] h-[68px] rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
           >
-            {isPlaying ? (
-              <Pause className="w-11 h-11 fill-current" />
-            ) : (
-              <Play className="w-11 h-11 fill-current ml-1" />
-            )}
+            <PlaybackIcon state={playback} className="w-11 h-11" playOffset="ml-1" />
           </button>
 
           {/* Next Track Button (a live broadcast has no next) */}

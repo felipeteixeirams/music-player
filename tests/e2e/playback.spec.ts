@@ -3,7 +3,7 @@ import { fakeYouTube, silentClip, stubApi } from './fixtures';
 
 const FIRST = 'AAAAAAAAAAA';
 const topHit = (page: Page) => page.locator('section[aria-label="Top Hits"] [role=button]').first();
-const miniPlay = (page: Page) => page.getByRole('button', { name: /^(Pausar|Reproduzir) música$/ });
+const miniPlay = (page: Page) => page.getByRole('button', { name: /^(Pausar|Reproduzir|Carregando) música$/ });
 
 async function openApp(page: Page, options: Parameters<typeof stubApi>[1]) {
   // The hidden YouTube player loads a blank page here: it never plays, like an iPhone that refuses to start it
@@ -16,22 +16,23 @@ async function openApp(page: Page, options: Parameters<typeof stubApi>[1]) {
 test('INV-PLAY-01: a faixa completa que o navegador não deixa começar sozinha não finge que toca: avisa e o ▶ resolve', async ({ page }) => {
   await openApp(page, { videoIds: [FIRST] });
   await topHit(page).click();
-  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+  // Until the sound starts the button says "loading", not "playing"
+  await expect(page.getByRole('button', { name: 'Carregando música' })).toBeVisible();
 
   // Seconds of silence: the screen admits it, and shows ▶ so the next tap (allowed by the browser) can start it
   await expect(page.getByText(/não deixou a música começar sozinha/).first()).toBeVisible({ timeout: 12_000 });
   await expect(miniPlay(page)).toHaveAccessibleName('Reproduzir música');
 
-  // The tap on ▶ takes the notice away at once and asks the player to play
+  // The tap on ▶ takes the notice away at once and asks the player to play (loading again until sound)
   await miniPlay(page).click();
   await expect(page.getByText(/não deixou a música começar sozinha/)).toHaveCount(0);
-  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+  await expect(miniPlay(page)).toHaveAccessibleName('Carregando música');
 });
 
-test('INV-PLAY-07: faixa nova com prévia toca a prévia no primeiro toque, e a faixa completa assume sozinha quando o player começa', async ({ page }) => {
+test('INV-PLAY-07: faixa nova não toca a prévia como ponte: o botão mostra carregamento e a faixa completa começa pelo player do YouTube', async ({ page }) => {
   await fakeYouTube(page);
   await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(20) });
-  // The search for a track nobody played yet takes a while: the preview must not wait for it
+  // The search for a track nobody played yet takes a while
   await page.route('**/api/resolve?*', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
@@ -39,16 +40,22 @@ test('INV-PLAY-07: faixa nova com prévia toca a prévia no primeiro toque, e a 
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   await topHit(page).click();
-  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+
+  // While the video is searched and the player starts: loading (a ring), no text, no preview
+  const button = page.getByRole('button', { name: 'Carregando música' });
+  await expect(button).toBeVisible();
+  await expect(button).toHaveAttribute('aria-busy', 'true');
+  await expect(button.locator('[data-state="loading"]')).toHaveCount(1);
+
+  // The full track starts: the same button now says "playing"
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('button [data-state="playing"]').first()).toBeAttached();
 
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
   const log = page.getByTestId('playback-log');
-  await expect(log).toContainText('começou a tocar (áudio do navegador)');
-  await expect(log).toContainText('faixa completa assumiu no lugar da prévia', { timeout: 10_000 });
-  await page.getByRole('button', { name: 'Fechar ajustes' }).click();
-  await expect(page.getByText(/não deixou a música começar sozinha/)).toHaveCount(0);
-  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+  await expect(log).toContainText('começou a tocar (player do YouTube)');
+  await expect(log).not.toContainText('áudio do navegador');
 });
 
 test('INV-PLAY-08: o player do YouTube é criado no toque, antes de o vídeo ser conhecido, e as faixas seguintes reaproveitam o mesmo', async ({ page }) => {
@@ -107,16 +114,17 @@ test('INV-PLAY-10: o player fica pronto antes do toque, sem tocar nada, e o toqu
   expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([]);
 
   await topHit(page).click();
-  // The preview starts at once; the player is not asked to play anything until the real video is known
-  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+  // Nothing is played while the real video is searched: the button waits (loading) and the player is not asked yet
+  await expect(page.getByRole('button', { name: 'Carregando música' })).toBeVisible();
   expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([]);
   await expect.poll(() => page.evaluate(() => (window as any).__yt.log[0])).toBe(`load:${FIRST}`);
   expect(await page.evaluate(() => (window as any).__yt.created)).toBe(1);
 });
 
-test('INV-PLAY-11: uma prévia recusada pelo navegador aparece no relatório e a faixa segue pelo player do YouTube, sem fingir que a prévia toca', async ({ page }) => {
+test('INV-PLAY-11: a prévia, que só toca quando não há faixa completa, se for recusada pelo navegador aparece no relatório', async ({ page }) => {
   await fakeYouTube(page);
-  await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(20) });
+  // No video found for the track: the preview is the fallback
+  await stubApi(page, { videoIds: [], previewUrl: silentClip(20) });
   await page.addInitScript(() => {
     const original = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () {
@@ -125,14 +133,9 @@ test('INV-PLAY-11: uma prévia recusada pelo navegador aparece no relatório e a
       return original.call(this);
     };
   });
-  await page.route('**/api/resolve?*', async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
-  });
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   await topHit(page).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__yt?.loads ?? [])).toEqual([FIRST]);
 
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
@@ -197,29 +200,6 @@ test('INV-PLAY-09: se o navegador não deixa a faixa completa começar (sem pré
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
   await expect(page.getByTestId('playback-log')).toContainText('começou a tocar (player do YouTube)', { timeout: 10_000 });
-});
-
-test('INV-PLAY-13: com a prévia tocando, o player do YouTube é chamado uma vez só (ao carregar): nem tentativas nem o ▶ o acordam, para não tirar o som da prévia', async ({ page }) => {
-  await fakeYouTube(page);
-  await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(25) });
-  await page.addInitScript(() => { (window as any).__ytMode = 'blocked'; });
-  await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
-  await topHit(page).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__yt?.log ?? [])).toEqual([`load:${FIRST}`]);
-
-  // Several seconds, touches on the screen and a pause + play: the player is never asked to play again
-  await page.waitForTimeout(4500);
-  await page.mouse.click(200, 300);
-  await miniPlay(page).click();
-  await expect(miniPlay(page)).toHaveAccessibleName('Reproduzir música');
-  await miniPlay(page).click();
-  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
-  await page.waitForTimeout(1500);
-  expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([`load:${FIRST}`]);
-
-  // The preview is what plays, and the screen says how to get the full track
-  await expect(page.getByText(/Toque na faixa de novo para ouvir a completa/).first()).toBeVisible();
 });
 
 test('tocar outra faixa enquanto a anterior ainda renova o link da prévia não vira "recusada pelo navegador" nem pausa a faixa nova', async ({ page }) => {

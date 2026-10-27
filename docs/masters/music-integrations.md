@@ -117,17 +117,16 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-PREV-04:** o download de uma prévia também renova o link vencido antes de copiar o áudio (e tenta uma vez com um link novo se o primeiro for recusado).
 - **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (a contagem recomeça uma vez, por mais 6 s, quando o player do YouTube termina de carregar; 15 s numa rádio ao vivo, cuja transmissão pode demorar a começar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
 - **INV-PLAY-12:** uma rádio ao vivo tem 15 s para começar antes de o aviso aparecer: uma transmissão que demora 7 s a começar toca sem aviso.
-- **INV-PLAY-13:** com a prévia tocando, o player do YouTube é chamado uma vez só (ao carregar o vídeo): nem as tentativas por timer, nem os toques na tela, nem o ▶ o acordam. No aparelho (2026-10-28) cada tentativa de iniciar um vídeo que o iOS recusava tirava o som da prévia ao lado: ela tocava meio segundo e parava. Quem quer a faixa completa toca na faixa de novo (o vídeo já é conhecido).
 - **INV-PLAY-02:** uma faixa com vídeo já conhecido (no aparelho ou no cache compartilhado) começa sem pedir nada à rede no toque.
 - **INV-PLAY-03:** só a resolução, no toque, de uma faixa que ninguém tocou antes gasta busca do YouTube e cota; a consulta em lote ao cache nunca busca nem consome.
 - **INV-PLAY-04:** o toque numa faixa desbloqueia o elemento de áudio do navegador, e os eventos do clipe de silêncio nunca contam como música.
 - **INV-PLAY-05:** sair do app e voltar com a prévia tocando não pausa a faixa nem mostra aviso.
 - **INV-PLAY-06:** a mesma música com outro id aproveita o vídeo já achado; o vídeo denunciado sai das duas chaves do cache.
-- **INV-PLAY-07:** o toque numa faixa cujo vídeo ainda não é conhecido (e que tem prévia) toca a prévia na hora, sem esperar a busca nem o player do YouTube; a faixa completa assume sozinha quando o player começa a tocar. A prévia nunca é cortada por um player que não começou.
+- **INV-PLAY-07:** uma faixa nova não toca a prévia como ponte: o botão de reproduzir mostra carregamento (um anel, sem texto) enquanto o vídeo é procurado e o player do YouTube começa, e a faixa completa começa por ele. A prévia só toca quando não há faixa completa (sem vídeo, cota do dia acabada) ou ela falhou.
 - **INV-PLAY-08:** o player do YouTube (`youtubeEngine`) é criado dentro do toque, antes de o vídeo ser conhecido, e as faixas seguintes entram no mesmo iframe (nenhum iframe novo por faixa).
 - **INV-PLAY-09:** quando o navegador não deixa a faixa completa começar, o app tenta de novo sozinho (e a cada toque na tela) e a prévia segue; nenhuma ação manual é exigida do usuário.
 - **INV-PLAY-10:** o player do YouTube é criado em repouso (cerca de 2 s depois de abrir o app), para estar pronto no toque, e não toca nada até o vídeo real ser conhecido. Não há vídeo-reserva: a tentativa de liberar o player tocando um vídeo mudo no toque (PR #58) coincidiu com a prévia deixar de começar em faixas novas no aparelho (2026-10-28) e foi retirada.
-- **INV-PLAY-11:** uma prévia que o navegador recusa vai para o relatório ("a prévia foi recusada pelo navegador") e a faixa não entra no modo prévia-e-vídeo: segue pelo player do YouTube como antes.
+- **INV-PLAY-11:** uma prévia que o navegador recusa (ela só toca quando não há faixa completa) vai para o relatório ("a prévia foi recusada pelo navegador"), e a tela não finge que ela toca.
 
 ## Atualização deste master
 
