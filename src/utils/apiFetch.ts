@@ -1,5 +1,6 @@
 import { auth, getSessionFast, setSessionNotice, signOut } from './authClient';
 import { logPlayback } from './playbackDiagnostics';
+import { newRequestId, sessionId } from './trace';
 
 /** How long a request waits for the session library before going on (it can stall on iOS after the app was away). */
 const SESSION_WAIT_MS = 2500;
@@ -28,7 +29,19 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     const session = waited === TIMED_OUT ? null : waited;
     const headers = new Headers(init.headers);
     if (session) headers.set('Authorization', `Bearer ${session.access_token}`);
-    return fetch(input, { ...init, headers });
+    // The ids the server writes on every log line of this request
+    const requestId = newRequestId();
+    headers.set('X-Request-Id', requestId);
+    headers.set('X-Session-Id', sessionId);
+    const where = input.split('?')[0];
+    try {
+      const result = await fetch(input, { ...init, headers });
+      if (!result.ok) console.warn(`[Net] ${result.status} rid=${requestId} sid=${sessionId} ${where}`);
+      return result;
+    } catch (err) {
+      if ((err as Error)?.name !== 'AbortError') console.warn(`[Net] sem resposta rid=${requestId} sid=${sessionId} ${where} (${(err as Error)?.name ?? 'erro'})`);
+      throw err;
+    }
   };
 
   const response = await send();

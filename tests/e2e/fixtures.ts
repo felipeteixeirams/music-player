@@ -141,6 +141,7 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     const reply = (route: Route, body: unknown) => json(route, override ? withPreview(body, override) : body);
     requests.push(`${url.pathname}${url.search}`);
 
+    if (url.pathname === '/api/report') return route.fulfill({ status: 204 });
     if (url.pathname === '/api/feed') {
       const categories = Object.fromEntries(Object.keys(COLLECTIONS).map((id) => [id, collectionPage(id, 0)]));
       return reply(route, { categories, featured: TOP_HITS[0] });

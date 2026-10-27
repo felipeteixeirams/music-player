@@ -39,6 +39,8 @@ export interface EnvironmentInfo {
   /** Opened from the Home Screen icon (no address bar). */
   standalone: boolean;
   userAgent: string;
+  /** This app session's code (`sessionId`): what finds the report's lines in the server's log. */
+  session?: string;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface EnvironmentInfo {
  * and on what. "Is it the installed app or the browser?" decides whether a report is a regression or a known limit
  * (see the compatibility matrix), so it must never need asking.
  */
-export function describeEnvironment({ version, standalone, userAgent }: EnvironmentInfo): string {
+export function describeEnvironment({ version, standalone, userAgent, session }: EnvironmentInfo): string {
   const ios = /OS (\d+)[_.](\d+)/.exec(userAgent);
   const system = ios ? `iOS ${ios[1]}.${ios[2]}` : /Android (\d+)/.exec(userAgent) ? `Android ${/Android (\d+)/.exec(userAgent)![1]}` : 'sistema não identificado';
   const browser = /EdgiOS|EdgA|Edg\//.test(userAgent)
@@ -58,5 +60,5 @@ export function describeEnvironment({ version, standalone, userAgent }: Environm
     : /Version\/[\d.]+.*Safari/.test(userAgent)
     ? 'Safari'
     : 'WebKit';
-  return `versão ${version} · ${standalone ? 'APP INSTALADO (PWA)' : 'NAVEGADOR'} · ${system} · ${browser}`;
+  return `versão ${version} · ${standalone ? 'APP INSTALADO (PWA)' : 'NAVEGADOR'} · ${system} · ${browser}${session ? ` · sessão ${session}` : ''}`;
 }

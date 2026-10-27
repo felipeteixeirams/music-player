@@ -1,8 +1,10 @@
 import { authenticate, type AuthUser } from './_auth.js';
 import { reportStartupOnce } from './_config.js';
+import { installTraceLogging, setTraceUser, startTrace } from './_trace.js';
 
 // A cold start of any guarded function writes the configuration check to the log (once; only in production)
 reportStartupOnce();
+installTraceLogging();
 
 type Headers = Record<string, string | string[] | undefined>;
 
@@ -86,8 +88,8 @@ export interface GuardPolicy {
 }
 
 export type GuardDecision =
-  | { ok: true; user?: AuthUser | null }
-  | { ok: false; status: 401 | 403 | 429 | 503; message: string; code?: string; retryAfterSeconds?: number };
+  | { ok: true; user?: AuthUser | null; requestId?: string }
+  | { ok: false; status: 401 | 403 | 429 | 503; message: string; code?: string; retryAfterSeconds?: number; requestId?: string };
 
 export function evaluateRequest(headers: Headers, policy: GuardPolicy): GuardDecision {
   if (policy.requireSameOrigin && !isSameOriginRequest(headers)) {
@@ -109,21 +111,47 @@ export async function authorizeRequest(
   policy: GuardPolicy,
   request: { method?: string; url?: string } = {}
 ): Promise<GuardDecision> {
+  // From here on every log line of this request carries its ids (rid, sid, uid, route)
+  const trace = startTrace(headers, request.url);
   const decision = evaluateRequest(headers, policy);
-  if (!decision.ok) return decision;
+  if (!decision.ok) return { ...decision, requestId: trace.rid };
   const auth = await authenticate(headers);
-  if (auth.ok) return { ok: true, user: auth.user };
+  if (auth.ok) {
+    if (auth.user) setTraceUser(trace, auth.user.id);
+    return { ok: true, user: auth.user, requestId: trace.rid };
+  }
   // Say why in the log (no tokens or keys in it): a 401 on its own cannot be told from a misconfigured server
   const where = `${request.method ?? 'GET'} ${(request.url ?? '').split('?')[0]}`.trim();
   console.warn(`[Auth] ${auth.status} ${auth.code}${auth.detail ? ` (${auth.detail})` : ''} ${where}`);
-  return { ok: false, status: auth.status, message: auth.message, code: auth.code };
+  return { ok: false, status: auth.status, message: auth.message, code: auth.code, requestId: trace.rid };
+}
+
+/**
+ * For the app's error reports: same-origin and rate checks, but no login is required (the error may be on the login
+ * screen itself). When the app sends its login it is checked, only to tie the report to the account; a bad or
+ * missing login is not a refusal here.
+ */
+export async function authorizeReport(
+  headers: Headers,
+  request: { method?: string; url?: string } = {},
+  authenticateImpl: typeof authenticate = authenticate
+): Promise<GuardDecision> {
+  const trace = startTrace(headers, request.url);
+  const decision = evaluateRequest(headers, POLICIES.report);
+  if (!decision.ok) return { ...decision, requestId: trace.rid };
+  if (header(headers, 'authorization')) {
+    const auth = await authenticateImpl(headers);
+    if (auth.ok && auth.user) setTraceUser(trace, auth.user.id);
+  }
+  return { ok: true, requestId: trace.rid };
 }
 
 /** Per-instance policies: the YouTube search and the audio copy cost the most, so they get the tightest limits. */
 export const POLICIES = {
   resolve: { limiter: new RateLimiter(40, 60_000), requireSameOrigin: true },
   audio: { limiter: new RateLimiter(30, 60_000), requireSameOrigin: true },
-  catalog: { limiter: new RateLimiter(120, 60_000), requireSameOrigin: true }
+  catalog: { limiter: new RateLimiter(120, 60_000), requireSameOrigin: true },
+  report: { limiter: new RateLimiter(20, 60_000), requireSameOrigin: true }
 } satisfies Record<string, GuardPolicy>;
 
 interface HttpRequestLike {
@@ -152,6 +180,8 @@ export async function guardUser(
 ): Promise<{ user: AuthUser | null } | null> {
   if (!req.headers) return { user: null };
   const decision = await authorizeRequest(req.headers, policy, { method: req.method, url: req.url });
+  // The app logs this id when a call fails, and the server wrote it on every line of the request
+  if (decision.requestId) res.setHeader('X-Request-Id', decision.requestId);
   if (decision.ok) return { user: decision.user ?? null };
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
   res.status(decision.status).json({ error: decision.message, ...(decision.code ? { code: decision.code } : {}) });

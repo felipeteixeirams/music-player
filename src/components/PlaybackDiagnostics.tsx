@@ -1,5 +1,6 @@
 import React, { useState, useSyncExternalStore } from 'react';
 import { Activity, Copy } from 'lucide-react';
+import { sessionId } from '../utils/trace';
 import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, subscribePlaybackLog } from '../utils/playbackDiagnostics';
 
 /** The running build and whether this is the installed app or a browser tab: the first thing a report needs. */
@@ -7,7 +8,7 @@ function currentEnvironment(): string {
   const standalone =
     (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches) ||
     (typeof navigator !== 'undefined' && (navigator as Navigator & { standalone?: boolean }).standalone === true);
-  return describeEnvironment({ version: __APP_VERSION__, standalone: Boolean(standalone), userAgent: navigator.userAgent });
+  return describeEnvironment({ version: __APP_VERSION__, standalone: Boolean(standalone), userAgent: navigator.userAgent, session: sessionId });
 }
 
 /** What happened the last times a track was started, in the user's own words: to report a track that does not play. */
