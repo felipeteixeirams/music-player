@@ -319,7 +319,6 @@ const MusicAppContent: React.FC = () => {
                 <TrackList
                   tracks={onlineSearch.tracks}
                   title="Músicas Encontradas"
-                  totalCount={onlineSearch.total}
                   onTrackSelect={(track) => playTrack(track, onlineSearch.tracks, onlineSearch.nextIndex !== null && submittedSearch ? searchSource(submittedSearch.query, onlineSearch.nextIndex) : undefined)}
                   hasMore={onlineSearch.hasMore}
                   isLoadingMore={onlineSearch.isLoadingMore}
@@ -463,7 +462,6 @@ const MusicAppContent: React.FC = () => {
                     title={category.name}
                     subtitle={category.description}
                     tracks={page.tracks}
-                    totalCount={page.total}
                     onSeeAll={() => setSelectedCategoryId(category.id)}
                     onTrackSelect={(track) => playTrack(track, page.tracks, page.nextIndex !== null ? categorySource(category.id, page.nextIndex) : undefined)}
                   />
