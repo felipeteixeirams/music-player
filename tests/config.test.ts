@@ -9,6 +9,7 @@ import {
   keyRole,
   publicReport,
   reportStartupOnce,
+  resetStartupReport,
   resetDeepCache,
   summarize,
   cachedDeepConfig
@@ -158,12 +159,40 @@ test('o relatório de partida só aparece em produção e não mostra valores', 
   reportStartupOnce({ ...GOOD, DATABASE_SUPABASE_SERVICE_ROLE_KEY: undefined }, (line) => lines.push(line));
   assert.equal(lines.length, 0, 'fora de produção fica quieto');
 
-  reportStartupOnce({ NODE_ENV: 'production', DATABASE_SUPABASE_URL: URL_OK, DATABASE_SUPABASE_SERVICE_ROLE_KEY: 'valor-secreto-abc' }, (line) => lines.push(line));
+  const offline = (async () => { throw new TypeError('fetch failed'); }) as typeof fetch;
+  reportStartupOnce({ NODE_ENV: 'production', DATABASE_SUPABASE_URL: URL_OK, DATABASE_SUPABASE_SERVICE_ROLE_KEY: 'valor-secreto-abc' }, (line) => lines.push(line), offline);
   const text = lines.join('\n');
   assert.match(text, /\[Config\] ❌ login-key/);
   assert.match(text, /configuração: \d+ erro\(s\)/);
   assert.doesNotMatch(text, /valor-secreto-abc/);
   assert.match(formatFinding({ id: 'x', level: 'warn', message: 'm' }), /^\[Config\] ⚠️ x: m$/);
+  resetStartupReport();
+  resetDeepCache();
+});
+
+test('INV-CFG-01: na Vercel a partida da função não consulta o Supabase (isso é do /api/health?deep=1); fora dela, consulta', async () => {
+  let calls = 0;
+  const spy = (async () => { calls += 1; return new Response('{}', { status: 200 }); }) as typeof fetch;
+
+  resetStartupReport();
+  resetDeepCache();
+  const vercel: string[] = [];
+  reportStartupOnce({ VERCEL: '1', DATABASE_SUPABASE_URL: URL_OK, DATABASE_VITE_SUPABASE_ANON_KEY: 'k', DATABASE_SUPABASE_SERVICE_ROLE_KEY: 'v' }, (line) => vercel.push(line), spy);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 0, 'na Vercel a partida não faz pedido nenhum ao Supabase');
+  assert.ok(vercel.some((line) => /configuração: \d+ erro/.test(line)), 'o resumo das variáveis continua');
+  assert.ok(vercel.some((line) => /\/api\/health\?deep=1/.test(line)), 'o log diz onde os serviços são conferidos');
+
+  resetStartupReport();
+  resetDeepCache();
+  const server: string[] = [];
+  reportStartupOnce({ NODE_ENV: 'production', DATABASE_SUPABASE_URL: URL_OK, DATABASE_VITE_SUPABASE_ANON_KEY: 'k', DATABASE_SUPABASE_SERVICE_ROLE_KEY: 'v' }, (line) => server.push(line), spy);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(calls > 0, 'o servidor de longa duração (server.ts) continua consultando ao subir');
+  assert.ok(server.some((line) => /serviços: \d+ erro/.test(line)));
+
+  resetStartupReport();
+  resetDeepCache();
 });
 
 // ------------------------------------------------------------------ o que o pipeline faz com isso
