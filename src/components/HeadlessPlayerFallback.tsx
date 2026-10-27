@@ -29,7 +29,9 @@ export const HeadlessPlayerFallback: React.FC = () => {
   // While the preview plays, the full track's video may already load (and take over when it starts)
   const isTrial = !isFallbackActive && Boolean(trialVideoUrl);
   const videoId = videoIdFromUrl(isFallbackActive ? audioStreamUrl : isTrial ? trialVideoUrl : '');
-  const playing = isPlaying && (isFallbackActive || isTrial);
+  // The trial video is asked to start once, when it loads; after that only the full track follows the play button
+  const startsOnLoad = isPlaying && (isFallbackActive || isTrial);
+  const playing = isPlaying && isFallbackActive;
 
   // The player's events call the latest callbacks without re-subscribing on every render
   const latest = useRef({ isTrial, playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady });
@@ -54,11 +56,11 @@ export const HeadlessPlayerFallback: React.FC = () => {
     return () => youtubeEngine.setEvents(null);
   }, []);
 
-  const playingRef = useRef(playing);
-  playingRef.current = playing;
+  const loadRef = useRef({ startsOnLoad, isTrial });
+  loadRef.current = { startsOnLoad, isTrial };
 
   useEffect(() => {
-    if (videoId) youtubeEngine.load(videoId, playingRef.current);
+    if (videoId) youtubeEngine.load(videoId, loadRef.current.startsOnLoad, !loadRef.current.isTrial);
     else youtubeEngine.stop();
   }, [videoId, engineLoadId]);
 
