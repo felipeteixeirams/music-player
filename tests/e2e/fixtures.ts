@@ -195,7 +195,7 @@ export async function fakeYouTube(target: Page): Promise<void> {
       status: 200,
       contentType: 'application/javascript',
       body: `
-        window.__yt = { created: 0, loads: [], plays: 0, cues: [] };
+        window.__yt = { created: 0, loads: [], plays: 0, cues: [], log: [] };
         class Player {
           constructor(el, options) {
             this.events = options.events; this.state = -1; this.id = ''; this.startedAt = 0; this.base = 0;
@@ -207,11 +207,14 @@ export async function fakeYouTube(target: Page): Promise<void> {
             this.state = state; this.events.onStateChange({ data: state });
           }
           loadVideoById(id) {
+            window.__yt.log.push('load:' + id);
             this.id = id; this.base = 0; window.__yt.loads.push(id); this.set(3);
             setTimeout(() => this.set(window.__ytMode === 'blocked' && !window.__ytAllow ? 5 : 1), 60);
           }
           cueVideoById(id) { this.id = id; this.base = 0; window.__yt.cues.push(id); this.set(5); }
-          playVideo() { window.__yt.plays += 1; if (this.id && !(window.__ytMode === 'blocked' && !window.__ytAllow)) this.set(1); }
+          playVideo() { window.__yt.log.push('play'); window.__yt.plays += 1; if (this.id && !(window.__ytMode === 'blocked' && !window.__ytAllow)) this.set(1); }
+          mute() { window.__yt.log.push('mute'); }
+          unMute() { window.__yt.log.push('unmute'); }
           pauseVideo() { this.set(2); }
           stopVideo() { this.id = ''; this.set(5); }
           seekTo(s) { this.base = s; this.startedAt = performance.now(); }

@@ -89,9 +89,10 @@ const MusicAppContent: React.FC = () => {
     }
   }, []);
 
-  // Download the YouTube player API now, so the first tap does not wait for it
+  // Have the hidden YouTube player ready before the first tap: a tap is only accepted by the iPhone for a call made
+  // right away, and a player still loading at the tap answers too late
   useEffect(() => {
-    const timer = window.setTimeout(() => youtubeEngine.preload(), 2000);
+    const timer = window.setTimeout(() => youtubeEngine.prime(), 2000);
     return () => window.clearTimeout(timer);
   }, []);
 
