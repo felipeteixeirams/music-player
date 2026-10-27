@@ -41,8 +41,8 @@ O usuário quer tocar uma música e bloquear a tela, com a música seguindo, e q
 | O iOS só deixa o iframe do YouTube começar sozinho se ele nascer dentro do toque. | **Não sustentada sozinha**: no app instalado o iframe criado no toque ainda foi bloqueado. |
 | O início funciona quando a chamada ao player sai dentro do toque e o player já está pronto. | **Sustentada por um caso** (faixa conhecida, 2026-10-27). Por isso o player passa a ser criado em repouso. Não provada. |
 | Um vídeo-reserva mudo tocado no toque libera o player (PR #58). | **Retirada**: coincidiu com faixas novas deixarem de tocar a prévia. A causa real pode ter sido o link de prévia vencido (próxima linha); não dá para separar as duas sem o aparelho. |
-| Parte das prévias que não tocavam era link vencido. | **Sustentada**: validade de 15 minutos medida, `NotSupportedError` no aparelho. Corrigida no PR #61 (renovação do link). Falta confirmar no aparelho. |
-| A biblioteca de sessão pode travar no iOS depois de o app ficar fora e segurar a busca do vídeo. | **Hipótese** (uma busca sem resposta por cerca de 90 s). Mitigada no PR #61 (espera máxima de 2,5 s, sem deslogar por demora). |
+| Parte das prévias que não tocavam era link vencido. | **Sustentada**: validade de 15 minutos medida, `NotSupportedError` no aparelho. Corrigida no PR #61, já na `main` (renovação do link). Falta confirmar no aparelho. |
+| A biblioteca de sessão pode travar no iOS depois de o app ficar fora e segurar a busca do vídeo. | **Hipótese** (uma busca sem resposta por cerca de 90 s). Mitigada no PR #61, já na `main` (espera máxima de 2,5 s, sem deslogar por demora). |
 | O app instalado congela tudo em segundo plano. | **Falsa para áudio nativo** (rádios tocaram) e **verdadeira para o player do YouTube**. O limite é do iframe, não do app instalado. |
 
 ## Decisões e opções avaliadas
@@ -70,16 +70,18 @@ Três respostas de assistentes de busca foram avaliadas e descartadas nos pontos
 
 ## Divergências conhecidas entre código e documentação
 
-1. **`expectPlayback` ignora `waitMs`**: o código sempre espera `START_WATCH_MS` (6 s). O `READY_WATCH_MS` (1,5 s depois de o player carregar) nunca vale, embora o [INV-PLAY-01](../../masters/music-integrations.md) diga que vale. Corrigir isso muda o comportamento (o aviso apareceria mais cedo e interromperia as tentativas silenciosas), então precisa de decisão.
-2. **Tentativas silenciosas param quando o estado vira "pausado"**: se o iOS pausa a prévia, `isPlaying` cai e o motor do YouTube para de tentar. Não confirmado se isso prejudica o uso real.
-3. **O vigia de 6 s é curto para rádio ao vivo**: em 2026-10-28 uma rádio ao vivo começou a tocar depois de o aviso aparecer.
-4. **Downloads offline de prévia** (`offlineManager`) usam `track.sources.previewUrl` direto, sem a renovação do PR #61: um download de uma lista antiga pode falhar com o link vencido. Não verificado no aparelho.
+Quatro divergências foram achadas ao escrever este registro (2026-10-28):
+
+1. **`expectPlayback` ignorava `waitMs`**: o código sempre esperava 6 s e o `READY_WATCH_MS` (1,5 s depois de o player carregar), descrito no INV-PLAY-01, nunca valeu. **Decisão:** manter o comportamento real (6 s, recomeçando uma vez quando o player carrega), porque 1,5 s interromperia as tentativas silenciosas (uma faixa começou sozinha em 3,6 s depois de duas tentativas), e corrigir a documentação. O parâmetro passou a ser respeitado. Branch `fix/start-watch-timing`, aguardando PR.
+2. **Tentativas silenciosas param quando o estado vira "pausado"**: se o iOS pausa a prévia, `isPlaying` cai e o motor do YouTube para de tentar. **Aberta**: não confirmado que isso prejudica o uso real; tratar se um relatório mostrar o caso.
+3. **O vigia de 6 s era curto para rádio ao vivo** (uma começou a tocar depois de o aviso aparecer). Corrigido no mesmo branch: 15 s para rádio ao vivo (INV-PLAY-12).
+4. **Downloads offline de prévia** usavam o link guardado sem renovação. Corrigido no PR #61, já na `main` (INV-PREV-04). Falta confirmar no aparelho.
 
 ## Frentes em aberto
 
 Ordenadas pela dependência de decisão do usuário:
 
-1. **Testar o PR #61 no aparelho** (prévia vencida e sessão) e colar o relatório de Ajustes > Diagnóstico. Depois disso, atualizar a [matriz](compatibility-matrix.spec.md).
+1. **Testar no aparelho o que o PR #61 trouxe** (prévia vencida, sessão e download offline de prévia) e colar o relatório de Ajustes > Diagnóstico. Depois disso, atualizar a [matriz](compatibility-matrix.spec.md).
 2. **Ouvir as rádios por estilo** (PR #60) no app instalado, com a tela bloqueada por 1 a 2 minutos.
 3. **Decidir sobre o app nativo (Capacitor)**: há Mac e conta de desenvolvedor Apple?
 4. **Decidir sobre arquivos de áudio próprios** (Supabase Storage): fazer a checagem de faixa de bytes, limites e custo.
@@ -87,7 +89,7 @@ Ordenadas pela dependência de decisão do usuário:
 6. **Repetir no aparelho os itens T01 a T15** do [roteiro](validation-checklist.spec.md) que a [matriz](compatibility-matrix.spec.md) ainda marca como não testados.
 7. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
 8. **Ativar a regra "Require status checks to pass"** (job `checks`) na `main`, para o merge exigir o CI.
-9. **Divergências da seção anterior** (itens 1 a 4).
+9. **Divergências da seção anterior**: abrir o PR do vigia (itens 1 e 3) e observar o item 2.
 10. **Melhorias de documentação** ainda não feitas: encurtar o `AGENTS.md`, um fato em um lugar só, rótulos de evidência em todas as seções.
 11. **Ruído conhecido, sem impacto no uso**: avisos intermitentes de tempo esgotado do Supabase na verificação profunda de configuração (partida a frio) e o aviso `url.parse()` de uma dependência.
 12. **Branches remotos já mergeados** para o usuário apagar (a sessão na nuvem recebe 403 ao tentar): os `docs/*`, `feat/*` e `fix/*` antigos e os desta rodada.
