@@ -407,7 +407,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       playbackStarted('áudio do navegador');
     };
     const onPause = () => {
-      if (!isUnlockClip(audio) && activeEngineRef.current !== 'fallback') setIsPlaying(false);
+      if (isUnlockClip(audio) || activeEngineRef.current === 'fallback') return;
+      // Said with the page's visibility: a pause that arrives with the app hidden is the system stopping the sound
+      logPlayback(`áudio do navegador pausou (app ${document.visibilityState === 'hidden' ? 'em segundo plano' : 'visível'}, em ${Math.round(audio.currentTime)} s)`);
+      setIsPlaying(false);
     };
     const onError = () => {
       // Clearing the source (switching to the YouTube engine) also raises an error event
@@ -477,9 +480,22 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }, 1500);
     };
 
+    // What the system does to the page while it is away shows in the report
+    const onFreeze = () => logPlayback('o sistema congelou a página (freeze)');
+    const onResume = () => logPlayback('a página voltou do congelamento (resume)');
+    const onPageHide = () => logPlayback('pagehide');
+    const onPageShow = () => logPlayback('pageshow');
     document.addEventListener('visibilitychange', onChange);
+    document.addEventListener('freeze', onFreeze);
+    document.addEventListener('resume', onResume);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
     return () => {
       document.removeEventListener('visibilitychange', onChange);
+      document.removeEventListener('freeze', onFreeze);
+      document.removeEventListener('resume', onResume);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
       if (recheck) clearTimeout(recheck);
     };
   }, []);
@@ -748,12 +764,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
   }, [currentTime, duration, isPlaying, currentTrack]);
 
+  /**
+   * What every tap that starts music must do before waiting for anything: let the audio element play (a silent clip),
+   * so a track that arrives later may start on its own, and create the hidden YouTube player in the same tap (the
+   * videos are loaded into it afterwards, with no new frame).
+   */
+  const primeInTap = useCallback(() => {
+    unlockAudioElement(audioRef.current);
+    youtubeEngine.prime();
+  }, []);
+
   // Main playback controls
   const playTrack = useCallback((track: Track, customQueue?: Track[], source?: QueueSource) => {
-    // Inside the tap: let the audio element play (a silent clip), so the track that arrives later may start on its own
-    unlockAudioElement(audioRef.current);
-    // And create the hidden YouTube player in the same tap: the next videos are loaded into it, with no new frame
-    youtubeEngine.prime();
+    primeInTap();
 
     if (customQueue) {
       setRadioStation(null);
@@ -768,9 +791,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
     loadAndPlayTrack(track, preferredEngine, true);
-  }, [queue, preferredEngine, loadAndPlayTrack]);
+  }, [queue, preferredEngine, loadAndPlayTrack, primeInTap]);
 
   const togglePlayPause = useCallback(() => {
+    if (!currentTrack || !isPlaying) primeInTap();
     if (!currentTrack) {
       if (queue.length > 0) {
         playTrack(queue[0]);
@@ -810,7 +834,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
       }
     }
-  }, [currentTrack, activeEngine, audioStreamUrl, isPlaying, queue, playTrack, clearStartWatch, expectPlayback]);
+  }, [currentTrack, activeEngine, audioStreamUrl, isPlaying, queue, playTrack, clearStartWatch, expectPlayback, primeInTap]);
 
   // Asks the station for another shuffle and adds what was not heard recently; resolves with what was added
   const refillRadio = useCallback(async (): Promise<Track[]> => {
@@ -872,6 +896,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [radioStation, queue.length, currentIndex, loadMoreQueue]);
 
   const startLiveRadio = useCallback((station: LiveStation) => {
+    primeInTap();
     const track = liveStationToTrack(station);
     // A live broadcast is not a queue: no radio mode, no list around it
     setRadioStation(null);
@@ -879,15 +904,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setQueue([track]);
     setCurrentIndex(0);
     loadAndPlayTrack(track, preferredEngine, true);
-  }, [preferredEngine, loadAndPlayTrack]);
+  }, [preferredEngine, loadAndPlayTrack, primeInTap]);
 
   const startRadio = useCallback(async (station: RadioStation): Promise<boolean> => {
-    // Synchronously prime audio gesture permission, before the network wait
-    if (audioRef.current) {
-      audioRef.current.play().then(() => {
-        audioRef.current?.pause();
-      }).catch(() => {});
-    }
+    // Inside the tap, before the network wait for the station's tracks
+    primeInTap();
 
     try {
       const batch = await fetchRadioTracks(station.id);
@@ -903,7 +924,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('Radio start notice:', err);
       return false;
     }
-  }, [preferredEngine, loadAndPlayTrack]);
+  }, [preferredEngine, loadAndPlayTrack, primeInTap]);
 
   const playNext = useCallback(() => {
     if (isLiveTrack(currentTrackRef.current)) return;
