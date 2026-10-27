@@ -25,6 +25,7 @@ O usuário quer tocar uma música e bloquear a tela, com a música seguindo, e q
 | 2026-10-27 | App instalado, `86104349e387` | Faixa com player ainda carregando no toque: 6 s sem som, e o ▶ iniciou em 794 ms. A faixa seguinte, com vídeo conhecido e player já pronto, começou sozinha em 1,5 s. |
 | 2026-10-27 | App instalado | As rádios FM ao vivo (áudio nativo `<audio>`) tocaram em segundo plano com a tela bloqueada. As rádios por estilo feitas de faixas do YouTube não tocaram. |
 | 2026-10-28 | App instalado, `23b1407281c6` (PR #58) | Nenhuma faixa nova começou a prévia. A faixa de vídeo já conhecido começou sozinha em 3,6 s depois de duas tentativas. Uma rádio ao vivo avançou 11 s com o app fora. |
+| 2026-10-28 | App instalado, `af7065795696` (com o PR #61) | A renovação do link vencido funcionou (prévia em 0,8 a 1,2 s). Com a prévia tocando e o player do YouTube sendo chamado ao lado, a prévia parava cerca de 0,5 s depois de cada ▶, três vezes seguidas (`áudio do navegador pausou (app visível, em 2 s)`). Duas "recusas" `AbortError` por toques em sequência rápida. |
 | 2026-10-28 | App instalado, `7c75a4f2c1b7` | "Iris": prévia recusada com `NotSupportedError`. "Frantic": prévia em 419 ms. Uma busca de vídeo sem resposta por cerca de 90 s. As faixas do YouTube pararam em segundo plano duas vezes. A "Rádio Globo" (áudio nativo) avançou 7 s com o app fora. |
 
 ### No ambiente de desenvolvimento e nas APIs reais
@@ -43,6 +44,7 @@ O usuário quer tocar uma música e bloquear a tela, com a música seguindo, e q
 | Um vídeo-reserva mudo tocado no toque libera o player (PR #58). | **Retirada**: coincidiu com faixas novas deixarem de tocar a prévia. A causa real pode ter sido o link de prévia vencido (próxima linha); não dá para separar as duas sem o aparelho. |
 | Parte das prévias que não tocavam era link vencido. | **Sustentada**: validade de 15 minutos medida, `NotSupportedError` no aparelho. Corrigida no PR #61, já na `main` (renovação do link). Falta confirmar no aparelho. |
 | A biblioteca de sessão pode travar no iOS depois de o app ficar fora e segurar a busca do vídeo. | **Hipótese** (uma busca sem resposta por cerca de 90 s). Mitigada no PR #61, já na `main` (espera máxima de 2,5 s, sem deslogar por demora). |
+| Cada chamada para iniciar um vídeo que o iOS recusa tira o som da prévia que toca ao lado. | **Inferência sustentada pelo relatório** (pausas sem ação do usuário, com o app visível, logo depois das chamadas ao player), não medição do áudio do iOS. Tratada no PR #62, já na `main` (INV-PLAY-13): com a prévia tocando o player é chamado uma vez só. Falta confirmar no aparelho. |
 | O app instalado congela tudo em segundo plano. | **Falsa para áudio nativo** (rádios tocaram) e **verdadeira para o player do YouTube**. O limite é do iframe, não do app instalado. |
 
 ## Decisões e opções avaliadas
@@ -73,7 +75,7 @@ Três respostas de assistentes de busca foram avaliadas e descartadas nos pontos
 Quatro divergências foram achadas ao escrever este registro (2026-10-28):
 
 1. **`expectPlayback` ignorava `waitMs`**: o código sempre esperava 6 s e o `READY_WATCH_MS` (1,5 s depois de o player carregar), descrito no INV-PLAY-01, nunca valeu. **Decisão:** manter o comportamento real (6 s, recomeçando uma vez quando o player carrega), porque 1,5 s interromperia as tentativas silenciosas (uma faixa começou sozinha em 3,6 s depois de duas tentativas), e corrigir a documentação. O parâmetro passou a ser respeitado. Branch `fix/start-watch-timing`, aguardando PR.
-2. **Tentativas silenciosas param quando o estado vira "pausado"**: se o iOS pausa a prévia, `isPlaying` cai e o motor do YouTube para de tentar. **Aberta**: não confirmado que isso prejudica o uso real; tratar se um relatório mostrar o caso.
+2. **Tentativas silenciosas param quando o estado vira "pausado"**: se o iOS pausa a prévia, `isPlaying` cai e o motor do YouTube para de tentar. **Superada pelo PR #62** (INV-PLAY-13): com a prévia tocando o player passou a ser chamado uma vez só, justamente porque as tentativas repetidas tiravam o som da prévia; sem prévia, as tentativas silenciosas continuam e seguem o estado de reprodução.
 3. **O vigia de 6 s era curto para rádio ao vivo** (uma começou a tocar depois de o aviso aparecer). Corrigido no mesmo branch: 15 s para rádio ao vivo (INV-PLAY-12).
 4. **Downloads offline de prévia** usavam o link guardado sem renovação. Corrigido no PR #61, já na `main` (INV-PREV-04). Falta confirmar no aparelho.
 
@@ -89,7 +91,7 @@ Ordenadas pela dependência de decisão do usuário:
 6. **Repetir no aparelho os itens T01 a T15** do [roteiro](validation-checklist.spec.md) que a [matriz](compatibility-matrix.spec.md) ainda marca como não testados.
 7. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
 8. **Ativar a regra "Require status checks to pass"** (job `checks`) na `main`, para o merge exigir o CI.
-9. **Divergências da seção anterior**: abrir o PR do vigia (itens 1 e 3) e observar o item 2.
+9. **Divergências da seção anterior**: abrir o PR do vigia (itens 1 e 3), no branch `fix/start-watch-timing`.
 10. **Melhorias de documentação** ainda não feitas: encurtar o `AGENTS.md`, um fato em um lugar só, rótulos de evidência em todas as seções.
 11. **Ruído conhecido, sem impacto no uso**: avisos intermitentes de tempo esgotado do Supabase na verificação profunda de configuração (partida a frio) e o aviso `url.parse()` de uma dependência.
 12. **Branches remotos já mergeados** para o usuário apagar (a sessão na nuvem recebe 403 ao tentar): os `docs/*`, `feat/*` e `fix/*` antigos e os desta rodada.
