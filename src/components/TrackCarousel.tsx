@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Play, Pause, Heart, Sparkles } from 'lucide-react';
+import { Heart, Sparkles } from 'lucide-react';
+import { TrackPlaybackIcon } from './PlaybackIcon';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { formatTime, prefetchResolved } from '../utils/audioEngine';
@@ -117,11 +118,7 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                         : 'material-thin text-white group-hover:scale-100 group-hover:opacity-100 opacity-0 sm:group-hover:opacity-100 active:scale-90'
                     }`}
                   >
-                    {isThisTrackPlaying ? (
-                      <Pause className="w-5 h-5 fill-current" />
-                    ) : (
-                      <Play className="w-5 h-5 fill-current ml-0.5" />
-                    )}
+                    <TrackPlaybackIcon trackId={track.id} className="w-5 h-5" />
                   </div>
                 </div>
 

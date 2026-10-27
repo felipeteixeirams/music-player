@@ -21,21 +21,16 @@ export const HeadlessPlayerFallback: React.FC = () => {
     handleFallbackError,
     engineStarted,
     engineReady,
-    trialVideoUrl,
     engineLoadId
   } = useAudio();
 
   const isFallbackActive = activeEngine === 'fallback' && Boolean(audioStreamUrl);
-  // While the preview plays, the full track's video may already load (and take over when it starts)
-  const isTrial = !isFallbackActive && Boolean(trialVideoUrl);
-  const videoId = videoIdFromUrl(isFallbackActive ? audioStreamUrl : isTrial ? trialVideoUrl : '');
-  // The trial video is asked to start once, when it loads; after that only the full track follows the play button
-  const startsOnLoad = isPlaying && (isFallbackActive || isTrial);
+  const videoId = videoIdFromUrl(isFallbackActive ? audioStreamUrl : '');
   const playing = isPlaying && isFallbackActive;
 
   // The player's events call the latest callbacks without re-subscribing on every render
-  const latest = useRef({ isTrial, playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady });
-  latest.current = { isTrial, playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady };
+  const latest = useRef({ playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady });
+  latest.current = { playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady };
 
   useEffect(() => {
     youtubeEngine.setEvents({
@@ -46,21 +41,21 @@ export const HeadlessPlayerFallback: React.FC = () => {
         latest.current.handleFallbackError();
       },
       time: (seconds) => {
-        if (!latest.current.isTrial) latest.current.updatePlaybackTime(seconds);
+        latest.current.updatePlaybackTime(seconds);
       },
       loaded: (seconds) => {
-        if (!latest.current.isTrial) latest.current.setDuration(Math.round(seconds));
+        latest.current.setDuration(Math.round(seconds));
         latest.current.engineReady(seconds);
       }
     });
     return () => youtubeEngine.setEvents(null);
   }, []);
 
-  const loadRef = useRef({ startsOnLoad, isTrial });
-  loadRef.current = { startsOnLoad, isTrial };
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
 
   useEffect(() => {
-    if (videoId) youtubeEngine.load(videoId, loadRef.current.startsOnLoad, !loadRef.current.isTrial);
+    if (videoId) youtubeEngine.load(videoId, playingRef.current);
     else youtubeEngine.stop();
   }, [videoId, engineLoadId]);
 

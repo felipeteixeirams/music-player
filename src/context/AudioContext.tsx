@@ -6,8 +6,7 @@ import {
   resolveAudioDetails,
   resolveFullTrack,
   reportBrokenVideo,
-  prefetchResolved,
-  knownVideoIds
+  prefetchResolved
 } from '../utils/audioEngine';
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
@@ -80,8 +79,6 @@ interface AudioContextType {
   engineStarted: () => void;
   /** The hidden YouTube player reports that the video is loaded (with its length, when known). */
   engineReady: (durationSeconds?: number) => void;
-  /** Video being tried by the hidden player while the preview plays; empty when none. */
-  trialVideoUrl: string;
   /** Changes every time a video is asked for, so the same video asked for again is loaded again. */
   engineLoadId: number;
   setVolume: (val: number) => void;
@@ -118,12 +115,8 @@ const PlaybackTimeContext = createContext<{ currentTime: number; duration: numbe
  */
 const START_WATCH_MS = 6000;
 const LIVE_WATCH_MS = 15000;
-const TRIAL_START_MS = 2500;
-const TRIAL_LOAD_MS = 6000;
 const TAP_NOTICE = 'O iPhone não deixou a música começar sozinha. Toque em ▶ para ouvir.';
 const BACKGROUND_NOTICE = 'O iPhone pausou a faixa completa ao sair do app. Toque em ▶ para continuar.';
-
-const TRIAL_NOTICE = 'Tocando a prévia de 30s. Toque na faixa de novo para ouvir a completa.';
 
 const QUOTA_NOTICE = 'Você chegou ao limite de faixas novas de hoje. Tocando a prévia de 30s; as faixas que já ouviu seguem completas.';
 
@@ -166,9 +159,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     instanceUsed: 'YouTube'
   });
   const [audioStreamUrl, setAudioStreamUrl] = useState<string>('');
-  const [trialVideoUrl, setTrialVideoUrl] = useState<string>('');
   const [engineLoadId, setEngineLoadId] = useState(0);
-  const trialRef = useRef<{ url: string; duration: number; timer: ReturnType<typeof setTimeout> | null } | null>(null);
   const [userSeekRequest, setUserSeekRequest] = useState<number | null>(null);
   
   const [likedLibrary, setLikedLibrary] = useState<LikedLibrary>(() => {
@@ -237,6 +228,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearStartWatch();
     if (restartClock) tapAtRef.current = performance.now();
     watchReasonRef.current = why;
+    // Waiting for sound: the play button shows it (until `playbackStarted` or the watch gives up)
+    setIsBuffering(true);
     startWatchRef.current = setTimeout(() => {
       startWatchRef.current = null;
       logPlayback(`sem som ${Math.round((performance.now() - tapAtRef.current) / 1000)} s depois de ${why}: o navegador bloqueou o início automático`);
@@ -247,47 +240,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [clearStartWatch]);
 
   /** The YouTube player has loaded the video: if it does not play now, it is not going to without a tap. */
-  /** The preview plays meanwhile: if the video does not start by itself in `ms`, it is offered as a button. */
-  const armTrial = useCallback((ms: number) => {
-    const trial = trialRef.current;
-    if (!trial) return;
-    if (trial.timer) clearTimeout(trial.timer);
-    trial.timer = setTimeout(() => {
-      if (trialRef.current !== trial) return;
-      logPlayback('a faixa completa ainda não começou: a prévia segue e o player continua tentando');
-      setPlaybackStatus((prev) => ({ ...prev, notice: TRIAL_NOTICE }));
-    }, ms);
-  }, []);
-
-  const engineReady = useCallback((durationSeconds?: number) => {
-    const trial = trialRef.current;
-    if (trial) {
-      if (durationSeconds) trial.duration = durationSeconds;
-      logPlayback('player do YouTube carregado durante a prévia');
-      armTrial(TRIAL_START_MS);
-      return;
-    }
+  const engineReady = useCallback((_durationSeconds?: number) => {
     if (startWatchRef.current) {
       logPlayback(`player do YouTube carregado ${Math.round(performance.now() - tapAtRef.current)} ms depois do toque`);
       expectPlayback(watchReasonRef.current, START_WATCH_MS, false);
     }
   }, [expectPlayback]);
 
-  const endTrial = useCallback(() => {
-    const trial = trialRef.current;
-    if (trial?.timer) clearTimeout(trial.timer);
-    trialRef.current = null;
-    setTrialVideoUrl('');
-  }, []);
-
   /** Sound is really coming out: the wait is over, and a slow start that was already given up on is taken back. */
-  const commitTrialRef = useRef<(why: string) => void>(() => undefined);
-
   const playbackStarted = useCallback((source: string) => {
-    if (source === 'player do YouTube' && trialRef.current) {
-      commitTrialRef.current(source);
-      return;
-    }
     const waiting = startWatchRef.current !== null;
     clearStartWatch();
     if (waiting) logPlayback(`começou a tocar (${source}) ${Math.round(performance.now() - tapAtRef.current)} ms depois do toque`);
@@ -305,7 +266,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       quality: 'Áudio Original',
       instanceUsed: 'YouTube Engine (Fallback)'
     });
-    setIsBuffering(false);
+    // The button shows "loading" until the sound really starts (`playbackStarted`) or the watch gives up
+    setIsBuffering(shouldPlay);
     if (audioRef.current) {
       pauseAudio();
       audioRef.current.src = '';
@@ -314,28 +276,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsPlaying(true);
     }
   }, []);
-
-  /** The full track takes over from the preview: the YouTube player is the engine from now on. */
-  const commitTrial = useCallback((why: string) => {
-    const trial = trialRef.current;
-    if (!trial) return;
-    logPlayback(`faixa completa assumiu no lugar da prévia (${why})`);
-    clearStartWatch();
-    activeEngineRef.current = 'fallback';
-    setActiveEngine('fallback');
-    setAudioStreamUrl(trial.url);
-    setPlaybackStatus({ quality: 'Áudio Original', instanceUsed: 'YouTube Engine (Fallback)' });
-    if (trial.duration > 0) setDuration(Math.round(trial.duration));
-    setCurrentTime(0);
-    if (audioRef.current) {
-      pauseAudio();
-      audioRef.current.removeAttribute('src');
-    }
-    endTrial();
-    setIsBuffering(false);
-    setIsPlaying(true);
-  }, [clearStartWatch, endTrial]);
-  commitTrialRef.current = commitTrial;
 
   /**
    * A radio is listened to without touching the screen, so a track that cannot be played (no video, no preview)
@@ -354,7 +294,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   // Plays the 30s catalog preview; returns false when the track has none.
-  const previewRefusedRef = useRef(false);
   /** When the app itself last paused the audio element: a pause just after that is not the system stopping the sound. */
   const ownPauseAtRef = useRef(0);
   const pauseAudio = useCallback(() => {
@@ -376,7 +315,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       instanceUsed: 'Catálogo',
       notice: notice === null ? undefined : notice ?? 'Faixa completa indisponível, tocando a prévia de 30s.'
     });
-    previewRefusedRef.current = false;
     // The address signed by the catalog expires in ~15 minutes, and lists live for hours: a new one when it is old
     let url = previewUrl;
     if (isPreviewStale(url)) {
@@ -419,7 +357,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       if (refusal && !superseded()) {
         // Said in the report: a refused start is otherwise silent (the screen only notices 6 s later)
-        previewRefusedRef.current = true;
         logPlayback(`a prévia foi recusada pelo navegador (${(refusal as Error)?.name ?? 'erro'})`);
         console.warn('Preview playback notice:', refusal);
       }
@@ -604,8 +541,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
     const token = ++loadTokenRef.current;
-    endTrial();
     if (shouldPlay) {
+      // The track playing until now stops with the tap, not after the search for the next video
+      youtubeEngine.pause();
       logPlayback(`toque em "${track.title}"`);
       expectPlayback('o toque', isLiveTrack(track) ? LIVE_WATCH_MS : START_WATCH_MS);
     }
@@ -616,19 +554,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setDuration(track.duration);
     setCurrentTime(0);
 
-    // 2. Full recording of a catalog track: find its YouTube video and play it in the headless engine
+    // 1. Full recording of a catalog track: find its YouTube video and play it in the headless engine
     let quotaExceeded = false;
-    let inTrial = false;
     if (!track.sources.youtubeId && !track.sources.localUrl) {
-      // A video not known yet needs a search before the player can even load, and the iPhone only lets a track start
-      // right after a tap: the preview plays now (the audio element was unlocked by the tap) and the full track
-      // takes over when its player manages to start
-      // The search for the video starts at once, alongside the preview (an old preview address is renewed first)
+      // No preview as a bridge: the button shows "loading" while the video is searched and the player starts it.
+      // The preview is only for when there is no full track to play (no video found, daily quota used up)
+      pauseAudio();
       const resolveStart = performance.now();
-      const resolving = resolveFullTrack(track);
-      inTrial = shouldPlay && !knownVideoIds(track.id) && Boolean(track.sources.previewUrl) && (await playPreview(track, true, null)) && !previewRefusedRef.current;
-      if (!inTrial) pauseAudio();
-      const resolution = await resolving;
+      const resolution = await resolveFullTrack(track);
       const found = resolution.videoIds;
       logPlayback(`vídeo resolvido em ${Math.round(performance.now() - resolveStart)} ms (${found.length} versão(ões)${resolution.quotaExceeded ? ', cota do dia acabada' : ''})`);
       quotaExceeded = resolution.quotaExceeded;
@@ -638,26 +571,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (ids.length > 0) {
         versionsRef.current = { trackId: track.id, ids, index: 0 };
         setVersionCount(ids.length);
-        if (inTrial) {
-          trialRef.current = { url: `https://www.youtube.com/watch?v=${ids[0]}`, duration: 0, timer: null };
-          setTrialVideoUrl(trialRef.current.url);
-          setEngineLoadId((id) => id + 1);
-          armTrial(TRIAL_LOAD_MS);
-          return;
-        }
         triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: ids[0] } }, shouldPlay);
         return;
       }
     }
 
-    // 3. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
-    if (inTrial) {
-      setPlaybackStatus((prev) => ({ ...prev, notice: quotaExceeded ? QUOTA_NOTICE : 'Faixa completa indisponível, tocando a prévia de 30s.' }));
-      return;
-    }
+    // 2. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
     if (await playPreview(track, shouldPlay, quotaExceeded ? QUOTA_NOTICE : undefined)) return;
 
-    // 4. A track that already carries its YouTube video goes straight to the headless player
+    // 3. A track that already carries its YouTube video goes straight to the headless player
     if (track.sources.youtubeId) {
       if (audioRef.current) {
         pauseAudio();
@@ -689,7 +611,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPlaybackStatus({ error: 'Esta faixa não tem prévia disponível.' });
     setIsPlaying(false);
     setIsBuffering(false);
-  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack, storage, expectPlayback, endTrial, armTrial]);
+  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack, storage, expectPlayback]);
 
   // When track finishes (Native audio listener)
   useEffect(() => {
@@ -1049,23 +971,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const handleFallbackError = useCallback(() => {
     const track = currentTrackRef.current;
     const versions = versionsRef.current;
-    if (trialRef.current) {
-      // The preview keeps playing: only the video is given up on (or swapped for the next candidate)
-      if (track && versions.trackId === track.id && versions.ids[versions.index]) reportBrokenVideo(track, versions.ids[versions.index]);
-      if (track && versions.trackId === track.id && versions.index + 1 < versions.ids.length) {
-        const index = versions.index + 1;
-        versionsRef.current = { ...versions, index };
-        endTrial();
-        trialRef.current = { url: `https://www.youtube.com/watch?v=${versions.ids[index]}`, duration: 0, timer: null };
-        setTrialVideoUrl(trialRef.current.url);
-        setEngineLoadId((id) => id + 1);
-        armTrial(TRIAL_LOAD_MS);
-      } else {
-        endTrial();
-        setPlaybackStatus((prev) => ({ ...prev, notice: 'Faixa completa indisponível, tocando a prévia de 30s.' }));
-      }
-      return;
-    }
     if (track && versions.trackId === track.id && versions.index + 1 < versions.ids.length) {
       // This video would not play (embedding blocked, removed): the next candidate, until they run out
       reportBrokenVideo(track, versions.ids[versions.index]);
@@ -1083,7 +988,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPlaying(false);
     setIsBuffering(false);
     setPlaybackStatus({ error: 'Não foi possível reproduzir esta faixa.' });
-  }, [playPreview, triggerFallbackEngine, skipUnplayableTrack, endTrial, armTrial]);
+  }, [playPreview, triggerFallbackEngine, skipUnplayableTrack]);
 
   // "Outra versão": the next video found for this track (wrapping around), remembered as the user's choice
   const switchVersion = useCallback(() => {
@@ -1205,7 +1110,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       handleFallbackError,
       engineStarted,
       engineReady,
-      trialVideoUrl,
       engineLoadId,
       setVolume,
       toggleMute,
@@ -1254,7 +1158,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       handleFallbackError,
       engineStarted,
       engineReady,
-      trialVideoUrl,
       engineLoadId,
       setVolume,
       toggleMute,

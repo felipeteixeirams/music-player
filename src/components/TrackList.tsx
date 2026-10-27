@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Play, Pause, Heart, Music, ListPlus, MinusCircle } from 'lucide-react';
+import { Heart, Music, ListPlus, MinusCircle } from 'lucide-react';
+import { TrackPlaybackIcon } from './PlaybackIcon';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { prefetchResolved } from '../utils/audioEngine';
@@ -110,14 +111,9 @@ export const TrackList: React.FC<TrackListProps> = ({
                       (e.currentTarget as HTMLElement).style.display = 'none';
                     }}
                   />
-                  {isThisTrackPlaying && (
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
-                      <Pause className="w-5 h-5 text-white fill-current" />
-                    </div>
-                  )}
-                  {!isThisTrackPlaying && isThisTrackActive && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <Play className="w-5 h-5 text-white fill-current ml-0.5" />
+                  {isThisTrackActive && (
+                    <div className={`absolute inset-0 flex items-center justify-center ${isThisTrackPlaying ? 'bg-black/50 backdrop-blur-[1px]' : 'bg-black/40'}`}>
+                      <TrackPlaybackIcon trackId={track.id} className="w-5 h-5 text-white" />
                     </div>
                   )}
                 </div>
