@@ -109,7 +109,8 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-LIVE-02:** se um servidor do diretório falha, o próximo é tentado; se todos falham, a rota responde 502 (sem cache) e a tela mantém a lista curada de rádios ao vivo.
 - **INV-LIVE-03:** a rota só aceita os estilos da lista (`LIVE_STYLES`) e uuids de emissora válidos: não dá para usá-la para buscar outra coisa no diretório.
 - **INV-LIVE-04:** a rádio ao vivo por estilo toca por `<audio>` nativo (sem YouTube, sem cota) e avisa o diretório de cada reprodução.
-- **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (ou 1,5 s depois de o player carregar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
+- **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (a contagem recomeça uma vez, por mais 6 s, quando o player do YouTube termina de carregar; 15 s numa rádio ao vivo, cuja transmissão pode demorar a começar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
+- **INV-PLAY-12:** uma rádio ao vivo tem 15 s para começar antes de o aviso aparecer: uma transmissão que demora 7 s a começar toca sem aviso.
 - **INV-PLAY-02:** uma faixa com vídeo já conhecido (no aparelho ou no cache compartilhado) começa sem pedir nada à rede no toque.
 - **INV-PLAY-03:** só a resolução, no toque, de uma faixa que ninguém tocou antes gasta busca do YouTube e cota; a consulta em lote ao cache nunca busca nem consome.
 - **INV-PLAY-04:** o toque numa faixa desbloqueia o elemento de áudio do navegador, e os eventos do clipe de silêncio nunca contam como música.

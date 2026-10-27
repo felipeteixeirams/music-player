@@ -112,10 +112,11 @@ const PlaybackTimeContext = createContext<{ currentTime: number; duration: numbe
 
 /**
  * How long a track that was told to play may stay silent before the screen admits it is not playing: long enough for
- * a slow network to load the YouTube player, and short once the player says it is loaded and still does not play.
+ * a slow network to load the YouTube player (the wait starts again, once, when the player says it is loaded), and
+ * longer for a live station, whose stream may take several seconds to start (measured on the phone).
  */
 const START_WATCH_MS = 6000;
-const READY_WATCH_MS = 1500;
+const LIVE_WATCH_MS = 15000;
 const TRIAL_START_MS = 2500;
 const TRIAL_LOAD_MS = 6000;
 const TAP_NOTICE = 'O iPhone não deixou a música começar sozinha. Toque em ▶ para ouvir.';
@@ -231,9 +232,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const watchReasonRef = useRef('o toque');
 
-  const expectPlayback = useCallback((why: string, waitMs = START_WATCH_MS) => {
+  const expectPlayback = useCallback((why: string, waitMs = START_WATCH_MS, restartClock = true) => {
     clearStartWatch();
-    if (waitMs === START_WATCH_MS) tapAtRef.current = performance.now();
+    if (restartClock) tapAtRef.current = performance.now();
     watchReasonRef.current = why;
     startWatchRef.current = setTimeout(() => {
       startWatchRef.current = null;
@@ -241,7 +242,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsPlaying(false);
       setIsBuffering(false);
       setPlaybackStatus((prev) => ({ ...prev, notice: TAP_NOTICE }));
-    }, START_WATCH_MS);
+    }, waitMs);
   }, [clearStartWatch]);
 
   /** The YouTube player has loaded the video: if it does not play now, it is not going to without a tap. */
@@ -267,7 +268,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     if (startWatchRef.current) {
       logPlayback(`player do YouTube carregado ${Math.round(performance.now() - tapAtRef.current)} ms depois do toque`);
-      expectPlayback(watchReasonRef.current, READY_WATCH_MS);
+      expectPlayback(watchReasonRef.current, START_WATCH_MS, false);
     }
   }, [expectPlayback]);
 
@@ -558,7 +559,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     endTrial();
     if (shouldPlay) {
       logPlayback(`toque em "${track.title}"`);
-      expectPlayback('o toque');
+      expectPlayback('o toque', isLiveTrack(track) ? LIVE_WATCH_MS : START_WATCH_MS);
     }
     setPlaybackStatus((prev) => (prev.error || prev.notice ? { ...prev, error: undefined, notice: undefined } : prev));
     setIsBuffering(true);
