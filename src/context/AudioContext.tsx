@@ -8,7 +8,6 @@ import {
   reportBrokenVideo,
   prefetchResolved
 } from '../utils/audioEngine';
-import { getOfflineAudioUrl, isTrackOfflineAvailable } from '../utils/offlineManager';
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
 import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
@@ -555,29 +554,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setDuration(track.duration);
     setCurrentTime(0);
 
-    // 1. First priority: Check if track is cached for offline playback
-    if (isTrackOfflineAvailable(track.id, storage)) {
-      const offlineBlobUrl = await getOfflineAudioUrl(track.id);
-      if (offlineBlobUrl && audioRef.current) {
-        pauseAudio();
-        audioRef.current.src = offlineBlobUrl;
-        setActiveEngine('native');
-        setAudioStreamUrl(offlineBlobUrl);
-        setPlaybackStatus({ quality: 'Offline Cache', instanceUsed: 'Local Cache Storage' });
-        if (shouldPlay) {
-          try {
-            await audioRef.current.play();
-            setIsPlaying(true);
-          } catch (err) {
-            console.warn('Offline stream playback notice:', err);
-          }
-        }
-        setIsBuffering(false);
-        return;
-      }
-    }
-
-    // 2. Full recording of a catalog track: find its YouTube video and play it in the headless engine
+    // 1. Full recording of a catalog track: find its YouTube video and play it in the headless engine
     let quotaExceeded = false;
     if (!track.sources.youtubeId && !track.sources.localUrl) {
       // No preview as a bridge: the button shows "loading" while the video is searched and the player starts it.
@@ -599,10 +576,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // 3. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
+    // 2. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
     if (await playPreview(track, shouldPlay, quotaExceeded ? QUOTA_NOTICE : undefined)) return;
 
-    // 4. A track that already carries its YouTube video goes straight to the headless player
+    // 3. A track that already carries its YouTube video goes straight to the headless player
     if (track.sources.youtubeId) {
       if (audioRef.current) {
         pauseAudio();

@@ -3,7 +3,6 @@ import type { KeyValueStorage } from './scopedStorage';
 import { LIKED_IDS_KEY, LIKED_TRACKS_KEY, loadLikedLibrary } from './likedTracks';
 import { loadPlaylists, PLAYLISTS_KEY, savePlaylists, type Playlist } from './playlists';
 import { loadChoices, VIDEO_CHOICE_KEY } from './videoChoice';
-import { OFFLINE_META_KEY, OFFLINE_TRACKS_KEY } from './offlineKeys';
 
 /** What belongs to the account: the favorites, the playlists and the "Outra versão" picks. */
 export interface UserDataSnapshot {
@@ -157,7 +156,6 @@ const LEGACY_KEYS = [LIKED_IDS_KEY, LIKED_TRACKS_KEY, PLAYLISTS_KEY, VIDEO_CHOIC
  * anything was taken, in which case it will be merged into the account on the first sync.
  */
 export function adoptLegacyData(legacy: KeyValueStorage, scoped: KeyValueStorage): boolean {
-  adoptLegacyDownloads(legacy, scoped);
   try {
     if (!LEGACY_KEYS.some((key) => legacy.getItem(key) !== null)) return false;
     if (LEGACY_KEYS.some((key) => scoped.getItem(key) !== null)) return false;
@@ -178,16 +176,3 @@ export function adoptLegacyData(legacy: KeyValueStorage, scoped: KeyValueStorage
   }
 }
 
-/** The list of downloads follows the same rule: the first person to sign in on the device takes the old, unscoped one. */
-function adoptLegacyDownloads(legacy: KeyValueStorage, scoped: KeyValueStorage): void {
-  try {
-    for (const key of [OFFLINE_TRACKS_KEY, OFFLINE_META_KEY]) {
-      const value = legacy.getItem(key);
-      if (value === null) continue;
-      if (scoped.getItem(key) === null) scoped.setItem(key, value);
-      legacy.removeItem(key);
-    }
-  } catch {
-    // storage that refuses: nothing to move
-  }
-}

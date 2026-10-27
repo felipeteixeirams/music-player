@@ -22,7 +22,7 @@ import { BottomNavBar, type AppTab } from './components/BottomNavBar';
 import { RadioView } from './components/RadioView';
 import { PlaybackNotice } from './components/PlaybackNotice';
 import { LibraryScreen } from './components/LibraryScreen';
-import { getOfflineTracks } from './utils/offlineManager';
+import { purgeLegacyDownloads } from './utils/legacyDownloads';
 import { formatAge, loadSavedFeed, saveFeed } from './utils/feedCache';
 import { libraryParent, libraryTitle, type LibraryView } from './utils/library';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -87,6 +87,11 @@ const MusicAppContent: React.FC = () => {
         .then((reg) => console.log('AuraStream Service Worker registered:', reg.scope))
         .catch((err) => console.warn('Service Worker registration note:', err));
     }
+  }, []);
+
+  // The old "download the preview" feature is gone: take what it left on the device away, once
+  useEffect(() => {
+    void purgeLegacyDownloads();
   }, []);
 
   // Have the hidden YouTube player ready before the first tap: a tap is only accepted by the iPhone for a call made
@@ -199,11 +204,6 @@ const MusicAppContent: React.FC = () => {
   const isRadioTab = activeTab === 'radio' && !activeCategory;
   const isLibraryTab = activeTab === 'library' && !activeCategory;
   const hasTypedQuery = searchQuery.trim().length > 0;
-  // Read again each time the Library screen changes, so a download made meanwhile shows up
-  const downloadedTracks = useMemo(
-    () => (isLibraryTab ? getOfflineTracks(likedTracks, storage) : []),
-    [isLibraryTab, libraryView, likedTracks]
-  );
   const screenTitle = activeCategory
     ? activeCategory.name
     : isLibraryTab
@@ -303,7 +303,6 @@ const MusicAppContent: React.FC = () => {
               view={libraryView}
               onNavigate={setLibraryView}
               liked={likedTracks}
-              downloads={downloadedTracks}
               recent={recentTracks}
               onClearHistory={clearHistory}
               onPlay={(track, queue) => playTrack(track, queue)}
@@ -319,7 +318,6 @@ const MusicAppContent: React.FC = () => {
                 <TrackList
                   tracks={onlineSearch.tracks}
                   title="Músicas Encontradas"
-                  totalCount={onlineSearch.total}
                   onTrackSelect={(track) => playTrack(track, onlineSearch.tracks, onlineSearch.nextIndex !== null && submittedSearch ? searchSource(submittedSearch.query, onlineSearch.nextIndex) : undefined)}
                   hasMore={onlineSearch.hasMore}
                   isLoadingMore={onlineSearch.isLoadingMore}
@@ -463,7 +461,6 @@ const MusicAppContent: React.FC = () => {
                     title={category.name}
                     subtitle={category.description}
                     tracks={page.tracks}
-                    totalCount={page.total}
                     onSeeAll={() => setSelectedCategoryId(category.id)}
                     onTrackSelect={(track) => playTrack(track, page.tracks, page.nextIndex !== null ? categorySource(category.id, page.nextIndex) : undefined)}
                   />

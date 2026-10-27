@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowDownCircle, ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import type { Track } from '../types/music';
 import { groupByAlbum, groupByArtist, tracksOf, type LibraryGroup, type LibraryView } from '../utils/library';
 import { TrackList } from './TrackList';
@@ -10,7 +10,6 @@ interface LibraryScreenProps {
   view: LibraryView | null;
   onNavigate: (view: LibraryView) => void;
   liked: Track[];
-  downloads: Track[];
   /** What the user played lately, newest first. */
   recent: Track[];
   onClearHistory: () => void;
@@ -19,7 +18,6 @@ interface LibraryScreenProps {
 
 const EMPTY_MESSAGES: Record<string, string> = {
   songs: 'Nenhuma música favoritada ainda. Toque no ícone de coração em qualquer faixa para salvar!',
-  downloads: 'Nenhuma faixa baixada ainda. Toque no ícone de download em uma faixa para ouvi-la sem internet (só a prévia de 30s é salva).',
   artist: 'Nenhuma faixa deste artista nos favoritos.',
   album: 'Nenhuma faixa deste álbum nos favoritos.'
 };
@@ -59,7 +57,7 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; placeholder?: Reac
 );
 
 /** The Library tab: a menu of sections, as in Apple Music, and the screen of each one. */
-export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, downloads, recent, onClearHistory, onPlay }) => {
+export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, recent, onClearHistory, onPlay }) => {
   const { playlists, createNew, rename, remove, removeTrack } = usePlaylists();
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'clear' | null>(null);
 
@@ -69,7 +67,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
         <Row icon={<ListMusic className="w-6 h-6" />} title="Playlists" count={playlists.length} onClick={() => onNavigate({ kind: 'playlists' })} />
         <Row icon={<Clock className="w-6 h-6" />} title="Reproduzidas recentemente" count={recent.length} onClick={() => onNavigate({ kind: 'recent' })} />
         <Row icon={<Music2 className="w-6 h-6" />} title="Músicas favoritas" count={liked.length} onClick={() => onNavigate({ kind: 'songs' })} />
-        <Row icon={<ArrowDownCircle className="w-6 h-6" />} title="Downloads" count={downloads.length} onClick={() => onNavigate({ kind: 'downloads' })} />
         <Row icon={<Mic2 className="w-6 h-6" />} title="Artistas" count={groupByArtist(liked).length} onClick={() => onNavigate({ kind: 'artists' })} />
         <Row icon={<Disc3 className="w-6 h-6" />} title="Álbuns" count={groupByAlbum(liked).length} onClick={() => onNavigate({ kind: 'albums' })} />
       </nav>
@@ -261,7 +258,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
     );
   }
 
-  const tracks = tracksOf(view, liked, downloads);
+  const tracks = tracksOf(view, liked);
   return (
     <TrackList
       tracks={tracks}
