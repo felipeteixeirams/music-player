@@ -161,8 +161,18 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       });
     }
     if (url.pathname === '/api/search' && url.searchParams.has('artist')) {
+      const id = url.searchParams.get('artist');
+      if (id === '2222') {
+        return reply(route, {
+          artist: { id, name: 'Artista Parecido', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 10 },
+          top: page([track(311, 'Sucesso do Parecido', 'Artista Parecido')]),
+          albums: [],
+          related: []
+        });
+      }
       return reply(route, {
-        artist: { id: url.searchParams.get('artist'), name: 'Artista Teste', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 1234567 },
+        related: [{ id: '2222', name: 'Artista Parecido', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 10 }],
+        artist: { id, name: 'Artista Teste', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 1234567 },
         albums: [{ id: '777', title: 'Álbum Teste', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', year: 2001, artist: 'Artista Teste' }],
         top: page([track(301, 'Hit Número Um', 'Artista Teste'), track(302, 'Hit Número Dois', 'Artista Teste'), track(303, 'Hit Número Três', 'Artista Teste')])
       });

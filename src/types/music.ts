@@ -99,6 +99,8 @@ export interface ArtistPage {
   top: TrackPage;
   /** Albums, newest first. Absent from servers that predate them. */
   albums?: AlbumSummary[];
+  /** Artists a listener of this one tends to like. Absent from servers that predate them. */
+  related?: ArtistSummary[];
 }
 
 /** An album of the online catalog. */

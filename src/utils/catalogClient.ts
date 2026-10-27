@@ -77,7 +77,12 @@ export async function fetchArtistSearch(query: string, signal?: AbortSignal): Pr
 export async function fetchArtistPage(artistId: string, index: number, signal?: AbortSignal): Promise<ArtistPage> {
   const body = (await getJson(`/api/search?artist=${encodeURIComponent(artistId)}&index=${index}`, signal)) as Partial<ArtistPage> | null;
   if (!body || !isArtist(body.artist) || !isTrackPage(body.top)) throw new CatalogError('Resposta inesperada do servidor ao carregar o artista.');
-  return { artist: body.artist, top: body.top, albums: Array.isArray(body.albums) ? body.albums.filter(isAlbum) : [] };
+  return {
+    artist: body.artist,
+    top: body.top,
+    albums: Array.isArray(body.albums) ? body.albums.filter(isAlbum) : [],
+    related: Array.isArray(body.related) ? body.related.filter(isArtist) : []
+  };
 }
 
 export async function fetchAlbumPage(albumId: string, signal?: AbortSignal): Promise<AlbumPage> {
