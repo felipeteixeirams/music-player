@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { silentClip, stubApi } from './fixtures';
+import { fakeYouTube, silentClip, stubApi } from './fixtures';
 
 const FIRST = 'AAAAAAAAAAA';
 const topHit = (page: Page) => page.locator('section[aria-label="Top Hits"] [role=button]').first();
@@ -26,6 +26,75 @@ test('INV-PLAY-01: a faixa completa que o navegador não deixa começar sozinha 
   await miniPlay(page).click();
   await expect(page.getByText(/não deixou a música começar sozinha/)).toHaveCount(0);
   await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+});
+
+test('INV-PLAY-07: faixa nova com prévia toca a prévia no primeiro toque, e a faixa completa assume sozinha quando o player começa', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(20) });
+  // The search for a track nobody played yet takes a while: the preview must not wait for it
+  await page.route('**/api/resolve?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  const log = page.getByTestId('playback-log');
+  await expect(log).toContainText('começou a tocar (áudio do navegador)');
+  await expect(log).toContainText('faixa completa assumiu no lugar da prévia', { timeout: 10_000 });
+  await page.getByRole('button', { name: 'Fechar ajustes' }).click();
+  await expect(page.getByText(/não deixou a música começar sozinha/)).toHaveCount(0);
+  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+});
+
+test('INV-PLAY-08: o player do YouTube é criado no toque, antes de o vídeo ser conhecido, e as faixas seguintes reaproveitam o mesmo', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.route('**/api/resolve?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  expect(await page.locator('iframe[src*="youtube.com/embed"]').count()).toBe(0);
+
+  await topHit(page).click();
+  // The tap itself made the frame; the search (1.2 s) is still running and no video was asked for yet
+  await expect(page.locator('iframe[src*="youtube.com/embed"]')).toHaveCount(1);
+  expect(await page.evaluate(() => (window as any).__yt?.loads ?? [])).toEqual([]);
+
+  // The video is loaded into that frame once it is known
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.loads)).toEqual([FIRST]);
+
+  await page.locator('section[aria-label="Top Hits"] [role=button]').nth(1).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.loads.length)).toBe(2);
+  expect(await page.evaluate(() => (window as any).__yt.created)).toBe(1);
+  await expect(page.locator('iframe[src*="youtube.com/embed"]')).toHaveCount(1);
+});
+
+test('INV-PLAY-09: se o navegador não deixa a faixa completa começar, o app tenta de novo sozinho, sem botão nem aviso de ação', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(25) });
+  await page.addInitScript(() => { (window as any).__ytMode = 'blocked'; });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+
+  // Blocked: the preview plays and the player is asked again by itself
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.plays ?? 0), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+  await expect(page.getByRole('button', { name: 'Ouvir completa' })).toHaveCount(0);
+  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+
+  // The browser lets it through (the next try works): the full track takes over without any tap
+  await page.evaluate(() => { (window as any).__ytAllow = true; });
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  await expect(page.getByTestId('playback-log')).toContainText('faixa completa assumiu no lugar da prévia', { timeout: 10_000 });
 });
 
 test('a prévia toca no primeiro toque, sem aviso nem segundo toque', async ({ page }) => {

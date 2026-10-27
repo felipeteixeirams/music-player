@@ -1,15 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { YouTubePlayer } from './youtubePlayer';
 import { useAudio } from '../context/AudioContext';
+import { videoIdFromUrl, youtubeEngine } from '../utils/youtubeEngine';
 
 /**
- * Headless Audio Engine (YouTube & YouTube Music Official Audio Stream)
- * Renders react-player with standard dimensions in viewport under the UI layer to prevent
- * browser off-screen throttling and iframe miniaturization blocks (Error 150/151),
- * ensuring continuous and authentic audio playback behind the scenes.
+ * Bridge between the playback state and the hidden YouTube player (`youtubeEngine`, which owns the iframe: it is
+ * created in the user's tap and keeps living, so every track after the first only loads a new video into it).
  */
-const PlayerComponent = YouTubePlayer as any;
-
 export const HeadlessPlayerFallback: React.FC = () => {
   const {
     activeEngine,
@@ -24,87 +20,65 @@ export const HeadlessPlayerFallback: React.FC = () => {
     clearUserSeekRequest,
     handleFallbackError,
     engineStarted,
-    engineReady
+    engineReady,
+    trialVideoUrl,
+    engineLoadId
   } = useAudio();
 
-  const playerRef = useRef<any>(null);
+  const isFallbackActive = activeEngine === 'fallback' && Boolean(audioStreamUrl);
+  // While the preview plays, the full track's video may already load (and take over when it starts)
+  const isTrial = !isFallbackActive && Boolean(trialVideoUrl);
+  const videoId = videoIdFromUrl(isFallbackActive ? audioStreamUrl : isTrial ? trialVideoUrl : '');
+  const playing = isPlaying && (isFallbackActive || isTrial);
 
-  // Sync seek when user moves timeline slider
+  // The player's events call the latest callbacks without re-subscribing on every render
+  const latest = useRef({ isTrial, playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady });
+  latest.current = { isTrial, playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady };
+
   useEffect(() => {
-    if (userSeekRequest !== null && playerRef.current) {
-      playerRef.current.currentTime = userSeekRequest;
+    youtubeEngine.setEvents({
+      started: () => latest.current.engineStarted(),
+      ended: () => latest.current.playNext(),
+      error: (code) => {
+        console.warn(`Background playback failed (YouTube error ${code}), switching source`);
+        latest.current.handleFallbackError();
+      },
+      time: (seconds) => {
+        if (!latest.current.isTrial) latest.current.updatePlaybackTime(seconds);
+      },
+      loaded: (seconds) => {
+        if (!latest.current.isTrial) latest.current.setDuration(Math.round(seconds));
+        latest.current.engineReady(seconds);
+      }
+    });
+    return () => youtubeEngine.setEvents(null);
+  }, []);
+
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+
+  useEffect(() => {
+    if (videoId) youtubeEngine.load(videoId, playingRef.current);
+    else youtubeEngine.stop();
+  }, [videoId, engineLoadId]);
+
+  useEffect(() => {
+    if (!videoId) return;
+    if (playing) youtubeEngine.play();
+    else youtubeEngine.pause();
+    // `videoId` is not a dependency: loading a video already starts it when it should
+  }, [playing]);
+
+  useEffect(() => {
+    youtubeEngine.setVolume(isMuted ? 0 : volume);
+  }, [volume, isMuted]);
+
+  useEffect(() => {
+    if (userSeekRequest !== null) {
+      youtubeEngine.seekTo(userSeekRequest);
       clearUserSeekRequest();
     }
   }, [userSeekRequest, clearUserSeekRequest]);
 
-  const isFallbackActive = activeEngine === 'fallback' && Boolean(audioStreamUrl);
-  const targetUrl = isFallbackActive ? audioStreamUrl : '';
-  const originUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        right: 0,
-        width: 320,
-        height: 180,
-        opacity: 0.001,
-        pointerEvents: 'none',
-        overflow: 'hidden',
-        zIndex: -50,
-        clipPath: 'inset(100%)'
-      }}
-    >
-      {targetUrl ? (
-        <PlayerComponent
-          ref={playerRef}
-          src={targetUrl}
-          playing={isPlaying && isFallbackActive}
-          volume={isMuted ? 0 : volume}
-          width="320px"
-          height="180px"
-          controls={false}
-          playsInline
-          config={{
-            youtube: {
-              playerVars: {
-                autoplay: 1,
-                controls: 0,
-                disablekb: 1,
-                fs: 0,
-                modestbranding: 1,
-                playsinline: 1,
-                rel: 0,
-                origin: originUrl,
-                enablejsapi: 1
-              }
-            } as any
-          }}
-          onDurationChange={(event: React.SyntheticEvent<HTMLMediaElement>) => {
-            const d = event.currentTarget.duration;
-            if (Number.isFinite(d) && d > 0) {
-              setDuration(Math.round(d));
-              engineReady();
-            }
-          }}
-          onTimeUpdate={(event: React.SyntheticEvent<HTMLMediaElement>) => {
-            updatePlaybackTime(event.currentTarget.currentTime);
-          }}
-          onPlaying={() => {
-            engineStarted();
-          }}
-          onEnded={() => {
-            playNext();
-          }}
-          onError={(err: any) => {
-            console.warn('Background playback failed, switching source:', err);
-            handleFallbackError();
-          }}
-        />
-      ) : null}
-    </div>
-  );
+  return null;
 };
-
