@@ -92,9 +92,9 @@ test('INV-PLAY-08: tocar uma rádio também cria o player do YouTube no toque, a
   await expect.poll(() => page.evaluate(() => (window as any).__yt.loads)).toEqual([FIRST]);
 });
 
-test('INV-PLAY-10: o player fica pronto antes do toque e, numa faixa cujo vídeo ainda é procurado, é liberado mudo no toque e só depois recebe o vídeo', async ({ page }) => {
+test('INV-PLAY-10: o player fica pronto antes do toque, sem tocar nada, e o toque só carrega o vídeo real (nada de vídeo-reserva)', async ({ page }) => {
   await fakeYouTube(page);
-  await stubApi(page, { videoIds: [FIRST] });
+  await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(20) });
   await page.route('**/api/resolve?*', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
@@ -107,10 +107,36 @@ test('INV-PLAY-10: o player fica pronto antes do toque e, numa faixa cujo vídeo
   expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([]);
 
   await topHit(page).click();
-  // In the tap: muted placeholder played; the real video comes after the search, with the sound turned on first
-  await expect.poll(() => page.evaluate(() => (window as any).__yt.log.slice(0, 2))).toEqual(['mute', 'play']);
-  await expect.poll(() => page.evaluate(() => (window as any).__yt.log.slice(0, 4))).toEqual(['mute', 'play', 'unmute', `load:${FIRST}`]);
+  // The preview starts at once; the player is not asked to play anything until the real video is known
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([]);
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.log[0])).toBe(`load:${FIRST}`);
   expect(await page.evaluate(() => (window as any).__yt.created)).toBe(1);
+});
+
+test('INV-PLAY-11: uma prévia recusada pelo navegador aparece no relatório e a faixa segue pelo player do YouTube, sem fingir que a prévia toca', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(20) });
+  await page.addInitScript(() => {
+    const original = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      // The real preview is refused (as the iPhone does outside a tap); the tiny unlock clip is not
+      if (this.src.length > 5000) return Promise.reject(new DOMException('refused', 'NotAllowedError'));
+      return original.call(this);
+    };
+  });
+  await page.route('**/api/resolve?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.loads ?? [])).toEqual([FIRST]);
+
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  await expect(page.getByTestId('playback-log')).toContainText('a prévia foi recusada pelo navegador (NotAllowedError)');
 });
 
 test('INV-PLAY-09: se o navegador não deixa a faixa completa começar, o app tenta de novo sozinho, sem botão nem aviso de ação', async ({ page }) => {

@@ -114,7 +114,8 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-PLAY-07:** o toque numa faixa cujo vídeo ainda não é conhecido (e que tem prévia) toca a prévia na hora, sem esperar a busca nem o player do YouTube; a faixa completa assume sozinha quando o player começa a tocar. A prévia nunca é cortada por um player que não começou.
 - **INV-PLAY-08:** o player do YouTube (`youtubeEngine`) é criado dentro do toque, antes de o vídeo ser conhecido, e as faixas seguintes entram no mesmo iframe (nenhum iframe novo por faixa).
 - **INV-PLAY-09:** quando o navegador não deixa a faixa completa começar, o app tenta de novo sozinho (e a cada toque na tela) e a prévia segue; nenhuma ação manual é exigida do usuário.
-- **INV-PLAY-10:** o player do YouTube é criado em repouso (cerca de 2 s depois de abrir o app), para estar pronto no toque; numa faixa cujo vídeo ainda é procurado, o toque o libera tocando um vídeo-reserva mudo (`youtubeEngine.unlock`), e o vídeo real entra depois de ligar o som. O reserva para sozinho se a busca não achar nada ou passar de 10 s.
+- **INV-PLAY-10:** o player do YouTube é criado em repouso (cerca de 2 s depois de abrir o app), para estar pronto no toque, e não toca nada até o vídeo real ser conhecido. Não há vídeo-reserva: a tentativa de liberar o player tocando um vídeo mudo no toque (PR #58) coincidiu com a prévia deixar de começar em faixas novas no aparelho (2026-10-28) e foi retirada.
+- **INV-PLAY-11:** uma prévia que o navegador recusa vai para o relatório ("a prévia foi recusada pelo navegador") e a faixa não entra no modo prévia-e-vídeo: segue pelo player do YouTube como antes.
 
 ## Atualização deste master
 
