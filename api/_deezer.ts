@@ -1,4 +1,4 @@
-import type { ArtistPage, ArtistSummary, FeedResponse, RadioGenre, Track, TrackPage } from '../src/types/music';
+import type { AlbumPage, AlbumSummary, ArtistPage, ArtistSummary, FeedResponse, RadioGenre, Track, TrackPage } from '../src/types/music';
 import { CATEGORY_IDS, CATEGORY_PLAYLISTS, type CategoryId } from './_categories.js';
 import { RADIO_GENRES, type RadioStationConfig } from './_radios.js';
 
@@ -148,6 +148,59 @@ export async function searchDeezerArtists(query: string, limit = 3, fetchImpl?: 
   return data.map(mapDeezerArtist).filter((artist): artist is ArtistSummary => artist !== null);
 }
 
+export function mapDeezerAlbum(input: unknown, fallbackArtist = ''): AlbumSummary | null {
+  const item = asRecord(input);
+  if (!item) return null;
+  const rawId = typeof item.id === 'number' || typeof item.id === 'string' ? String(item.id) : '';
+  const title = asText(item.title);
+  if (!/^\d+$/.test(rawId) || !title) return null;
+  const year = Number.parseInt(typeof item.release_date === 'string' ? item.release_date.slice(0, 4) : '', 10);
+  return {
+    id: rawId,
+    title,
+    coverUrl: asHttpUrl(item.cover_big) ?? asHttpUrl(item.cover_medium) ?? FALLBACK_COVER,
+    year: Number.isFinite(year) && year > 1900 ? year : 0,
+    artist: asText(asRecord(item.artist)?.name) ?? fallbackArtist
+  };
+}
+
+/** The artist's albums, newest first, one row per title (Deezer lists editions apart). */
+export async function fetchArtistAlbums(artistId: string, artistName: string, fetchImpl?: FetchLike): Promise<AlbumSummary[]> {
+  const payload = await requestDeezer(`/artist/${artistId}/albums?limit=100`, fetchImpl);
+  const data = asRecord(payload)?.data;
+  if (!Array.isArray(data)) return [];
+  const seen = new Set<string>();
+  const albums: AlbumSummary[] = [];
+  for (const entry of data) {
+    const album = mapDeezerAlbum(entry, artistName);
+    const key = album?.title.toLowerCase();
+    if (!album || !key || seen.has(key)) continue;
+    seen.add(key);
+    albums.push(album);
+  }
+  return albums.sort((a, b) => b.year - a.year);
+}
+
+/** The album and its tracks in album order. */
+export async function fetchAlbumPage(albumId: string, fetchImpl?: FetchLike): Promise<AlbumPage> {
+  const payload = await requestDeezer(`/album/${albumId}`, fetchImpl);
+  const record = asRecord(payload);
+  const album = mapDeezerAlbum(record, asText(asRecord(record?.artist)?.name) ?? '');
+  if (!album) throw new Error('Álbum não encontrado');
+  const raw = asRecord(record?.tracks)?.data;
+  // The album's own track list leaves out the album and sometimes the artist: put them back before mapping
+  const items = (Array.isArray(raw) ? raw : []).map((entry) => {
+    const item = asRecord(entry) ?? {};
+    return {
+      ...item,
+      album: item.album ?? { title: album.title, cover_big: album.coverUrl },
+      artist: item.artist ?? { name: album.artist }
+    };
+  });
+  const tracks = mapDeezerTracks({ data: items }, { style: album.artist });
+  return { album, tracks: { tracks, total: tracks.length, nextIndex: null } };
+}
+
 /** The artist and a page of their most played tracks. */
 export async function fetchArtistPage(artistId: string, options: DeezerPageOptions = {}): Promise<ArtistPage> {
   const index = options.index ?? 0;
@@ -157,7 +210,9 @@ export async function fetchArtistPage(artistId: string, options: DeezerPageOptio
   ]);
   const artist = mapDeezerArtist(info);
   if (!artist) throw new Error('Artista não encontrado');
-  return { artist, top: mapDeezerPage(top, { ...options, index, style: artist.name }) };
+  // Albums are an extra: the page still opens with the top tracks when they fail
+  const albums = await fetchArtistAlbums(artistId, artist.name, options.fetchImpl).catch((): AlbumSummary[] => []);
+  return { artist, top: mapDeezerPage(top, { ...options, index, style: artist.name }), albums };
 }
 
 export async function searchDeezerTracks(query: string, options: DeezerPageOptions = {}): Promise<Track[]> {

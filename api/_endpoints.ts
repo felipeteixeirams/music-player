@@ -1,6 +1,6 @@
 import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
-import { buildDeezerFeed, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
+import { buildDeezerFeed, fetchAlbumPage, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
 import { findRadioStation } from './_radios.js';
 import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick } from './_radioBrowser.js';
 
@@ -41,11 +41,12 @@ export async function categoryEndpoint(query: { id?: unknown; index?: unknown; l
 const MAX_QUERY_LENGTH = 200;
 
 export async function searchEndpoint(
-  query: { q?: unknown; index?: unknown; limit?: unknown; preview?: unknown; artists?: unknown; artist?: unknown },
+  query: { q?: unknown; index?: unknown; limit?: unknown; preview?: unknown; artists?: unknown; artist?: unknown; album?: unknown },
   fetchImpl?: typeof fetch
 ): Promise<EndpointResult> {
   if (query.preview !== undefined) return previewEndpoint(query.preview, fetchImpl);
   if (query.artists !== undefined) return artistSearchEndpoint(query.artists, fetchImpl);
+  if (query.album !== undefined) return albumEndpoint(query.album, fetchImpl);
   if (query.artist !== undefined) return artistEndpoint(query.artist, query, fetchImpl);
   const text = Array.isArray(query.q) ? query.q[0] : query.q;
   if (typeof text !== 'string' || !text.trim()) return failure(400, 'O parâmetro q é obrigatório');
@@ -94,6 +95,19 @@ async function artistEndpoint(raw: unknown, query: { index?: unknown; limit?: un
   } catch (err: any) {
     console.warn(`[Search] ⚠️ Artista ${id} falhou: ${err?.message || err}`);
     return failure(502, 'Não foi possível carregar este artista agora');
+  }
+}
+
+/** `GET /api/search?album=<id>`: the album and its tracks. */
+async function albumEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<EndpointResult> {
+  const id = firstText(raw);
+  if (typeof id !== 'string' || !/^\d{1,12}$/.test(id)) return failure(400, 'Álbum inválido');
+  try {
+    const page = await fetchAlbumPage(id, fetchImpl);
+    return { status: 200, body: page, cacheControl: 's-maxage=3600, stale-while-revalidate=86400' };
+  } catch (err: any) {
+    console.warn(`[Search] ⚠️ Álbum ${id} falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível carregar este álbum agora');
   }
 }
 

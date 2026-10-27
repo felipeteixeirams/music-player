@@ -36,7 +36,8 @@ import { FeedResponse, Track } from './types/music';
 import { usePagedTracks } from './hooks/usePagedTracks';
 import { fetchArtistSearch, fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
 import { ArtistScreen } from './components/ArtistScreen';
-import type { ArtistSummary } from './types/music';
+import { AlbumScreen } from './components/AlbumScreen';
+import type { AlbumSummary, ArtistSummary } from './types/music';
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
 const MIX_TRACKS_PER_CATEGORY = 2;
@@ -133,6 +134,7 @@ const MusicAppContent: React.FC = () => {
     // Each tab opens at its own first screen, not inside a collection left open elsewhere
     setSelectedCategoryId(null);
     setSelectedArtist(null);
+    setSelectedAlbum(null);
     // Tapping Library again goes back to its menu
     setLibraryView(null);
     // Text typed in the search box belongs to the search screen; left behind it would filter the others
@@ -160,6 +162,7 @@ const MusicAppContent: React.FC = () => {
   // Artists matching the submitted search, and the artist page open on top of it
   const [searchArtists, setSearchArtists] = useState<ArtistSummary[]>([]);
   const [selectedArtist, setSelectedArtist] = useState<ArtistSummary | null>(null);
+  const [selectedAlbum, setSelectedAlbum] = useState<AlbumSummary | null>(null);
   useEffect(() => {
     setSearchArtists([]);
     if (!submittedSearch) return;
@@ -219,7 +222,9 @@ const MusicAppContent: React.FC = () => {
   const isRadioTab = activeTab === 'radio' && !inDetail;
   const isLibraryTab = activeTab === 'library' && !inDetail;
   const hasTypedQuery = searchQuery.trim().length > 0;
-  const screenTitle = selectedArtist
+  const screenTitle = selectedAlbum
+    ? selectedAlbum.title
+    : selectedArtist
     ? selectedArtist.name
     : activeCategory
     ? activeCategory.name
@@ -239,7 +244,9 @@ const MusicAppContent: React.FC = () => {
         <TopBar
           title={screenTitle}
           onBack={
-            selectedArtist
+            selectedAlbum
+              ? () => setSelectedAlbum(null)
+              : selectedArtist
               ? () => setSelectedArtist(null)
               : activeCategory
               ? () => setSelectedCategoryId(null)
@@ -248,7 +255,9 @@ const MusicAppContent: React.FC = () => {
               : undefined
           }
           backLabel={
-            selectedArtist
+            selectedAlbum
+              ? selectedArtist?.name ?? 'Voltar'
+              : selectedArtist
               ? 'Buscar'
               : isLibraryTab && libraryView
               ? libraryTitle(libraryParent(libraryView), playlists)
@@ -282,7 +291,13 @@ const MusicAppContent: React.FC = () => {
 
         <main className="flex-1 space-y-4">
           {selectedArtist ? (
-            <ArtistScreen artistId={selectedArtist.id} />
+            <>
+              {/* The artist stays mounted under the album, so going back shows it at once */}
+              <div hidden={Boolean(selectedAlbum)}>
+                <ArtistScreen artistId={selectedArtist.id} onOpenAlbum={setSelectedAlbum} />
+              </div>
+              {selectedAlbum && <AlbumScreen album={selectedAlbum} />}
+            </>
           ) : activeCategory ? (
             /* One collection, loaded page by page */
             <div className="pt-1 space-y-3">
@@ -344,7 +359,10 @@ const MusicAppContent: React.FC = () => {
                     <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">Artistas</h2>
                     <div className="flex gap-4 overflow-x-auto">
                       {searchArtists.map((artist) => (
-                        <button key={artist.id} onClick={() => setSelectedArtist(artist)} className="flex w-24 shrink-0 flex-col items-center gap-1.5 active:opacity-60">
+                        <button key={artist.id} onClick={() => {
+                            setSelectedAlbum(null);
+                            setSelectedArtist(artist);
+                          }} className="flex w-24 shrink-0 flex-col items-center gap-1.5 active:opacity-60">
                           <img src={artist.pictureUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-24 w-24 rounded-full object-cover bg-fill-tertiary" />
                           <span className="w-full truncate text-center text-[13px] text-label">{artist.name}</span>
                         </button>

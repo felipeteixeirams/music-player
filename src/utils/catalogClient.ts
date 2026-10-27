@@ -1,4 +1,4 @@
-import type { ArtistPage, ArtistSummary, FeedResponse, LiveStation, RadioGenre, Track, TrackPage } from '../types/music';
+import type { AlbumPage, AlbumSummary, ArtistPage, ArtistSummary, FeedResponse, LiveStation, RadioGenre, Track, TrackPage } from '../types/music';
 import { apiFetch } from './apiFetch';
 import { isPreviewStale } from './previewUrl';
 
@@ -63,6 +63,11 @@ const isArtist = (value: unknown): value is ArtistSummary => {
   return Boolean(artist && typeof artist.id === 'string' && typeof artist.name === 'string' && typeof artist.pictureUrl === 'string');
 };
 
+const isAlbum = (value: unknown): value is AlbumSummary => {
+  const album = value as Partial<AlbumSummary> | null;
+  return Boolean(album && typeof album.id === 'string' && typeof album.title === 'string' && typeof album.coverUrl === 'string');
+};
+
 /** The few artists whose name matches the text; empty when none does. */
 export async function fetchArtistSearch(query: string, signal?: AbortSignal): Promise<ArtistSummary[]> {
   const body = (await getJson(`/api/search?artists=${encodeURIComponent(query)}`, signal)) as { artists?: unknown } | null;
@@ -72,7 +77,13 @@ export async function fetchArtistSearch(query: string, signal?: AbortSignal): Pr
 export async function fetchArtistPage(artistId: string, index: number, signal?: AbortSignal): Promise<ArtistPage> {
   const body = (await getJson(`/api/search?artist=${encodeURIComponent(artistId)}&index=${index}`, signal)) as Partial<ArtistPage> | null;
   if (!body || !isArtist(body.artist) || !isTrackPage(body.top)) throw new CatalogError('Resposta inesperada do servidor ao carregar o artista.');
-  return { artist: body.artist, top: body.top };
+  return { artist: body.artist, top: body.top, albums: Array.isArray(body.albums) ? body.albums.filter(isAlbum) : [] };
+}
+
+export async function fetchAlbumPage(albumId: string, signal?: AbortSignal): Promise<AlbumPage> {
+  const body = (await getJson(`/api/search?album=${encodeURIComponent(albumId)}`, signal)) as Partial<AlbumPage> | null;
+  if (!body || !isAlbum(body.album) || !isTrackPage(body.tracks)) throw new CatalogError('Resposta inesperada do servidor ao carregar o álbum.');
+  return { album: body.album, tracks: body.tracks };
 }
 
 export async function fetchRadioGenres(signal?: AbortSignal): Promise<RadioGenre[]> {

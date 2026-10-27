@@ -97,4 +97,22 @@ export interface ArtistSummary {
 export interface ArtistPage {
   artist: ArtistSummary;
   top: TrackPage;
+  /** Albums, newest first. Absent from servers that predate them. */
+  albums?: AlbumSummary[];
+}
+
+/** An album of the online catalog. */
+export interface AlbumSummary {
+  id: string;
+  title: string;
+  coverUrl: string;
+  /** Release year; 0 when unknown. */
+  year: number;
+  artist: string;
+}
+
+/** Album page: the album and its tracks in album order. */
+export interface AlbumPage {
+  album: AlbumSummary;
+  tracks: TrackPage;
 }

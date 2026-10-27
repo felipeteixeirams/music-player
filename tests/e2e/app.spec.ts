@@ -50,7 +50,7 @@ test('Buscar mostra a grade de coleções, busca online e volta à grade ao limp
   await expect(page.getByRole('heading', { name: 'Explorar tudo' })).toBeVisible();
 });
 
-test('INV-UI-06: a busca lista artistas e a página do artista toca as mais tocadas', async ({ page }) => {
+test('INV-UI-06: a busca lista artistas, a página do artista toca as mais tocadas e abre os álbuns', async ({ page }) => {
   await nav(page, 'Buscar').click();
   const box = page.getByRole('searchbox', { name: 'Buscar' });
   await box.fill('artista');
@@ -68,6 +68,15 @@ test('INV-UI-06: a busca lista artistas e a página do artista toca as mais toca
 
   await page.getByRole('button', { name: 'Reproduzir', exact: true }).click();
   await expect(page.getByText('Hit Número Um').first()).toBeVisible();
+
+  // Albums: the artist's albums open a page with the tracks in album order; back returns to the artist
+  await page.locator('section[aria-label="Álbuns"]').getByRole('button', { name: /Álbum Teste/ }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Álbum Teste' })).toBeVisible();
+  await expect(page.getByText('Artista Teste · 2001')).toBeVisible();
+  await expect(page.getByText('Faixa do Álbum Dois')).toBeVisible();
+  await page.getByRole('button', { name: 'Artista Teste' }).first().click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Artista Teste' })).toBeVisible();
+  await expect(page.getByText('Hit Número Dois')).toBeVisible();
 
   // Back goes to the results, still there
   await page.getByRole('button', { name: 'Buscar' }).first().click();
