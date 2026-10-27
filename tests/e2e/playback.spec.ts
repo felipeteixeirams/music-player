@@ -163,6 +163,23 @@ test('INV-PLAY-12: uma rádio ao vivo que demora 7 s a começar toca sem o aviso
   await expect(page.getByTestId('playback-log')).not.toContainText('sem som');
 });
 
+test('INV-PREV-03: uma prévia com o link vencido pede um link novo e toca, sem aviso nem segundo toque', async ({ page }) => {
+  await fakeYouTube(page);
+  const requests = await stubApi(page, { stalePreview: true });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+  await expect.poll(() => requests.filter((r) => r.startsWith('/api/search?preview=')).length).toBe(1);
+
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  const log = page.getByTestId('playback-log');
+  await expect(log).toContainText('o link da prévia tinha vencido: pedi um novo');
+  await expect(log).toContainText('começou a tocar (áudio do navegador)');
+  await expect(log).not.toContainText('a prévia foi recusada');
+});
+
 test('INV-PLAY-09: se o navegador não deixa a faixa completa começar, o app tenta de novo sozinho, sem botão nem aviso de ação', async ({ page }) => {
   await fakeYouTube(page);
   await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(25) });

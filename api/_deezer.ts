@@ -212,3 +212,13 @@ export async function fetchRadioTracks(station: RadioStationConfig, fetchImpl?: 
   const tracks = mapDeezerTracks(payload, { style: station.name });
   return { tracks, total: tracks.length, nextIndex: null };
 }
+
+/**
+ * A fresh preview address of a track. Deezer's preview links carry a signature that expires in about 15 minutes,
+ * while lists are kept (by the CDN and by the phone) for hours: the player asks for a new one when it is about to
+ * use an old one. Null when the track has none.
+ */
+export async function fetchDeezerPreviewUrl(trackId: number, fetchImpl?: FetchLike): Promise<string | null> {
+  const payload = await requestDeezer(`/track/${trackId}`, fetchImpl);
+  return mapDeezerTrack(payload)?.sources.previewUrl ?? null;
+}
