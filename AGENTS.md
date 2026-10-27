@@ -105,7 +105,7 @@ No iPhone um áudio só começa por causa de um toque e logo depois dele: nada q
 
 ## Prévia do Deezer vence em 15 minutos
 
-O link de prévia do Deezer é assinado (`hdnea=exp=…`) e para de funcionar cerca de 15 minutos depois de a lista ser feita, enquanto o feed fica em cache por horas (CDN e aparelho). Por isso `playPreview` renova o link antes de tocar um vencido (`GET /api/search?preview=deezer-<id>`, INV-PREV-01 a 03). Ao criar um caminho que toque ou baixe uma prévia, passe por ele (ou por `isPreviewStale`) em vez de usar `track.sources.previewUrl` direto. `apiFetch` não espera a biblioteca de sessão mais de 2,5 s (ela pode travar no iOS depois do app ficar fora) e nunca encerra a sessão por demora, só por um 401 do servidor.
+O link de prévia do Deezer é assinado (`hdnea=exp=…`) e para de funcionar cerca de 15 minutos depois de a lista ser feita, enquanto o feed fica em cache por horas (CDN e aparelho). Por isso `playPreview` renova o link antes de tocar um vencido (`GET /api/search?preview=deezer-<id>`, INV-PREV-01 a 04; o download offline de prévia faz o mesmo). Ao criar um caminho que toque ou baixe uma prévia, passe por ele (ou por `isPreviewStale`) em vez de usar `track.sources.previewUrl` direto. `apiFetch` não espera a biblioteca de sessão mais de 2,5 s (ela pode travar no iOS depois do app ficar fora) e nunca encerra a sessão por demora, só por um 401 do servidor.
 
 ## Vídeo conhecido antes do toque
 
