@@ -139,6 +139,30 @@ test('INV-PLAY-11: uma prévia recusada pelo navegador aparece no relatório e a
   await expect(page.getByTestId('playback-log')).toContainText('a prévia foi recusada pelo navegador (NotAllowedError)');
 });
 
+test('INV-PLAY-12: uma rádio ao vivo que demora 7 s a começar toca sem o aviso de "o iPhone não deixou"', async ({ page }) => {
+  await stubApi(page);
+  await page.route('https://stream.example/**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 7000));
+    await route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(silentClip(20).split(',')[1], 'base64') });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await page.locator('nav[aria-label="Navegação Principal"] button[aria-label="Rádio"]').click();
+  await page.getByRole('region', { name: 'Mais rádios ao vivo' }).getByRole('button', { name: 'Rock' }).click();
+  await page.getByRole('button', { name: 'Ouvir Rádio rock Teste ao vivo' }).click();
+
+  // Past the 6 s of an ordinary track: still waiting, no notice
+  await page.waitForTimeout(6500);
+  await expect(page.getByText(/não deixou a música começar sozinha/)).toHaveCount(0);
+
+  // The stream starts at 7 s: playing, and still no notice
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  await expect(page.getByTestId('playback-log')).toContainText('começou a tocar (áudio do navegador)', { timeout: 10_000 });
+  await expect(page.getByTestId('playback-log')).not.toContainText('sem som');
+});
+
 test('INV-PREV-03: uma prévia com o link vencido pede um link novo e toca, sem aviso nem segundo toque', async ({ page }) => {
   await fakeYouTube(page);
   const requests = await stubApi(page, { stalePreview: true });

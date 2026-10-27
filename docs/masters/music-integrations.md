@@ -113,7 +113,8 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-PREV-02:** `GET /api/search?preview=deezer-<id>` devolve um link novo de prévia, sem cache, e só aceita ids do Deezer.
 - **INV-PREV-03:** antes de tocar uma prévia com o link vencido (ou quando o navegador recusa o link com `NotSupportedError`), o app pede um link novo e toca, sem aviso nem segundo toque.
 - **INV-PREV-04:** o download de uma prévia também renova o link vencido antes de copiar o áudio (e tenta uma vez com um link novo se o primeiro for recusado).
-- **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (ou 1,5 s depois de o player carregar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
+- **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (a contagem recomeça uma vez, por mais 6 s, quando o player do YouTube termina de carregar; 15 s numa rádio ao vivo, cuja transmissão pode demorar a começar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
+- **INV-PLAY-12:** uma rádio ao vivo tem 15 s para começar antes de o aviso aparecer: uma transmissão que demora 7 s a começar toca sem aviso.
 - **INV-PLAY-13:** com a prévia tocando, o player do YouTube é chamado uma vez só (ao carregar o vídeo): nem as tentativas por timer, nem os toques na tela, nem o ▶ o acordam. No aparelho (2026-10-28) cada tentativa de iniciar um vídeo que o iOS recusava tirava o som da prévia ao lado: ela tocava meio segundo e parava. Quem quer a faixa completa toca na faixa de novo (o vídeo já é conhecido).
 - **INV-PLAY-02:** uma faixa com vídeo já conhecido (no aparelho ou no cache compartilhado) começa sem pedir nada à rede no toque.
 - **INV-PLAY-03:** só a resolução, no toque, de uma faixa que ninguém tocou antes gasta busca do YouTube e cota; a consulta em lote ao cache nunca busca nem consome.
