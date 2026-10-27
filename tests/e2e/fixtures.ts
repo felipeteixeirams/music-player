@@ -66,6 +66,10 @@ const json = (route: Route, body: unknown, status = 200) =>
 export const SILENT_PREVIEW =
   'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 
+/** A preview address whose signature expired long ago, and the new one the server hands out. */
+export const STALE_PREVIEW = 'https://cdn-preview.example/t.mp3?hdnea=exp=1000000000~acl=/t.mp3*~hmac=old';
+export const FRESH_PREVIEW = 'https://cdn-preview.example/t.mp3?hdnea=exp=9999999999~acl=/t.mp3*~hmac=new&fresh=1';
+
 /** What a stubbed track plays: a preview URL, and optionally a short length (so a "play" is over in seconds). */
 export interface PlayableOverride {
   previewUrl: string;
@@ -110,7 +114,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -127,7 +131,9 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
 
   await target.route('**/api/**', (route) => {
     const url = new URL(route.request().url());
-    const override: PlayableOverride | null = options.shortTracks
+    const override: PlayableOverride | null = options.stalePreview
+      ? { previewUrl: STALE_PREVIEW }
+      : options.shortTracks
       ? { previewUrl: silentClip(4), durationSeconds: 4 }
       : options.previewUrl
       ? { previewUrl: options.previewUrl }
@@ -141,6 +147,9 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     }
     if (url.pathname === '/api/category') {
       return reply(route, collectionPage(url.searchParams.get('id') ?? '', Number(url.searchParams.get('index') ?? 0)));
+    }
+    if (url.pathname === '/api/search' && url.searchParams.has('preview')) {
+      return json(route, { id: url.searchParams.get('preview'), previewUrl: FRESH_PREVIEW });
     }
     if (url.pathname === '/api/search') {
       const q = url.searchParams.get('q') ?? '';
@@ -179,6 +188,13 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     }
     return route.continue();
   });
+
+  // Preview links signed by the catalog: the expired one is refused (as the real CDN does), the new one plays
+  await target.route('https://cdn-preview.example/**', (route) =>
+    route.request().url().includes('fresh=1')
+      ? route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(silentClip(20).split(',')[1], 'base64') })
+      : route.fulfill({ status: 403, body: 'expired' })
+  );
 
   // The live stations the directory stub names: a silent stream, so playing one needs no network
   await target.route('https://stream.example/**', (route) =>

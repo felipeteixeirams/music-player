@@ -1,6 +1,6 @@
 import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
-import { buildDeezerFeed, fetchCategoryPage, fetchRadioGenres, fetchRadioTracks } from './_deezer.js';
+import { buildDeezerFeed, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks } from './_deezer.js';
 import { findRadioStation } from './_radios.js';
 import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick } from './_radioBrowser.js';
 
@@ -40,7 +40,11 @@ export async function categoryEndpoint(query: { id?: unknown; index?: unknown; l
 /** Longest search text accepted: real queries are short, and every distinct text is a request the cache cannot answer. */
 const MAX_QUERY_LENGTH = 200;
 
-export async function searchEndpoint(query: { q?: unknown; index?: unknown; limit?: unknown }): Promise<EndpointResult> {
+export async function searchEndpoint(
+  query: { q?: unknown; index?: unknown; limit?: unknown; preview?: unknown },
+  fetchImpl?: typeof fetch
+): Promise<EndpointResult> {
+  if (query.preview !== undefined) return previewEndpoint(query.preview, fetchImpl);
   const text = Array.isArray(query.q) ? query.q[0] : query.q;
   if (typeof text !== 'string' || !text.trim()) return failure(400, 'O parâmetro q é obrigatório');
   if (text.length > MAX_QUERY_LENGTH) return failure(400, `O parâmetro q aceita até ${MAX_QUERY_LENGTH} caracteres`);
@@ -137,4 +141,19 @@ async function radioClickEndpoint(click: unknown, fetchImpl: typeof fetch): Prom
     console.warn(`[LiveRadio] ⚠️ clique não registrado: ${err?.message || err}`);
   }
   return { status: 200, body: { ok: true } };
+}
+
+/** `GET /api/search?preview=deezer-<id>`: a new preview address for a track whose old one expired. Never cached: it is short-lived. */
+async function previewEndpoint(preview: unknown, fetchImpl?: typeof fetch): Promise<EndpointResult> {
+  const value = Array.isArray(preview) ? preview[0] : preview;
+  const match = typeof value === 'string' ? /^deezer-(\d{1,12})$/.exec(value) : null;
+  if (!match) return failure(400, 'Faixa inválida');
+  try {
+    const previewUrl = await fetchDeezerPreviewUrl(Number(match[1]), fetchImpl);
+    if (!previewUrl) return failure(404, 'Esta faixa não tem prévia');
+    return { status: 200, body: { id: value, previewUrl } };
+  } catch (err: any) {
+    console.warn(`[Preview] ⚠️ ${value} falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível renovar a prévia agora');
+  }
 }

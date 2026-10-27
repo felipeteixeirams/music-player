@@ -302,8 +302,14 @@ class YouTubeEngine {
     this.retry = null;
   }
 
+  private lastNudgeAt = 0;
+
   private nudge = (): void => {
     if (!this.wantPlay || this.started || !this.api || !this.ready || !this.videoId) return;
+    // One touch raises pointerup, touchend and click: one attempt per touch
+    const now = performance.now();
+    if (now - this.lastNudgeAt < 600) return;
+    this.lastNudgeAt = now;
     logPlayback('toque na tela: tentando iniciar o player do YouTube');
     this.api.playVideo();
   };

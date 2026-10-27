@@ -97,3 +97,18 @@ test('os downloads de antes das contas passam para quem entra primeiro', async (
   await expect(downloadsRow(page)).toContainText('1');
   expect(await page.evaluate(() => localStorage.getItem('aurastream_offline_track_ids'))).toBeNull();
 });
+
+test('INV-PREV-04: baixar uma prévia cujo link venceu pede um link novo antes de copiar o áudio', async ({ page }) => {
+  const requests = await stubApi(page, { user: testUser('vencida'), stalePreview: true });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await openTopHits(page);
+  await page.getByRole('button', { name: 'Baixar para ouvir offline', exact: true }).first().click();
+  await expect(page.getByRole('button', { name: 'Disponível offline (Clique para remover)', exact: true }).first()).toBeVisible();
+
+  // The copy went through the proxy with the new address, not the expired one
+  expect(requests.some((r) => r.startsWith('/api/search?preview='))).toBe(true);
+  const copies = requests.filter((r) => r.startsWith('/api/audio?url='));
+  expect(copies).toHaveLength(1);
+  expect(decodeURIComponent(copies[0])).toContain('fresh=1');
+});
