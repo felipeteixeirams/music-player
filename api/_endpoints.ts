@@ -2,6 +2,7 @@ import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
 import { buildDeezerFeed, fetchCategoryPage, fetchRadioGenres, fetchRadioTracks } from './_deezer.js';
 import { findRadioStation } from './_radios.js';
+import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick } from './_radioBrowser.js';
 
 /** What an endpoint answers, independent of the HTTP framework (Vercel handlers and the Express server share it). */
 export interface EndpointResult {
@@ -64,7 +65,13 @@ export async function searchEndpoint(query: { q?: unknown; index?: unknown; limi
  * Radio: without `id`, the curated stations grouped by genre (changes rarely: cached); with a station `id`,
  * a fresh batch of its tracks (never cached: every call is a new shuffle, which is what keeps the radio going).
  */
-export async function radioEndpoint(query: { id?: unknown }): Promise<EndpointResult> {
+export async function radioEndpoint(
+  query: { id?: unknown; live?: unknown; click?: unknown },
+  fetchImpl: typeof fetch = fetch
+): Promise<EndpointResult> {
+  if (query.live !== undefined) return liveRadioEndpoint(query.live, fetchImpl);
+  if (query.click !== undefined) return radioClickEndpoint(query.click, fetchImpl);
+
   const hasId = Array.isArray(query.id) ? query.id.length > 0 : query.id !== undefined;
 
   if (!hasId) {
@@ -90,4 +97,44 @@ export async function radioEndpoint(query: { id?: unknown }): Promise<EndpointRe
     console.warn(`[Radio] ⚠️ ${station.name} falhou: ${err?.message || err}`);
     return failure(502, 'Não foi possível carregar esta estação agora');
   }
+}
+
+/**
+ * Live stations by style (radio-browser.info), alongside the curated list. `live` empty: the styles; `live=<style>`:
+ * its most listened-to working stations. A style outside the list is refused, so the route cannot be made to
+ * search the directory for anything else.
+ */
+async function liveRadioEndpoint(live: unknown, fetchImpl: typeof fetch): Promise<EndpointResult> {
+  const value = Array.isArray(live) ? live[0] : live;
+  if (value === '' || value === true) {
+    return {
+      status: 200,
+      body: { styles: LIVE_STYLES.map(({ id, name }) => ({ id, name })) },
+      cacheControl: 's-maxage=86400, stale-while-revalidate=604800'
+    };
+  }
+  const style = findLiveStyle(value);
+  if (!style) return failure(400, 'Estilo desconhecido');
+
+  try {
+    const stations = await fetchLiveStations(style, fetchImpl);
+    console.log(`[LiveRadio] ✅ ${style.id} → ${stations.length} emissora(s)`);
+    // An empty list is not kept by the CDN: it may just be the directory having a bad moment
+    return { status: 200, body: { style: style.id, stations }, cacheControl: stations.length > 0 ? 's-maxage=3600, stale-while-revalidate=86400' : undefined };
+  } catch (err: any) {
+    console.warn(`[LiveRadio] ⚠️ ${style.id} falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível carregar as emissoras agora');
+  }
+}
+
+/** The directory asks apps to report each play of a station; failing to do so never matters to the listener. */
+async function radioClickEndpoint(click: unknown, fetchImpl: typeof fetch): Promise<EndpointResult> {
+  const uuid = Array.isArray(click) ? click[0] : click;
+  if (!isStationUuid(uuid)) return failure(400, 'Emissora inválida');
+  try {
+    await reportStationClick(uuid, fetchImpl);
+  } catch (err: any) {
+    console.warn(`[LiveRadio] ⚠️ clique não registrado: ${err?.message || err}`);
+  }
+  return { status: 200, body: { ok: true } };
 }

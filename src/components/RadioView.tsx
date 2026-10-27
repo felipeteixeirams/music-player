@@ -3,7 +3,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import type { LiveStation, RadioGenre, RadioStation } from '../types/music';
 import { LIVE_RADIO_GROUPS } from '../data/liveRadios';
-import { fetchRadioGenres } from '../utils/catalogClient';
+import { fetchLiveStations, fetchLiveStyles, fetchRadioGenres, reportLiveStationPlayed, type LiveStyleInfo } from '../utils/catalogClient';
 import { StationTile } from './StationTile';
 
 /** Stations by genre. Tapping one starts a radio: the queue renews itself, so the music does not stop. */
@@ -15,6 +15,40 @@ export const RadioView: React.FC = () => {
   const [attempt, setAttempt] = useState(0);
   const [startingId, setStartingId] = useState<number | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+
+  // More live stations, by style, from the directory (the curated list above stays when it is out)
+  const [styles, setStyles] = useState<LiveStyleInfo[]>([]);
+  const [styleId, setStyleId] = useState<string | null>(null);
+  const [styleStations, setStyleStations] = useState<LiveStation[]>([]);
+  const [styleState, setStyleState] = useState<'idle' | 'loading' | 'error'>('idle');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchLiveStyles(controller.signal).then(setStyles).catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!styleId) return;
+    const controller = new AbortController();
+    setStyleState('loading');
+    setStyleStations([]);
+    fetchLiveStations(styleId, controller.signal)
+      .then((stations) => {
+        setStyleStations(stations);
+        setStyleState('idle');
+      })
+      .catch((err) => {
+        if (controller.signal.aborted || err?.name === 'AbortError') return;
+        setStyleState('error');
+      });
+    return () => controller.abort();
+  }, [styleId]);
+
+  const playLive = (station: LiveStation) => {
+    startLiveRadio(station);
+    reportLiveStationPlayed(station.id);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,6 +107,65 @@ export const RadioView: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {styles.length > 0 && (
+        <div role="region" aria-labelledby="live-style-heading" className="space-y-3">
+          <div>
+            <h2 id="live-style-heading" className="text-[22px] font-bold text-label tracking-tight">Mais rádios ao vivo</h2>
+            <p className="text-[13px] text-label-secondary mt-0.5">Escolha um estilo e ouça emissoras de verdade, que continuam tocando com a tela bloqueada.</p>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" role="group" aria-label="Estilos de rádio ao vivo">
+            {styles.map((style) => (
+              <button
+                key={style.id}
+                onClick={() => setStyleId(style.id)}
+                aria-pressed={styleId === style.id}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium active:scale-95 ${
+                  styleId === style.id ? 'bg-accent text-white' : 'bg-fill-tertiary text-label'
+                }`}
+              >
+                {style.name}
+              </button>
+            ))}
+          </div>
+          {styleState === 'loading' && (
+            <p className="text-xs text-label-secondary" role="status">Procurando emissoras...</p>
+          )}
+          {styleState === 'error' && (
+            <div className="text-xs text-rose-500 space-y-2" role="alert">
+              <p>Não foi possível carregar as emissoras agora.</p>
+              <button
+                onClick={() => { const id = styleId; setStyleId(null); setTimeout(() => setStyleId(id), 0); }}
+                className="px-3.5 py-1.5 rounded-full bg-fill-tertiary text-label font-medium active:scale-95"
+              >
+                Tentar de novo
+              </button>
+            </div>
+          )}
+          {styleId && styleState === 'idle' && styleStations.length === 0 && (
+            <p className="text-xs text-label-secondary">Nenhuma emissora disponível para este estilo agora.</p>
+          )}
+          {styleStations.length > 0 && (
+            <div className="grid grid-cols-3 gap-3" role="group" aria-label="Emissoras do estilo">
+              {styleStations.map((station) => {
+                const isCurrent = isLive && currentTrack?.id === `live-${station.id}`;
+                return (
+                  <StationTile
+                    key={station.id}
+                    name={station.name}
+                    seed={station.id}
+                    label={isCurrent ? (isPlaying ? 'No ar agora' : 'Pausada') : station.location}
+                    isCurrent={isCurrent}
+                    isPlaying={isPlaying}
+                    ariaLabel={`Ouvir ${station.name} ao vivo`}
+                    onClick={() => playLive(station)}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <h2 className="text-[22px] font-bold text-label tracking-tight">Mix por gênero</h2>

@@ -146,6 +146,12 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       const q = url.searchParams.get('q') ?? '';
       return reply(route, page([track(101, `${q} - Ao Vivo`, 'Intérprete Busca'), track(102, `${q} - Acústico`, 'Intérprete Busca')]));
     }
+    if (url.pathname === '/api/radio' && url.searchParams.has('click')) return json(route, { ok: true });
+    if (url.pathname === '/api/radio' && url.searchParams.has('live')) {
+      const style = url.searchParams.get('live');
+      if (!style) return json(route, { styles: [{ id: 'rock', name: 'Rock' }, { id: 'jazz', name: 'Jazz' }] });
+      return json(route, { style, stations: [{ id: 'rb-00000000-0000-4000-8000-000000000001', name: `Rádio ${style} Teste`, location: 'São Paulo', streamUrl: 'https://stream.example/1' }] });
+    }
     if (url.pathname === '/api/radio') {
       if (url.searchParams.has('id')) return reply(route, page([track(201, 'Faixa da Rádio', 'Artista Rádio')]));
       return reply(route, {
@@ -173,6 +179,11 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     }
     return route.continue();
   });
+
+  // The live stations the directory stub names: a silent stream, so playing one needs no network
+  await target.route('https://stream.example/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(silentClip(20).split(',')[1], 'base64') })
+  );
 
   // Lyrics are looked up on a third-party service when the full-screen player opens
   await target.route('https://lrclib.net/**', (route) => route.fulfill({ status: 404, body: '[]' }));

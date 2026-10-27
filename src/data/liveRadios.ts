@@ -2,10 +2,11 @@ import type { LiveRadioGroup } from '../types/music';
 
 /**
  * Live radio stations, a fixed list: the community directory these came from (radio-browser.info) fails
- * intermittently and has many dead entries, so the app never queries it. Each stream was checked on
+ * intermittently and has many dead entries, so the first screen never depends on it. Each stream was checked on
  * 2026-10-25 to answer with continuous audio over HTTPS; `tests/api/integrations.live.test.ts` probes them
  * again on demand. Formats follow each station's name and directory tags, not a listening check. Stations
- * change addresses or go off the air: when the live test reports one, replace it.
+ * change addresses or go off the air: when the live test reports one, replace it. More stations, by style, are
+ * asked of the directory on demand (`api/_radioBrowser.ts`) and shown below this list when it answers.
  */
 export const LIVE_RADIO_GROUPS: LiveRadioGroup[] = [
   {
