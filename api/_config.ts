@@ -228,12 +228,25 @@ export function formatFinding(f: Finding): string {
 
 let reported = false;
 
+/** Lets a test run the startup report again. */
+export function resetStartupReport(): void {
+  reported = false;
+}
+
 /**
  * Writes the configuration check to the log, once per instance (a cold start on Vercel, or the server starting):
  * the static findings at once, the deep ones when the services answer. Only when it matters (production or Vercel),
  * so tests and local runs stay quiet; CONFIG_REPORT=1 forces it.
+ *
+ * On Vercel the deep check is not made here: it runs in the background of a request, the platform freezes the
+ * instance between requests, and the answer came back as a spurious "no answer from Supabase" warning on cold
+ * starts while every request worked. There the deep check is `/api/health?deep=1`, which the post-deploy workflow calls.
  */
-export function reportStartupOnce(env: Env = process.env, log: (line: string) => void = (line) => console.log(line)): void {
+export function reportStartupOnce(
+  env: Env = process.env,
+  log: (line: string) => void = (line) => console.log(line),
+  fetchImpl: typeof fetch = fetch
+): void {
   if (reported) return;
   if (!(env.VERCEL || env.NODE_ENV === 'production' || env.CONFIG_REPORT === '1')) return;
   reported = true;
@@ -243,7 +256,12 @@ export function reportStartupOnce(env: Env = process.env, log: (line: string) =>
   const summary = summarize(statics);
   log(`[Config] ${summary.ok ? '✅' : '❌'} configuração: ${summary.errors} erro(s), ${summary.warnings} aviso(s) nas variáveis`);
 
-  void cachedDeepConfig(Date.now, env)
+  if (env.VERCEL && env.CONFIG_REPORT !== '1') {
+    log('[Config] ℹ️ serviços: conferidos por /api/health?deep=1 (o pós-deploy chama), não a cada partida da função');
+    return;
+  }
+
+  void cachedDeepConfig(Date.now, env, fetchImpl)
     .then((deep) => {
       for (const f of deep.filter((item) => item.level !== 'ok')) log(formatFinding(f));
       const result = summarize(deep);

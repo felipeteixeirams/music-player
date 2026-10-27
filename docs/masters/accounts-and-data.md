@@ -33,7 +33,7 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 Tudo que o app precisa do ambiente é verificado em quatro momentos, pelo mesmo código (`api/_config.ts`):
 
-1. **Ao iniciar** (a primeira chamada de cada instância na Vercel, ou o `server.ts` subindo): linhas `[Config] ✅|⚠️|❌ <id>: <mensagem>` no log, só em produção (ou com `CONFIG_REPORT=1`). As mensagens dizem o que falta pelo **nome** da variável, nunca pelo valor. Depois do resumo das variáveis vem o dos serviços, quando o Supabase responde.
+1. **Ao iniciar** (a primeira chamada de cada instância na Vercel, ou o `server.ts` subindo): linhas `[Config] ✅|⚠️|❌ <id>: <mensagem>` no log, só em produção (ou com `CONFIG_REPORT=1`). As mensagens dizem o que falta pelo **nome** da variável, nunca pelo valor. Depois do resumo das variáveis vem o dos serviços, quando o Supabase responde, **exceto na Vercel**: lá a partida não consulta o Supabase (a consulta em segundo plano era congelada entre pedidos e virava um aviso falso "Sem resposta do Supabase" em partidas a frio, com tudo funcionando) e o log diz que os serviços são conferidos por `/api/health?deep=1`, que o pós-deploy chama.
 2. **`/api/health`**: `config` (o que se vê só pelas variáveis) e, com `?deep=1`, `services` (o que o Supabase responde: chave pública aceita, cadastro aberto desligado, login por e-mail ligado, chave de serviço aceita, tabelas e funções das migrações presentes). A resposta é pública, então traz só `id` e nível dos problemas, sem nomes de variáveis nem valores; a consulta aos serviços é lembrada por 5 minutos e não escreve nada.
 3. **No CI** (`.github/workflows/ci.yml`): o build roda com segredos de mentira e `scripts/check-bundle.mjs` reprova se algum chegou ao `dist/` ou se as configurações públicas não chegaram; `tests/config.test.ts` reprova se o código ler uma variável de ambiente que ninguém declarou (sistema ou documentada em `.env.example`).
 4. **Depois de cada deploy de produção** (`.github/workflows/post-deploy.yml`, evento de deploy da Vercel; também manual): `scripts/check-deploy.mjs` pede `/api/health?deep=1` ao app no ar e reprova se houver erro, anotando cada id. O deploy já está no ar quando isso roda: o X vermelho significa "corrija a configuração". Não dá para saber por aqui se o SMTP envia (só um login de verdade mostra).
@@ -98,6 +98,7 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-AUTH-02:** nenhum segredo (chave de serviço, segredo do JWT, senha do banco) chega ao pacote do navegador.
 - **INV-AUTH-03:** a resposta pública de `/api/health` traz só ids e níveis, nunca nomes de variáveis nem valores.
 - **INV-AUTH-04:** a tela de login responde igual para um e-mail com e sem convite.
+- **INV-CFG-01:** na Vercel a partida da função não consulta o Supabase (os serviços são conferidos por `/api/health?deep=1`); onde o processo é de longa duração (`server.ts`), a consulta ao subir continua.
 - **INV-DATA-01:** favoritos, playlists, downloads e histórico de uma pessoa nunca aparecem para outra no mesmo aparelho.
 - **INV-DATA-02:** uma alteração feita sem conexão nunca é perdida pela cópia mais antiga da conta.
 
