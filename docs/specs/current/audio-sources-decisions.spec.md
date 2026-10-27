@@ -80,21 +80,21 @@ Quatro divergências foram achadas ao escrever este registro (2026-10-28):
 1. **`expectPlayback` ignorava `waitMs`**: o código sempre esperava 6 s e o `READY_WATCH_MS` (1,5 s depois de o player carregar), descrito no INV-PLAY-01, nunca valeu. **Decisão:** manter o comportamento real (6 s, recomeçando uma vez quando o player carrega), porque 1,5 s interromperia as tentativas silenciosas (uma faixa começou sozinha em 3,6 s depois de duas tentativas), e corrigir a documentação. O parâmetro passou a ser respeitado. Branch `fix/start-watch-timing`, aguardando PR.
 2. **Tentativas silenciosas param quando o estado vira "pausado"**: se o iOS pausa a prévia, `isPlaying` cai e o motor do YouTube para de tentar. **Superada pelo PR #62** (INV-PLAY-13): com a prévia tocando o player passou a ser chamado uma vez só, justamente porque as tentativas repetidas tiravam o som da prévia; sem prévia, as tentativas silenciosas continuam e seguem o estado de reprodução.
 3. **O vigia de 6 s era curto para rádio ao vivo** (uma começou a tocar depois de o aviso aparecer). Corrigido no mesmo branch: 15 s para rádio ao vivo (INV-PLAY-12).
-4. **Downloads offline de prévia** usavam o link guardado sem renovação. Corrigido no PR #61, já na `main` (INV-PREV-04). Falta confirmar no aparelho.
+4. **Downloads offline de prévia** usavam o link guardado sem renovação. Corrigido no PR #61, mas **sem objeto** desde o PR #68: os downloads foram retirados e o INV-PREV-04 saiu.
 
 ## Frentes em aberto
 
-Ordenadas pela dependência de decisão do usuário:
+Atualizado em 2026-10-28, depois dos PRs #56 a #73. Ordenadas pela dependência de decisão do usuário:
 
-1. **Testar no aparelho o que o PR #61 trouxe** (prévia vencida, sessão e download offline de prévia) e colar o relatório de Ajustes > Diagnóstico. Depois disso, atualizar a [matriz](compatibility-matrix.spec.md).
-2. **Ouvir as rádios por estilo** (PR #60) no app instalado, com a tela bloqueada por 1 a 2 minutos.
-3. **Decidir sobre o app nativo (Capacitor)**: há Mac e conta de desenvolvedor Apple?
-4. **Decidir sobre arquivos de áudio próprios** (Supabase Storage): fazer a checagem de faixa de bytes, limites e custo.
-5. **Medir o uso da cota da YouTube Data API** a partir dos logs da Vercel (resoluções pela API oficial contra a busca web).
-6. **Repetir no aparelho os itens T01 a T15** do [roteiro](validation-checklist.spec.md) que a [matriz](compatibility-matrix.spec.md) ainda marca como não testados.
-7. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
-8. **Ativar a regra "Require status checks to pass"** (job `checks`) na `main`, para o merge exigir o CI.
-9. **Divergências da seção anterior**: abrir o PR do vigia (itens 1 e 3), no branch `fix/start-watch-timing`.
+1. **Testar no aparelho o que os PRs #60 a #73 trouxeram**: rádios por estilo com a tela bloqueada por 1 a 2 minutos (PR #60), renovação do link vencido da prévia (PR #61), anel de carregamento e início sem prévia (PR #69), aparência Clara no app instalado (PR #70), home com 14 coleções (PR #71) e páginas de artista e álbum (PRs #72 e #73). Os roteiros são T16 a T19 do [roteiro de validação](validation-checklist.spec.md); colar o relatório de Ajustes > Diagnóstico e atualizar a [matriz](compatibility-matrix.spec.md) no mesmo dia.
+2. **Decidir sobre o app nativo (Capacitor)**: há Mac e conta de desenvolvedor Apple?
+3. **Decidir sobre arquivos de áudio próprios** (Supabase Storage): fazer a checagem de faixa de bytes, limites e custo. É também o único caminho para crossfade e para offline de verdade.
+4. **Crossfade** (pedido do usuário): registrado, não implementado. Com o player do YouTube no iPhone não é viável (um só iframe, e o iOS recusa começar um segundo vídeo fora do toque); só com `<audio>` e arquivos próprios.
+5. **Decidir sobre a rota `/api/audio`** (proxy de áudio): sem uso desde a retirada dos downloads. Removê-la baixa as funções da Vercel de 7 para 6 e exige atualizar o `AGENTS.md` e os testes.
+6. **Medir o uso da cota da YouTube Data API** a partir dos logs da Vercel (resoluções pela API oficial contra a busca web).
+7. **Repetir no aparelho os itens T01 a T15** do roteiro que a matriz ainda marca como não testados.
+8. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
+9. **Ativar a regra "Require status checks to pass"** (job `checks`) na `main`, para o merge exigir o CI.
 10. **Melhorias de documentação** ainda não feitas: encurtar o `AGENTS.md`, um fato em um lugar só, rótulos de evidência em todas as seções.
 11. **Ruído conhecido, sem impacto no uso**: avisos intermitentes de tempo esgotado do Supabase na verificação profunda de configuração (partida a frio) e o aviso `url.parse()` de uma dependência.
-12. **Branches remotos já mergeados** para o usuário apagar (a sessão na nuvem recebe 403 ao tentar): os `docs/*`, `feat/*` e `fix/*` antigos e os desta rodada.
+12. **Branches remotos já mergeados** para o usuário apagar (a sessão na nuvem recebe 403 ao tentar): todos os `docs/*`, `feat/*`, `fix/*` e `chore/*` listados por `git branch -r` que estejam sem commits à frente da `main`. A opção "Automatically delete head branches" em Settings > General evita o acúmulo.
