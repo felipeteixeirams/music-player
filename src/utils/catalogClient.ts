@@ -1,4 +1,4 @@
-import type { FeedResponse, RadioGenre, Track, TrackPage } from '../types/music';
+import type { FeedResponse, LiveStation, RadioGenre, Track, TrackPage } from '../types/music';
 import { apiFetch } from './apiFetch';
 
 /** Raised for any answer that is not a usable page, with a message fit for the user. */
@@ -73,4 +73,36 @@ export async function fetchRadioTracks(stationId: number, signal?: AbortSignal):
   const body = await getJson(`/api/radio?id=${stationId}`, signal);
   if (!isTrackPage(body)) throw new CatalogError('Resposta inesperada do servidor ao carregar a estação.');
   return body.tracks;
+}
+
+export interface LiveStyleInfo {
+  id: string;
+  name: string;
+}
+
+/** The styles live stations can be listed by. */
+export async function fetchLiveStyles(signal?: AbortSignal): Promise<LiveStyleInfo[]> {
+  const body = (await getJson('/api/radio?live=', signal)) as { styles?: unknown } | null;
+  const styles = body?.styles;
+  if (!Array.isArray(styles) || !styles.every((s) => typeof s?.id === 'string' && typeof s?.name === 'string')) {
+    throw new CatalogError('Resposta inesperada do servidor ao carregar os estilos.');
+  }
+  return styles as LiveStyleInfo[];
+}
+
+/** The most listened-to live stations of a style (HTTPS, checked working by the directory). */
+export async function fetchLiveStations(styleId: string, signal?: AbortSignal): Promise<LiveStation[]> {
+  const body = (await getJson(`/api/radio?live=${encodeURIComponent(styleId)}`, signal)) as { stations?: unknown } | null;
+  const stations = body?.stations;
+  const valid = Array.isArray(stations) && stations.every((st) => (
+    typeof st?.id === 'string' && typeof st?.name === 'string' && typeof st?.location === 'string' && typeof st?.streamUrl === 'string' && st.streamUrl.startsWith('https://')
+  ));
+  if (!valid) throw new CatalogError('Resposta inesperada do servidor ao carregar as emissoras.');
+  return stations as LiveStation[];
+}
+
+/** Tells the directory the station was played (it asks for this). Never fails the listener: fire and forget. */
+export function reportLiveStationPlayed(stationId: string): void {
+  const uuid = stationId.replace(/^rb-/, '');
+  void apiFetch(`/api/radio?click=${encodeURIComponent(uuid)}`).catch(() => undefined);
 }

@@ -34,7 +34,7 @@ Deezer (reserva iTunes)
 
 Serviços atuais:
 
-- A aba Rádio tem duas seções: "Ao vivo", com 25 rádios de verdade (`src/data/liveRadios.ts`, tocadas direto por `<audio>`, sem função da Vercel nem YouTube), e "Mix por gênero". O player de rádio esconde linha do tempo, aleatório, repetir e anterior.
+- A aba Rádio tem três seções. "Ao vivo": 25 rádios de verdade numa lista curada (`src/data/liveRadios.ts`), tocadas direto por `<audio>`, sem função da Vercel nem YouTube. "Mais rádios ao vivo": emissoras por estilo do diretório radio-browser.info (`api/_radioBrowser.ts`; `GET /api/radio?live=<estilo>` com cache de 1 h; passa pelos espelhos do diretório com `User-Agent` próprio e avisa cada reprodução por `?click=<uuid>`, como o serviço pede em api.radio-browser.info). "Mix por gênero": faixas do Deezer com vídeo do YouTube. As duas primeiras tocam por áudio nativo e seguem com a tela bloqueada no app instalado (matriz, 2026-10-27). O player de rádio esconde linha do tempo, aleatório, repetir e anterior.
 - A aba Rádio lista estações curadas do Deezer por gênero (`/radio/genres` para as capas, `/radio/{id}/tracks` para os lotes de 40 faixas embaralhadas); a fila se renova sozinha e a faixa que não toca é pulada.
 - Deezer API é a fonte de busca (`/search`) e das coleções da home (`/playlist/{id}/tracks`, uma playlist editorial por coleção em `api/_categories.ts`); tudo é paginado por `index`/`limit` e as faixas trazem duração real e `previewUrl` de 30s quando existir.
 - O áudio padrão é a faixa completa via YouTube oculto (engine `fallback`), com o vídeo localizado por `/api/resolve`. Sem vídeo ou com embed bloqueado, toca a prévia de 30s por `HTMLAudioElement` (engine `native`) e `playbackStatus.notice` avisa o usuário. Faixa sem nenhuma fonte define `playbackStatus.error`. `PlaybackNotice` exibe ambos no mini player e no player expandido. A escolha do vídeo favorece a fonte mais limpa da gravação de estúdio (canal Topic, depois áudio oficial, por último clipe), e o player completo oferece "Outra versão" quando há mais de um candidato, lembrando a escolha por faixa (ver o satélite, seção "Escolha do vídeo para um app só de áudio").
@@ -105,6 +105,10 @@ Com dependências instaladas, execute `npm test` para os testes determinísticos
 
 Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.test.ts` reprova se algum ficar sem teste, ou se um teste citar um id que não existe aqui). O que vale em cada ambiente está na [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md).
 
+- **INV-LIVE-01:** de uma busca no diretório de rádios só entram emissoras verificadas como no ar, em HTTPS, num formato que o celular toca (MP3, AAC) e sem nome repetido; no máximo 12 por estilo.
+- **INV-LIVE-02:** se um servidor do diretório falha, o próximo é tentado; se todos falham, a rota responde 502 (sem cache) e a tela mantém a lista curada de rádios ao vivo.
+- **INV-LIVE-03:** a rota só aceita os estilos da lista (`LIVE_STYLES`) e uuids de emissora válidos: não dá para usá-la para buscar outra coisa no diretório.
+- **INV-LIVE-04:** a rádio ao vivo por estilo toca por `<audio>` nativo (sem YouTube, sem cota) e avisa o diretório de cada reprodução.
 - **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (ou 1,5 s depois de o player carregar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
 - **INV-PLAY-02:** uma faixa com vídeo já conhecido (no aparelho ou no cache compartilhado) começa sem pedir nada à rede no toque.
 - **INV-PLAY-03:** só a resolução, no toque, de uma faixa que ninguém tocou antes gasta busca do YouTube e cota; a consulta em lote ao cache nunca busca nem consome.

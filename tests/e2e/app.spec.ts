@@ -111,10 +111,26 @@ test('os favoritos continuam depois de recarregar a página', async ({ page }) =
 
 test('a Rádio lista as estações ao vivo e o mix por gênero', async ({ page }) => {
   await nav(page, 'Rádio').click();
-  await expect(page.getByRole('heading', { name: 'Ao vivo' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ao vivo', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pop', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Tocar a rádio Estação Pop' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Ouvir .* ao vivo$/ }).first()).toBeVisible();
+});
+
+test('INV-LIVE-04: a Rádio lista emissoras ao vivo por estilo, toca uma delas por áudio nativo e avisa o diretório', async ({ page }) => {
+  await nav(page, 'Rádio').click();
+  const region = page.getByRole('region', { name: 'Mais rádios ao vivo' });
+  await expect(region).toBeVisible();
+
+  await region.getByRole('button', { name: 'Rock' }).click();
+  const tile = page.getByRole('button', { name: 'Ouvir Rádio rock Teste ao vivo' });
+  await expect(tile).toBeVisible();
+
+  await tile.click();
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+  // The radio plays from an audio tag (no YouTube) and the directory is told, once
+  await expect.poll(() => apiRequests.filter((r) => r.startsWith('/api/radio?click=')).length).toBe(1);
+  expect(apiRequests.some((r) => r.startsWith('/api/resolve?') && !r.includes('usage'))).toBe(false);
 });
 
 test('o menu de ajustes abre o gerenciador de cache', async ({ page }) => {
