@@ -180,25 +180,68 @@ test('INV-PREV-03: uma prévia com o link vencido pede um link novo e toca, sem 
   await expect(log).not.toContainText('a prévia foi recusada');
 });
 
-test('INV-PLAY-09: se o navegador não deixa a faixa completa começar, o app tenta de novo sozinho, sem botão nem aviso de ação', async ({ page }) => {
+test('INV-PLAY-09: se o navegador não deixa a faixa completa começar (sem prévia), o app tenta de novo sozinho, sem botão nem aviso de ação', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.addInitScript(() => { (window as any).__ytMode = 'blocked'; });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+
+  // Blocked: the player is asked again by itself
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.plays ?? 0), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+  await expect(page.getByRole('button', { name: 'Ouvir completa' })).toHaveCount(0);
+
+  // The browser lets it through (the next try works): the track starts without any tap
+  await page.evaluate(() => { (window as any).__ytAllow = true; });
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  await expect(page.getByTestId('playback-log')).toContainText('começou a tocar (player do YouTube)', { timeout: 10_000 });
+});
+
+test('INV-PLAY-13: com a prévia tocando, o player do YouTube é chamado uma vez só (ao carregar): nem tentativas nem o ▶ o acordam, para não tirar o som da prévia', async ({ page }) => {
   await fakeYouTube(page);
   await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(25) });
   await page.addInitScript(() => { (window as any).__ytMode = 'blocked'; });
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   await topHit(page).click();
-  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.log ?? [])).toEqual([`load:${FIRST}`]);
 
-  // Blocked: the preview plays and the player is asked again by itself
-  await expect.poll(() => page.evaluate(() => (window as any).__yt?.plays ?? 0), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
-  await expect(page.getByRole('button', { name: 'Ouvir completa' })).toHaveCount(0);
+  // Several seconds, touches on the screen and a pause + play: the player is never asked to play again
+  await page.waitForTimeout(4500);
+  await page.mouse.click(200, 300);
+  await miniPlay(page).click();
+  await expect(miniPlay(page)).toHaveAccessibleName('Reproduzir música');
+  await miniPlay(page).click();
   await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([`load:${FIRST}`]);
 
-  // The browser lets it through (the next try works): the full track takes over without any tap
-  await page.evaluate(() => { (window as any).__ytAllow = true; });
+  // The preview is what plays, and the screen says how to get the full track
+  await expect(page.getByText(/Toque na faixa de novo para ouvir a completa/).first()).toBeVisible();
+});
+
+test('tocar outra faixa enquanto a anterior ainda renova o link da prévia não vira "recusada pelo navegador" nem pausa a faixa nova', async ({ page }) => {
+  await stubApi(page, { stalePreview: true });
+  // The renewal of an expired address takes a second: the second tap comes while the first still waits for it
+  await page.route('**/api/search?preview=*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fallback();
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+  await page.waitForTimeout(300);
+  await page.locator('section[aria-label="Top Hits"] [role=button]').nth(1).click();
+
+  await page.waitForTimeout(3500);
+  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
-  await expect(page.getByTestId('playback-log')).toContainText('faixa completa assumiu no lugar da prévia', { timeout: 10_000 });
+  const log = page.getByTestId('playback-log');
+  await expect(log).toContainText('começou a tocar (áudio do navegador)');
+  await expect(log).not.toContainText('recusada pelo navegador');
 });
 
 test('a prévia toca no primeiro toque, sem aviso nem segundo toque', async ({ page }) => {

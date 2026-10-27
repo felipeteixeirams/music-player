@@ -124,7 +124,7 @@ const TRIAL_LOAD_MS = 6000;
 const TAP_NOTICE = 'O iPhone não deixou a música começar sozinha. Toque em ▶ para ouvir.';
 const BACKGROUND_NOTICE = 'O iPhone pausou a faixa completa ao sair do app. Toque em ▶ para continuar.';
 
-const TRIAL_NOTICE = 'Tocando a prévia de 30s. A faixa completa entra assim que o navegador permitir.';
+const TRIAL_NOTICE = 'Tocando a prévia de 30s. Toque na faixa de novo para ouvir a completa.';
 
 const QUOTA_NOTICE = 'Você chegou ao limite de faixas novas de hoje. Tocando a prévia de 30s; as faixas que já ouviu seguem completas.';
 
@@ -362,9 +362,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ownPauseAtRef.current = performance.now();
     audioRef.current?.pause();
   }, []);
+  /** Which call of `playPreview` is the latest: one that lost its turn (another track was tapped) must not touch the audio. */
+  const previewCallRef = useRef(0);
   const playPreview = useCallback(async (track: Track, shouldPlay: boolean, notice?: string | null): Promise<boolean> => {
     const previewUrl = track.sources.previewUrl;
     if (!previewUrl || !audioRef.current) return false;
+    const call = ++previewCallRef.current;
+    const superseded = () => call !== previewCallRef.current;
 
     setActiveEngine('native');
     setAudioStreamUrl(previewUrl);
@@ -380,6 +384,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const fresh = await fetchFreshPreviewUrl(track.id);
       logPlayback(fresh ? 'o link da prévia tinha vencido: pedi um novo' : 'o link da prévia tinha vencido e não consegui um novo');
       if (fresh) url = fresh;
+      if (superseded()) return true;
       setAudioStreamUrl(url);
     }
     if (!audioRef.current) return false;
@@ -389,15 +394,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
           await audioRef.current.play();
-          setIsPlaying(true);
+          if (!superseded()) setIsPlaying(true);
           refusal = null;
           break;
         } catch (err) {
+          // Interrupted by a newer load (another track was tapped): not the browser refusing this one
+          if ((err as Error)?.name === 'AbortError' || superseded()) {
+            refusal = null;
+            break;
+          }
           refusal = err;
           // "Not supported" is the browser failing to load the address (an expired signature answers 403): one new address
           if (attempt === 0 && (err as Error)?.name === 'NotSupportedError' && track.id.startsWith('deezer-')) {
             const fresh = await fetchFreshPreviewUrl(track.id);
-            if (fresh && fresh !== url && audioRef.current) {
+            if (fresh && fresh !== url && audioRef.current && !superseded()) {
               logPlayback('a prévia não carregou: pedi um link novo e tento de novo');
               url = fresh;
               setAudioStreamUrl(url);
@@ -408,7 +418,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           break;
         }
       }
-      if (refusal) {
+      if (refusal && !superseded()) {
         // Said in the report: a refused start is otherwise silent (the screen only notices 6 s later)
         previewRefusedRef.current = true;
         logPlayback(`a prévia foi recusada pelo navegador (${(refusal as Error)?.name ?? 'erro'})`);
