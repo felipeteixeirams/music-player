@@ -76,6 +76,24 @@ test('INV-PLAY-08: o player do YouTube é criado no toque, antes de o vídeo ser
   await expect(page.locator('iframe[src*="youtube.com/embed"]')).toHaveCount(1);
 });
 
+test('INV-PLAY-08: tocar uma rádio também cria o player do YouTube no toque, antes de as faixas da estação chegarem', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.route('**/api/radio?id=*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.fallback();
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await page.locator('nav[aria-label="Navegação Principal"] button[aria-label="Rádio"]').click();
+  expect(await page.locator('iframe[src*="youtube.com/embed"]').count()).toBe(0);
+
+  await page.getByRole('button', { name: 'Tocar a rádio Estação Pop' }).click();
+  // The tap made the frame; the station's tracks are still on their way
+  await expect(page.locator('iframe[src*="youtube.com/embed"]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.loads)).toEqual([FIRST]);
+});
+
 test('INV-PLAY-09: se o navegador não deixa a faixa completa começar, o app tenta de novo sozinho, sem botão nem aviso de ação', async ({ page }) => {
   await fakeYouTube(page);
   await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(25) });
