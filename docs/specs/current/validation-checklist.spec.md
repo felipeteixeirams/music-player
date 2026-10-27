@@ -216,7 +216,7 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 
 1. Limite de taxa global das rotas (hoje por instância): firewall da Vercel ou armazenamento compartilhado.
 2. Limpezas pequenas: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
-3. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção.
+3. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção para o player do YouTube. O áudio nativo (rádios ao vivo) toca em segundo plano no app instalado. Descobertas, opções e frentes em aberto: [fontes de áudio e decisões](audio-sources-decisions.spec.md).
 
 Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14), qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza do código Piped, desempenho de listas longas, fila além da página carregada e integração contínua.
 
