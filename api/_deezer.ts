@@ -164,6 +164,14 @@ export function mapDeezerAlbum(input: unknown, fallbackArtist = ''): AlbumSummar
   };
 }
 
+/** Artists similar to this one, most similar first. */
+export async function fetchRelatedArtists(artistId: string, fetchImpl?: FetchLike): Promise<ArtistSummary[]> {
+  const payload = await requestDeezer(`/artist/${artistId}/related?limit=12`, fetchImpl);
+  const data = asRecord(payload)?.data;
+  if (!Array.isArray(data)) return [];
+  return data.map(mapDeezerArtist).filter((artist): artist is ArtistSummary => artist !== null);
+}
+
 /** The artist's albums, newest first, one row per title (Deezer lists editions apart). */
 export async function fetchArtistAlbums(artistId: string, artistName: string, fetchImpl?: FetchLike): Promise<AlbumSummary[]> {
   const payload = await requestDeezer(`/artist/${artistId}/albums?limit=100`, fetchImpl);
@@ -211,8 +219,11 @@ export async function fetchArtistPage(artistId: string, options: DeezerPageOptio
   const artist = mapDeezerArtist(info);
   if (!artist) throw new Error('Artista não encontrado');
   // Albums are an extra: the page still opens with the top tracks when they fail
-  const albums = await fetchArtistAlbums(artistId, artist.name, options.fetchImpl).catch((): AlbumSummary[] => []);
-  return { artist, top: mapDeezerPage(top, { ...options, index, style: artist.name }), albums };
+  const [albums, related] = await Promise.all([
+    fetchArtistAlbums(artistId, artist.name, options.fetchImpl).catch((): AlbumSummary[] => []),
+    fetchRelatedArtists(artistId, options.fetchImpl).catch((): ArtistSummary[] => [])
+  ]);
+  return { artist, top: mapDeezerPage(top, { ...options, index, style: artist.name }), albums, related };
 }
 
 export async function searchDeezerTracks(query: string, options: DeezerPageOptions = {}): Promise<Track[]> {

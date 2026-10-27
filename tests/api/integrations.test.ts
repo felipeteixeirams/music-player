@@ -422,6 +422,7 @@ test('INV-UI-06: /api/search?album traz o álbum com as faixas (com álbum e art
         ]
       });
     }
+    if (/\/artist\/1783\/related/.test(url)) return jsonResponse({ data: [{ id: 340, name: '3 Doors Down', picture_big: 'https://cdn.example/3.jpg', nb_fan: 5 }, { id: 'x' }] });
     if (/\/artist\/1783\/top/.test(url)) return jsonResponse(page([deezerItem(5)], 1));
     if (/\/artist\/1783$/.test(url)) return jsonResponse({ id: 1783, name: 'Creed', picture_big: 'https://cdn.example/c.jpg', nb_fan: 10 });
     if (/\/album\/2$/.test(url)) {
@@ -431,7 +432,8 @@ test('INV-UI-06: /api/search?album traz o álbum com as faixas (com álbum e art
     throw new Error(`url inesperada ${url}`);
   });
 
-  const artist = (await searchEndpoint({ artist: '1783' })).body as { albums: { title: string; year: number }[] };
+  const artist = (await searchEndpoint({ artist: '1783' })).body as { albums: { title: string; year: number }[]; related: { id: string; name: string }[] };
+  assert.deepEqual(artist.related.map((r) => [r.id, r.name]), [['340', '3 Doors Down']]);
   assert.deepEqual(artist.albums.map((a) => [a.title, a.year]), [['Novo', 2009], ['Antigo', 1999]]);
 
   const album = await searchEndpoint({ album: '2' });

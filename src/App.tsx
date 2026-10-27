@@ -133,7 +133,7 @@ const MusicAppContent: React.FC = () => {
     setActiveTab(tab);
     // Each tab opens at its own first screen, not inside a collection left open elsewhere
     setSelectedCategoryId(null);
-    setSelectedArtist(null);
+    setArtistStack([]);
     setSelectedAlbum(null);
     // Tapping Library again goes back to its menu
     setLibraryView(null);
@@ -161,7 +161,9 @@ const MusicAppContent: React.FC = () => {
 
   // Artists matching the submitted search, and the artist page open on top of it
   const [searchArtists, setSearchArtists] = useState<ArtistSummary[]>([]);
-  const [selectedArtist, setSelectedArtist] = useState<ArtistSummary | null>(null);
+  // Artists opened one from another (related artists): going back pops one
+  const [artistStack, setArtistStack] = useState<ArtistSummary[]>([]);
+  const selectedArtist = artistStack[artistStack.length - 1] ?? null;
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumSummary | null>(null);
   useEffect(() => {
     setSearchArtists([]);
@@ -247,7 +249,7 @@ const MusicAppContent: React.FC = () => {
             selectedAlbum
               ? () => setSelectedAlbum(null)
               : selectedArtist
-              ? () => setSelectedArtist(null)
+              ? () => setArtistStack((stack) => stack.slice(0, -1))
               : activeCategory
               ? () => setSelectedCategoryId(null)
               : isLibraryTab && libraryView
@@ -258,7 +260,9 @@ const MusicAppContent: React.FC = () => {
             selectedAlbum
               ? selectedArtist?.name ?? 'Voltar'
               : selectedArtist
-              ? 'Buscar'
+              ? artistStack.length > 1
+                ? artistStack[artistStack.length - 2].name
+                : 'Buscar'
               : isLibraryTab && libraryView
               ? libraryTitle(libraryParent(libraryView), playlists)
               : { home: 'Início', radio: 'Rádio', library: 'Biblioteca', search: 'Buscar' }[activeTab]
@@ -294,7 +298,11 @@ const MusicAppContent: React.FC = () => {
             <>
               {/* The artist stays mounted under the album, so going back shows it at once */}
               <div hidden={Boolean(selectedAlbum)}>
-                <ArtistScreen artistId={selectedArtist.id} onOpenAlbum={setSelectedAlbum} />
+                <ArtistScreen
+                  artistId={selectedArtist.id}
+                  onOpenAlbum={setSelectedAlbum}
+                  onOpenArtist={(artist) => setArtistStack((stack) => [...stack, artist])}
+                />
               </div>
               {selectedAlbum && <AlbumScreen album={selectedAlbum} />}
             </>
@@ -361,7 +369,7 @@ const MusicAppContent: React.FC = () => {
                       {searchArtists.map((artist) => (
                         <button key={artist.id} onClick={() => {
                             setSelectedAlbum(null);
-                            setSelectedArtist(artist);
+                            setArtistStack([artist]);
                           }} className="flex w-24 shrink-0 flex-col items-center gap-1.5 active:opacity-60">
                           <img src={artist.pictureUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-24 w-24 rounded-full object-cover bg-fill-tertiary" />
                           <span className="w-full truncate text-center text-[13px] text-label">{artist.name}</span>
