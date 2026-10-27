@@ -6,6 +6,24 @@
 export const CATEGORY_PLAYLISTS = {
   // "Top Brazil" by Deezer Charts: the most played tracks in Brazil
   'top-hits': { playlistId: 1111141961, style: 'Top Brasil' },
+  // "Top 50 Sertanejo" by Deezer Brasil
+  'sertanejo': { playlistId: 5207214368, style: 'Sertanejo' },
+  // "Essenciais do Pagode" by Deezer Brasil
+  'pagode': { playlistId: 1335664985, style: 'Pagode e Samba' },
+  // "Funk Trends" by Deezer Brasil
+  'funk': { playlistId: 9743264302, style: 'Funk' },
+  // "Top 50 Forró" by Deezer Brasil
+  'forro': { playlistId: 6880421184, style: 'Forró' },
+  // "Clássicos da MPB" by Deezer Brasil
+  'mpb': { playlistId: 556502217, style: 'MPB' },
+  // "Top 50 Gospel" by Deezer Gospel
+  'gospel': { playlistId: 2532050928, style: 'Gospel' },
+  // "Top Hits Internacionais" by Deezer Brasil
+  'pop-internacional': { playlistId: 948759923, style: 'Pop Internacional' },
+  // "Essenciais do Rap Brasileiro" by Deezer Brasil
+  'hip-hop': { playlistId: 11881565941, style: 'Rap e Hip Hop' },
+  // "Dance Mix" by Deezer Brasil
+  'eletronica': { playlistId: 6275031904, style: 'Eletrônica' },
   // "Rock Essentials" by Deezer Rock: AC/DC, Pink Floyd, David Bowie, The Beatles...
   'classic-rock': { playlistId: 1306931615, style: 'Classic Rock' },
   // "New Alternative" by Deezer Alternative: current indie and alternative

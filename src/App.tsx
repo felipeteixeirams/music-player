@@ -37,7 +37,7 @@ import { usePagedTracks } from './hooks/usePagedTracks';
 import { fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
-const MIX_TRACKS_PER_CATEGORY = 4;
+const MIX_TRACKS_PER_CATEGORY = 2;
 
 /** Where playback goes on after the loaded part of a collection or of a search. */
 const categorySource = (categoryId: string, nextIndex: number): QueueSource => ({
@@ -449,6 +449,15 @@ const MusicAppContent: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* What this person played lately, so the home is never the same twice */}
+              {recentTracks.length > 0 && (
+                <TrackCarousel
+                  title="Tocadas recentemente"
+                  tracks={recentTracks.slice(0, 20)}
+                  onTrackSelect={(track) => playTrack(track, recentTracks)}
+                />
               )}
 
               {/* One carousel per collection: first page; "Ver tudo" opens the whole playlist */}

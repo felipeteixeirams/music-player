@@ -72,3 +72,14 @@ test('uma reprodução feita sem conexão chega à conta depois', async ({ page,
   await page.reload();
   await expect.poll(async () => history(request, user.id), { timeout: 15_000 }).toContain('deezer-1');
 });
+
+test('INV-UI-05: a home mostra "Tocadas recentemente" só depois de ouvir algo', async ({ page, request }) => {
+  const user = testUser();
+  await openApp(page, user);
+  const shelf = page.locator('section[aria-label="Tocadas recentemente"]');
+  await expect(shelf).toHaveCount(0);
+  await playFirstTopHit(page);
+  await expect.poll(async () => history(request, user.id), { timeout: 15_000 }).toContain('deezer-1');
+  await expect(shelf).toBeVisible();
+  await expect(shelf.getByText(TOP_HITS[0].title).first()).toBeVisible();
+});

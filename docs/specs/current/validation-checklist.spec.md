@@ -29,7 +29,7 @@ Abra, no navegador logado na Vercel:
 | Endereço | Esperado |
 | --- | --- |
 | `/api/health` | `{"status":"ok", ...}` |
-| `/api/feed` | `categories` com 5 coleções (`top-hits`, `classic-rock`, `alternative-pop`, `lofi-chill`, `synthwave`), cada uma com 15 faixas, `total` (cerca de 100, 100, 150, 92, 50) e `nextIndex` 15; `featured` preenchido |
+| `/api/feed` | `categories` com 14 coleções (as de `api/_categories.ts`), cada uma com 15 faixas, `total` maior que 15 e `nextIndex` 15; `featured` preenchido |
 | `/api/category?id=classic-rock&index=15` | 20 faixas, `nextIndex` 35, nenhuma repetida da página anterior |
 | `/api/category?id=nao-existe` | 400 `Categoria desconhecida` |
 | `/api/search?q=queen&index=20` | 20 faixas, `source` `deezer`, `total` maior que 100 |
@@ -41,7 +41,7 @@ Se falhar: `via web` com a chave configurada indica que a chave não chega à fu
 
 ### T02: fidelidade das coleções, "Ver tudo" e paginação
 
-1. Na home, confira os 5 carrosséis e o conteúdo de cada um contra a descrição: Top Hits (músicas mais tocadas no Brasil), Classic Rock (AC/DC, Pink Floyd, Bowie, Beatles), Alternative & Indie (indie e alternativo de hoje), Lofi Chill (lo-fi para estudar), Synthwave & Retrowave (sintetizadores dos anos 80).
+1. Na home, confira os carrosséis (14, mais "Tocadas recentemente" quando há histórico) e o conteúdo de cada um contra a descrição; os cinco primeiros editoriais: Top Hits (músicas mais tocadas no Brasil), Classic Rock (AC/DC, Pink Floyd, Bowie, Beatles), Alternative & Indie (indie e alternativo de hoje), Lofi Chill (lo-fi para estudar), Synthwave & Retrowave (sintetizadores dos anos 80).
 2. Toque em "Ver tudo" em cada carrossel e também em cada bloco da grade "Explorar tudo" da aba Buscar; confira que a lista mostra só aquela coleção (Synthwave não pode mostrar faixas de outras) e que "‹" no topo volta à tela de onde você veio.
 3. Em uma coleção, role até o fim. As faixas devem aparecer em blocos e o botão "Carregar mais" deve sumir no fim; a linha sob o título diz o total da coleção (por exemplo "100 faixas").
 4. Procure faixas repetidas na mesma lista.
