@@ -41,7 +41,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     <>
       {/* Keeps the status bar legible while the page scrolls under it */}
       <div
-        className="fixed top-0 left-0 right-0 z-30 h-[var(--safe-top)] material-regular"
+        className="fixed top-0 left-0 right-0 z-30 h-[var(--safe-top)] material-regular status-strip"
         aria-hidden="true"
       />
 

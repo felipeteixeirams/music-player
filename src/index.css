@@ -50,29 +50,35 @@
   color-scheme: dark;
 }
 
-@media (prefers-color-scheme: light) and (not (display-mode: standalone)) {
-  :root {
-    --color-canvas: #ffffff;
-    --color-elevated: #f2f2f7;
-    --color-elevated-2: #e5e5ea;
-    --color-label: #000000;
-    --color-label-secondary: rgb(60 60 67 / 0.6);
-    --color-label-tertiary: rgb(60 60 67 / 0.3);
-    --color-separator: rgb(60 60 67 / 0.29);
-    --color-fill: rgb(120 120 128 / 0.2);
-    --color-fill-secondary: rgb(120 120 128 / 0.16);
-    --color-fill-tertiary: rgb(118 118 128 / 0.12);
-    --color-segment: #ffffff;
-    --color-tab-active: rgb(0 0 0 / 0.07);
-    --color-accent: #fa233b;
-    --color-accent-pressed: #d91c32;
-    --material-rgb: 249 249 249;
-    --ma-ultrathin: 0.45;
-    --ma-thin: 0.6;
-    --ma-regular: 0.72;
-    --ma-thick: 0.85;
-    color-scheme: light;
-  }
+/* Set by `applyAppearance` (src/utils/appearance.ts) from the saved choice and the system */
+:root.scheme-light {
+  --color-canvas: #ffffff;
+  --color-elevated: #f2f2f7;
+  --color-elevated-2: #e5e5ea;
+  --color-label: #000000;
+  --color-label-secondary: rgb(60 60 67 / 0.6);
+  --color-label-tertiary: rgb(60 60 67 / 0.3);
+  --color-separator: rgb(60 60 67 / 0.29);
+  --color-fill: rgb(120 120 128 / 0.2);
+  --color-fill-secondary: rgb(120 120 128 / 0.16);
+  --color-fill-tertiary: rgb(118 118 128 / 0.12);
+  --color-segment: #ffffff;
+  --color-tab-active: rgb(0 0 0 / 0.07);
+  --color-accent: #fa233b;
+  --color-accent-pressed: #d91c32;
+  --material-rgb: 249 249 249;
+  --ma-ultrathin: 0.45;
+  --ma-thin: 0.6;
+  --ma-regular: 0.72;
+  --ma-thick: 0.85;
+  color-scheme: light;
+}
+
+/* The installed app's status bar has white text fixed: in the light scheme its strip stays black */
+:root.scheme-light .status-strip {
+  background: #000;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .theme-dark {

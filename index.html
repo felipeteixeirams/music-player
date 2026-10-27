@@ -18,6 +18,16 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <script>
+      // Applies the saved appearance before the first paint (no flash); src/utils/appearance.ts keeps it afterwards
+      try {
+        var a = localStorage.getItem('aurastream_appearance');
+        var m = function (q) { return window.matchMedia(q).matches; };
+        if (a === 'light' || (a !== 'dark' && m('(prefers-color-scheme: light)') && !m('(display-mode: standalone)'))) {
+          document.documentElement.classList.add('scheme-light');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

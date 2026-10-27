@@ -34,6 +34,7 @@ O app segue a linguagem visual do Apple Music: fundo preto, texto branco com ní
 ## Invariantes da interface (não quebre)
 
 - **INV-UI-01:** carrosséis e listas não mostram o total de faixas (o "100 faixas" era o tamanho da playlist do catálogo, sem sentido para quem ouve); só o que está carregado é mostrado, e o resto chega pela rolagem.
+- **INV-UI-04:** Ajustes > Aparência (Automático, Claro, Escuro) é escolha do aparelho (`aurastream_appearance` em `localStorage`, `src/utils/appearance.ts`). Automático segue o sistema só no navegador (no app instalado fica escuro); Claro e Escuro valem em qualquer modo. A classe `scheme-light` em `<html>` é aplicada antes da primeira pintura (script em `index.html`). No app instalado em Claro, a faixa sobre a barra de status (`.status-strip`) fica preta, pois o iOS fixa o texto dela em branco (hipótese: conferir no aparelho).
 
 ## Atualização deste master
 
