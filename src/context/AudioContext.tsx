@@ -601,6 +601,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (loadTokenRef.current !== token) return;
       // The version the user picked before comes first, even when the search no longer returns it
       const ids = orderVersions(found, loadChoices(storage)[track.id]);
+      if (ids.length === 0) youtubeEngine.release();
       if (ids.length > 0) {
         versionsRef.current = { trackId: track.id, ids, index: 0 };
         setVersionCount(ids.length);
@@ -769,14 +770,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    * so a track that arrives later may start on its own, and create the hidden YouTube player in the same tap (the
    * videos are loaded into it afterwards, with no new frame).
    */
-  const primeInTap = useCallback(() => {
+  const primeInTap = useCallback((searchesVideo = false) => {
     unlockAudioElement(audioRef.current);
     youtubeEngine.prime();
+    // A video not known yet is searched for after the tap: let the player be started by it meanwhile
+    if (searchesVideo) youtubeEngine.unlock();
   }, []);
 
   // Main playback controls
   const playTrack = useCallback((track: Track, customQueue?: Track[], source?: QueueSource) => {
-    primeInTap();
+    primeInTap(!track.sources.youtubeId && !track.sources.localUrl && !isLiveTrack(track) && !knownVideoIds(track.id));
 
     if (customQueue) {
       setRadioStation(null);
@@ -908,7 +911,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const startRadio = useCallback(async (station: RadioStation): Promise<boolean> => {
     // Inside the tap, before the network wait for the station's tracks
-    primeInTap();
+    primeInTap(true);
 
     try {
       const batch = await fetchRadioTracks(station.id);

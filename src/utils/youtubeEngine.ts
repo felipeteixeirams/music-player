@@ -12,6 +12,8 @@ const PLACEHOLDER_VIDEO = 'jNQXAC9IVRw';
 const POLL_MS = 250;
 const RETRY_EVERY_MS = 1500;
 const MAX_RETRIES = 8;
+/** How long the muted placeholder may play while the real video is still being searched. */
+const UNLOCK_MAX_MS = 10_000;
 
 const STATE = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 } as const;
 
@@ -21,6 +23,8 @@ interface YouTubeApi {
   playVideo(): void;
   pauseVideo(): void;
   stopVideo(): void;
+  mute(): void;
+  unMute(): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   setVolume(volume: number): void;
   getCurrentTime(): number;
@@ -94,6 +98,8 @@ class YouTubeEngine {
   private retry: ReturnType<typeof setTimeout> | null = null;
   private retries = 0;
   private started = false;
+  private unlocked = false;
+  private unlockTimer: ReturnType<typeof setTimeout> | null = null;
 
   setEvents(events: YouTubeEvents | null): void {
     this.events = events;
@@ -143,7 +149,8 @@ class YouTubeEngine {
     this.iframe = iframe;
     logPlayback('player do YouTube criado no toque');
 
-    document.addEventListener('pointerup', this.nudge, true);
+    // Touches the iPhone accepts as a user gesture for media: touchend and click (pointerup is not certain to count)
+    for (const type of ['pointerup', 'touchend', 'click']) document.addEventListener(type, this.nudge, true);
 
     loadApi()
       .then((YT) => {
@@ -162,9 +169,43 @@ class YouTubeEngine {
       });
   }
 
+  /**
+   * Called inside the tap when the video is not known yet (its search takes longer than the iPhone's window for a
+   * tap to start sound): plays the cued placeholder muted, so the frame's player counts as started by the user and
+   * the real video, loaded when the search ends, may start by itself.
+   */
+  unlock(): void {
+    this.prime();
+    if (!this.ready || !this.api || this.videoId || this.unlocked) return;
+    this.unlocked = true;
+    logPlayback('player do YouTube liberado no toque (tocando mudo enquanto o vídeo é procurado)');
+    this.api.mute();
+    this.api.playVideo();
+    this.unlockTimer = setTimeout(() => this.release(), UNLOCK_MAX_MS);
+  }
+
+  /** The search ended without a video (or took too long): the placeholder stops. */
+  release(): void {
+    if (this.unlockTimer) clearTimeout(this.unlockTimer);
+    this.unlockTimer = null;
+    if (!this.unlocked) return;
+    this.unlocked = false;
+    if (this.ready && this.api && !this.videoId) {
+      this.api.stopVideo();
+      this.api.unMute();
+    }
+  }
+
   /** Plays this video (or only cues it, when `play` is false). Creates the frame if the tap had not. */
   load(videoId: string, play: boolean): void {
     this.prime();
+    if (this.unlocked && this.ready && this.api) {
+      this.api.unMute();
+      logPlayback('o player do YouTube ligou o som e recebeu o vídeo');
+    }
+    this.unlocked = false;
+    if (this.unlockTimer) clearTimeout(this.unlockTimer);
+    this.unlockTimer = null;
     this.videoId = videoId;
     this.wantPlay = play;
     this.reportedLength = false;
@@ -204,6 +245,11 @@ class YouTubeEngine {
     this.started = false;
     this.cancelRetry();
     this.stopPolling();
+    // A stop that comes while the unlock placeholder plays is the search ending without a video
+    if (this.unlocked) {
+      this.release();
+      return;
+    }
     if (this.ready && this.api) this.api.stopVideo();
   }
 

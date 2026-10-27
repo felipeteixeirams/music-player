@@ -60,10 +60,9 @@ test('INV-PLAY-08: o player do YouTube é criado no toque, antes de o vídeo ser
   });
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
-  expect(await page.locator('iframe[src*="youtube.com/embed"]').count()).toBe(0);
 
   await topHit(page).click();
-  // The tap itself made the frame; the search (1.2 s) is still running and no video was asked for yet
+  // The frame exists by the tap (made at rest or by the tap itself); the search (1.2 s) is still running and no video was asked for yet
   await expect(page.locator('iframe[src*="youtube.com/embed"]')).toHaveCount(1);
   expect(await page.evaluate(() => (window as any).__yt?.loads ?? [])).toEqual([]);
 
@@ -86,12 +85,32 @@ test('INV-PLAY-08: tocar uma rádio também cria o player do YouTube no toque, a
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   await page.locator('nav[aria-label="Navegação Principal"] button[aria-label="Rádio"]').click();
-  expect(await page.locator('iframe[src*="youtube.com/embed"]').count()).toBe(0);
 
   await page.getByRole('button', { name: 'Tocar a rádio Estação Pop' }).click();
   // The tap made the frame; the station's tracks are still on their way
   await expect(page.locator('iframe[src*="youtube.com/embed"]')).toHaveCount(1);
   await expect.poll(() => page.evaluate(() => (window as any).__yt.loads)).toEqual([FIRST]);
+});
+
+test('INV-PLAY-10: o player fica pronto antes do toque e, numa faixa cujo vídeo ainda é procurado, é liberado mudo no toque e só depois recebe o vídeo', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.route('**/api/resolve?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  // At rest the frame is made and gets ready, with no tap and nothing playing
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([]);
+
+  await topHit(page).click();
+  // In the tap: muted placeholder played; the real video comes after the search, with the sound turned on first
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.log.slice(0, 2))).toEqual(['mute', 'play']);
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.log.slice(0, 4))).toEqual(['mute', 'play', 'unmute', `load:${FIRST}`]);
+  expect(await page.evaluate(() => (window as any).__yt.created)).toBe(1);
 });
 
 test('INV-PLAY-09: se o navegador não deixa a faixa completa começar, o app tenta de novo sozinho, sem botão nem aviso de ação', async ({ page }) => {
