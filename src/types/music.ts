@@ -83,3 +83,36 @@ export interface LiveRadioGroup {
   name: string;
   stations: LiveStation[];
 }
+
+/** An artist of the online catalog: what the search lists and the artist page opens with. */
+export interface ArtistSummary {
+  id: string;
+  name: string;
+  pictureUrl: string;
+  /** Followers on Deezer; 0 when unknown. */
+  fans: number;
+}
+
+/** Artist page: the artist and the most played tracks, one page at a time. */
+export interface ArtistPage {
+  artist: ArtistSummary;
+  top: TrackPage;
+  /** Albums, newest first. Absent from servers that predate them. */
+  albums?: AlbumSummary[];
+}
+
+/** An album of the online catalog. */
+export interface AlbumSummary {
+  id: string;
+  title: string;
+  coverUrl: string;
+  /** Release year; 0 when unknown. */
+  year: number;
+  artist: string;
+}
+
+/** Album page: the album and its tracks in album order. */
+export interface AlbumPage {
+  album: AlbumSummary;
+  tracks: TrackPage;
+}

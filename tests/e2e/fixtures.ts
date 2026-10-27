@@ -151,6 +151,22 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     if (url.pathname === '/api/search' && url.searchParams.has('preview')) {
       return json(route, { id: url.searchParams.get('preview'), previewUrl: FRESH_PREVIEW });
     }
+    if (url.pathname === '/api/search' && url.searchParams.has('artists')) {
+      return json(route, { artists: [{ id: '1783', name: 'Artista Teste', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 1234567 }] });
+    }
+    if (url.pathname === '/api/search' && url.searchParams.has('album')) {
+      return reply(route, {
+        album: { id: url.searchParams.get('album'), title: 'Álbum Teste', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', year: 2001, artist: 'Artista Teste' },
+        tracks: page([track(401, 'Faixa do Álbum Um', 'Artista Teste', 'Álbum Teste'), track(402, 'Faixa do Álbum Dois', 'Artista Teste', 'Álbum Teste')])
+      });
+    }
+    if (url.pathname === '/api/search' && url.searchParams.has('artist')) {
+      return reply(route, {
+        artist: { id: url.searchParams.get('artist'), name: 'Artista Teste', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 1234567 },
+        albums: [{ id: '777', title: 'Álbum Teste', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', year: 2001, artist: 'Artista Teste' }],
+        top: page([track(301, 'Hit Número Um', 'Artista Teste'), track(302, 'Hit Número Dois', 'Artista Teste'), track(303, 'Hit Número Três', 'Artista Teste')])
+      });
+    }
     if (url.pathname === '/api/search') {
       const q = url.searchParams.get('q') ?? '';
       return reply(route, page([track(101, `${q} - Ao Vivo`, 'Intérprete Busca'), track(102, `${q} - Acústico`, 'Intérprete Busca')]));

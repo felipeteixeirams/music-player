@@ -1,4 +1,5 @@
 import { CATEGORY_IDS } from '../../api/_categories';
+import { searchEndpoint } from '../../api/_endpoints';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -381,4 +382,64 @@ test('resolve endpoint answers "no video found" as a normal answer (the shared c
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.body, { videoIds: [] });
   assert.equal(response.headers['Cache-Control'], 'private, no-store');
+});
+
+test('INV-UI-06: /api/search?artists lista artistas e /api/search?artist traz o artista com as mais tocadas', async () => {
+  const requested: string[] = [];
+  setFetchMock(async (url) => {
+    requested.push(url);
+    if (url.includes('/search/artist')) return jsonResponse({ data: [{ id: 1783, name: 'Creed', picture_big: 'https://cdn.example/creed.jpg', nb_fan: 1537601 }, { id: 'x', name: '' }] });
+    if (/\/artist\/1783\/top/.test(url)) return jsonResponse(page([deezerItem(5), deezerItem(6)], 20));
+    return jsonResponse({ id: 1783, name: 'Creed', picture_big: 'https://cdn.example/creed.jpg', nb_fan: 1537601 });
+  });
+
+  const list = await searchEndpoint({ artists: 'creed' });
+  assert.equal(list.status, 200);
+  assert.deepEqual(list.body, { artists: [{ id: '1783', name: 'Creed', pictureUrl: 'https://cdn.example/creed.jpg', fans: 1537601 }] });
+  assert.match(list.cacheControl ?? '', /s-maxage=/);
+
+  const artist = await searchEndpoint({ artist: '1783', limit: '2' });
+  const body = artist.body as { artist: { name: string }; top: { tracks: unknown[]; total: number; nextIndex: number | null } };
+  assert.equal(artist.status, 200);
+  assert.equal(body.artist.name, 'Creed');
+  assert.equal(body.top.tracks.length, 2);
+  assert.equal(body.top.nextIndex, 2);
+
+  const before = requested.length;
+  assert.equal((await searchEndpoint({ artist: '../x' })).status, 400);
+  assert.equal((await searchEndpoint({ artists: ' ' })).status, 400);
+  assert.equal(requested.length, before, 'entrada inválida não chega ao Deezer');
+});
+
+test('INV-UI-06: /api/search?album traz o álbum com as faixas (com álbum e artista recolocados) e os álbuns do artista vêm sem repetição, do mais novo', async () => {
+  setFetchMock(async (url) => {
+    if (/\/artist\/1783\/albums/.test(url)) {
+      return jsonResponse({
+        data: [
+          { id: 1, title: 'Antigo', release_date: '1999-05-01', cover_big: 'https://cdn.example/a.jpg' },
+          { id: 2, title: 'Novo', release_date: '2009-10-27', cover_big: 'https://cdn.example/n.jpg' },
+          { id: 3, title: 'novo', release_date: '2010-01-01' }
+        ]
+      });
+    }
+    if (/\/artist\/1783\/top/.test(url)) return jsonResponse(page([deezerItem(5)], 1));
+    if (/\/artist\/1783$/.test(url)) return jsonResponse({ id: 1783, name: 'Creed', picture_big: 'https://cdn.example/c.jpg', nb_fan: 10 });
+    if (/\/album\/2$/.test(url)) {
+      const { artist: _artist, album: _album, ...bare } = deezerItem(9) as Record<string, unknown>;
+      return jsonResponse({ id: 2, title: 'Novo', release_date: '2009-10-27', cover_big: 'https://cdn.example/n.jpg', artist: { name: 'Creed' }, tracks: { data: [bare] } });
+    }
+    throw new Error(`url inesperada ${url}`);
+  });
+
+  const artist = (await searchEndpoint({ artist: '1783' })).body as { albums: { title: string; year: number }[] };
+  assert.deepEqual(artist.albums.map((a) => [a.title, a.year]), [['Novo', 2009], ['Antigo', 1999]]);
+
+  const album = await searchEndpoint({ album: '2' });
+  const body = album.body as { album: { title: string; year: number }; tracks: { tracks: { artist: string; album: string; coverUrl: string }[] } };
+  assert.equal(album.status, 200);
+  assert.equal(body.album.year, 2009);
+  assert.equal(body.tracks.tracks.length, 1);
+  assert.equal(body.tracks.tracks[0].artist, 'Creed');
+  assert.equal(body.tracks.tracks[0].album, 'Novo');
+  assert.equal((await searchEndpoint({ album: 'abc' })).status, 400);
 });
