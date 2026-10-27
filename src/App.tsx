@@ -29,7 +29,7 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { useScrollChrome } from './hooks/useScrollChrome';
 import { usePlayHistory } from './hooks/usePlayHistory';
 import type { QueueSource } from './utils/queueSource';
-import { preloadYouTubePlayer } from './components/youtubePlayer';
+import { youtubeEngine } from './utils/youtubeEngine';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
 import { Play, Sparkles, Globe, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { FeedResponse, Track } from './types/music';
@@ -89,9 +89,9 @@ const MusicAppContent: React.FC = () => {
     }
   }, []);
 
-  // Fetch the YouTube player chunk now, while this deploy still serves it
+  // Download the YouTube player API now, so the first tap does not wait for it
   useEffect(() => {
-    const timer = window.setTimeout(preloadYouTubePlayer, 2000);
+    const timer = window.setTimeout(() => youtubeEngine.preload(), 2000);
     return () => window.clearTimeout(timer);
   }, []);
 

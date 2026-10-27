@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { nav, silentClip, stubApi, TOP_HITS } from './fixtures';
+import { fakeYouTube, loadedVideo, nav, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const COLLECTION_NAMES = ['Top Hits', 'Classic Rock', 'Alternative & Indie', 'Lofi Chill', 'Synthwave & Retrowave'];
 
@@ -135,35 +135,33 @@ test.describe('com duas versões da faixa no YouTube', () => {
   const SECOND = 'BBBBBBBBBBB';
 
   test.beforeEach(async ({ page }) => {
-    // The hidden player loads a YouTube page; nothing here may reach it
-    await page.route(/youtube\.com|ytimg\.com|googlevideo\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '' }));
+    // The hidden player is a fake; nothing here may reach YouTube
+    await fakeYouTube(page);
     apiRequests = await stubApi(page, { videoIds: [FIRST, SECOND] });
     await page.reload();
     await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   });
 
-  const player = (page: import('@playwright/test').Page) => page.locator('youtube-video');
-
   test('"Outra versão" troca o vídeo, avisa qual e lembra a escolha depois de recarregar', async ({ page }) => {
     await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
-    await expect(player(page)).toHaveAttribute('src', new RegExp(FIRST));
+    await expect.poll(() => loadedVideo(page)).toBe(FIRST);
 
     await page.getByRole('button', { name: /Abrir player expandido/ }).click();
     await page.getByLabel('Tocar outra versão desta faixa').click();
-    await expect(player(page)).toHaveAttribute('src', new RegExp(SECOND));
+    await expect.poll(() => loadedVideo(page)).toBe(SECOND);
     await expect(page.getByText('Tocando outra versão (2 de 2).').first()).toBeVisible();
 
     // Again: wraps around to the first
     await page.getByLabel('Tocar outra versão desta faixa').click();
-    await expect(player(page)).toHaveAttribute('src', new RegExp(FIRST));
+    await expect.poll(() => loadedVideo(page)).toBe(FIRST);
     await expect(page.getByText('Tocando outra versão (1 de 2).').first()).toBeVisible();
 
     // Leave it on the second and play the same track after a reload: the second plays first
     await page.getByLabel('Tocar outra versão desta faixa').click();
-    await expect(player(page)).toHaveAttribute('src', new RegExp(SECOND));
+    await expect.poll(() => loadedVideo(page)).toBe(SECOND);
     await page.reload();
     await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
-    await expect(player(page)).toHaveAttribute('src', new RegExp(SECOND));
+    await expect.poll(() => loadedVideo(page)).toBe(SECOND);
   });
 });
 

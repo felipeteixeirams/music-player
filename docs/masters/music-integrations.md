@@ -111,7 +111,9 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-PLAY-04:** o toque numa faixa desbloqueia o elemento de áudio do navegador, e os eventos do clipe de silêncio nunca contam como música.
 - **INV-PLAY-05:** sair do app e voltar com a prévia tocando não pausa a faixa nem mostra aviso.
 - **INV-PLAY-06:** a mesma música com outro id aproveita o vídeo já achado; o vídeo denunciado sai das duas chaves do cache.
-- **INV-PLAY-07:** o toque numa faixa cujo vídeo ainda não é conhecido (e que tem prévia) toca a prévia na hora, sem esperar a busca nem o player do YouTube; a faixa completa assume sozinha quando o player consegue começar e, se o iPhone não deixar, vira o botão "Ouvir completa" (um toque que o iOS aceita). A prévia nunca é cortada por um player que não começou.
+- **INV-PLAY-07:** o toque numa faixa cujo vídeo ainda não é conhecido (e que tem prévia) toca a prévia na hora, sem esperar a busca nem o player do YouTube; a faixa completa assume sozinha quando o player começa a tocar. A prévia nunca é cortada por um player que não começou.
+- **INV-PLAY-08:** o player do YouTube (`youtubeEngine`) é criado dentro do toque, antes de o vídeo ser conhecido, e as faixas seguintes entram no mesmo iframe (nenhum iframe novo por faixa).
+- **INV-PLAY-09:** quando o navegador não deixa a faixa completa começar, o app tenta de novo sozinho (e a cada toque na tela) e a prévia segue; nenhuma ação manual é exigida do usuário.
 
 ## Atualização deste master
 

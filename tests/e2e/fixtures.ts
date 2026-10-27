@@ -182,3 +182,50 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
 
 export const nav = (target: Page, tab: 'Início' | 'Rádio' | 'Biblioteca' | 'Buscar') =>
   target.locator(`nav[aria-label="Navegação Principal"] button[aria-label="${tab}"]`);
+
+/**
+ * A stand-in for the YouTube iframe API (the real one never answers a test): `window.__yt` records what the app
+ * asked of it. `window.__ytMode = 'blocked'` makes a loaded video stay cued, like an iPhone that refuses the
+ * automatic start, until `window.__ytAllow = true` (then the next `playVideo()` plays it).
+ */
+export async function fakeYouTube(target: Page): Promise<void> {
+  await target.route(/youtube\.com\/embed\//, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '' }));
+  await target.route('https://www.youtube.com/iframe_api', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `
+        window.__yt = { created: 0, loads: [], plays: 0, cues: [] };
+        class Player {
+          constructor(el, options) {
+            this.events = options.events; this.state = -1; this.id = ''; this.startedAt = 0; this.base = 0;
+            window.__yt.created += 1;
+            setTimeout(() => this.events.onReady(), 30);
+          }
+          set(state) {
+            if (state === 1) { this.startedAt = performance.now(); } else if (this.state === 1) { this.base = this.getCurrentTime(); }
+            this.state = state; this.events.onStateChange({ data: state });
+          }
+          loadVideoById(id) {
+            this.id = id; this.base = 0; window.__yt.loads.push(id); this.set(3);
+            setTimeout(() => this.set(window.__ytMode === 'blocked' && !window.__ytAllow ? 5 : 1), 60);
+          }
+          cueVideoById(id) { this.id = id; this.base = 0; window.__yt.cues.push(id); this.set(5); }
+          playVideo() { window.__yt.plays += 1; if (this.id && !(window.__ytMode === 'blocked' && !window.__ytAllow)) this.set(1); }
+          pauseVideo() { this.set(2); }
+          stopVideo() { this.id = ''; this.set(5); }
+          seekTo(s) { this.base = s; this.startedAt = performance.now(); }
+          setVolume() {}
+          getCurrentTime() { return this.base + (this.state === 1 ? (performance.now() - this.startedAt) / 1000 : 0); }
+          getDuration() { return this.id ? 180 : 0; }
+          getPlayerState() { return this.state; }
+        }
+        window.YT = { Player };
+        if (window.onYouTubeIframeAPIReady) window.onYouTubeIframeAPIReady();
+      `
+    })
+  );
+}
+
+/** The video the app last loaded into the (fake) YouTube player. Use with `expect.poll`. */
+export const loadedVideo = (target: Page) => target.evaluate(() => (window as unknown as { __yt?: { loads: string[] } }).__yt?.loads.at(-1) ?? '');

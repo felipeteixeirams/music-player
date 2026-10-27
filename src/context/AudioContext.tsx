@@ -18,6 +18,7 @@ import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../u
 import { PlayedCounter } from '../utils/playedCounter';
 import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
+import { youtubeEngine } from '../utils/youtubeEngine';
 import { recordPlay } from '../utils/playHistory';
 import { loadChoices, nextVersionIndex, orderVersions, rememberChoice } from '../utils/videoChoice';
 import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
@@ -80,9 +81,8 @@ interface AudioContextType {
   engineReady: (durationSeconds?: number) => void;
   /** Video being tried by the hidden player while the preview plays; empty when none. */
   trialVideoUrl: string;
-  /** The full track is loaded but the browser did not start it: a tap on "Ouvir completa" does. */
-  fullTrackReady: boolean;
-  startFullTrack: () => void;
+  /** Changes every time a video is asked for, so the same video asked for again is loaded again. */
+  engineLoadId: number;
   setVolume: (val: number) => void;
   toggleMute: () => void;
   toggleShuffle: () => void;
@@ -121,7 +121,7 @@ const TRIAL_LOAD_MS = 6000;
 const TAP_NOTICE = 'O iPhone não deixou a música começar sozinha. Toque em ▶ para ouvir.';
 const BACKGROUND_NOTICE = 'O iPhone pausou a faixa completa ao sair do app. Toque em ▶ para continuar.';
 
-const TRIAL_NOTICE = 'Tocando a prévia de 30s. A faixa completa está pronta: toque em "Ouvir completa".';
+const TRIAL_NOTICE = 'Tocando a prévia de 30s. A faixa completa entra assim que o navegador permitir.';
 
 const QUOTA_NOTICE = 'Você chegou ao limite de faixas novas de hoje. Tocando a prévia de 30s; as faixas que já ouviu seguem completas.';
 
@@ -165,7 +165,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [audioStreamUrl, setAudioStreamUrl] = useState<string>('');
   const [trialVideoUrl, setTrialVideoUrl] = useState<string>('');
-  const [fullTrackReady, setFullTrackReady] = useState(false);
+  const [engineLoadId, setEngineLoadId] = useState(0);
   const trialRef = useRef<{ url: string; duration: number; timer: ReturnType<typeof setTimeout> | null } | null>(null);
   const [userSeekRequest, setUserSeekRequest] = useState<number | null>(null);
   
@@ -252,8 +252,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (trial.timer) clearTimeout(trial.timer);
     trial.timer = setTimeout(() => {
       if (trialRef.current !== trial) return;
-      logPlayback('a faixa completa não começou sozinha: oferecendo "Ouvir completa"');
-      setFullTrackReady(true);
+      logPlayback('a faixa completa ainda não começou: a prévia segue e o player continua tentando');
       setPlaybackStatus((prev) => ({ ...prev, notice: TRIAL_NOTICE }));
     }, ms);
   }, []);
@@ -277,7 +276,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (trial?.timer) clearTimeout(trial.timer);
     trialRef.current = null;
     setTrialVideoUrl('');
-    setFullTrackReady(false);
   }, []);
 
   /** Sound is really coming out: the wait is over, and a slow start that was already given up on is taken back. */
@@ -297,6 +295,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [clearStartWatch]);
 
   const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
+    setEngineLoadId((id) => id + 1);
     setActiveEngine('fallback');
     const fallbackUrl = `https://www.youtube.com/watch?v=${track.sources.youtubeId}`;
     setAudioStreamUrl(fallbackUrl);
@@ -335,13 +334,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPlaying(true);
   }, [clearStartWatch, endTrial]);
   commitTrialRef.current = commitTrial;
-
-  /** Tap on "Ouvir completa": a tap is what lets the browser start the YouTube player. */
-  const startFullTrack = useCallback(() => {
-    if (!trialRef.current) return;
-    expectPlayback('Ouvir completa');
-    commitTrial('toque');
-  }, [commitTrial, expectPlayback]);
 
   /**
    * A radio is listened to without touching the screen, so a track that cannot be played (no video, no preview)
@@ -599,6 +591,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (inTrial) {
           trialRef.current = { url: `https://www.youtube.com/watch?v=${ids[0]}`, duration: 0, timer: null };
           setTrialVideoUrl(trialRef.current.url);
+          setEngineLoadId((id) => id + 1);
           armTrial(TRIAL_LOAD_MS);
           return;
         }
@@ -759,6 +752,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const playTrack = useCallback((track: Track, customQueue?: Track[], source?: QueueSource) => {
     // Inside the tap: let the audio element play (a silent clip), so the track that arrives later may start on its own
     unlockAudioElement(audioRef.current);
+    // And create the hidden YouTube player in the same tap: the next videos are loaded into it, with no new frame
+    youtubeEngine.prime();
 
     if (customQueue) {
       setRadioStation(null);
@@ -1008,6 +1003,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         endTrial();
         trialRef.current = { url: `https://www.youtube.com/watch?v=${versions.ids[index]}`, duration: 0, timer: null };
         setTrialVideoUrl(trialRef.current.url);
+        setEngineLoadId((id) => id + 1);
         armTrial(TRIAL_LOAD_MS);
       } else {
         endTrial();
@@ -1155,8 +1151,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       engineStarted,
       engineReady,
       trialVideoUrl,
-      fullTrackReady,
-      startFullTrack,
+      engineLoadId,
       setVolume,
       toggleMute,
       toggleShuffle,
@@ -1205,8 +1200,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       engineStarted,
       engineReady,
       trialVideoUrl,
-      fullTrackReady,
-      startFullTrack,
+      engineLoadId,
       setVolume,
       toggleMute,
       toggleShuffle,

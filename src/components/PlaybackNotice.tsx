@@ -4,7 +4,7 @@ import { useAudio } from '../context/AudioContext';
 
 /** Tells the user why a track is silent (error) or why it plays in a reduced form (notice). */
 export const PlaybackNotice: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { playbackStatus, currentTrack, fullTrackReady, startFullTrack } = useAudio();
+  const { playbackStatus, currentTrack } = useAudio();
   if (!currentTrack || (!playbackStatus.error && !playbackStatus.notice)) return null;
 
   const isError = Boolean(playbackStatus.error);
@@ -19,15 +19,6 @@ export const PlaybackNotice: React.FC<{ className?: string }> = ({ className = '
     >
       {isError ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Info className="w-4 h-4 shrink-0" />}
       <span>{playbackStatus.error || playbackStatus.notice}</span>
-      {fullTrackReady && !isError && (
-        <button
-          type="button"
-          onClick={startFullTrack}
-          className="ml-auto shrink-0 rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-amber-950 active:scale-95"
-        >
-          Ouvir completa
-        </button>
-      )}
     </div>
   );
 };
