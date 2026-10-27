@@ -109,6 +109,9 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-LIVE-02:** se um servidor do diretório falha, o próximo é tentado; se todos falham, a rota responde 502 (sem cache) e a tela mantém a lista curada de rádios ao vivo.
 - **INV-LIVE-03:** a rota só aceita os estilos da lista (`LIVE_STYLES`) e uuids de emissora válidos: não dá para usá-la para buscar outra coisa no diretório.
 - **INV-LIVE-04:** a rádio ao vivo por estilo toca por `<audio>` nativo (sem YouTube, sem cota) e avisa o diretório de cada reprodução.
+- **INV-PREV-01:** o link de prévia do Deezer é assinado e vence em cerca de 15 minutos (`hdnea=exp=…`); o app lê o vencimento do próprio link e nunca dá por vencido um link sem assinatura (iTunes, rádios).
+- **INV-PREV-02:** `GET /api/search?preview=deezer-<id>` devolve um link novo de prévia, sem cache, e só aceita ids do Deezer.
+- **INV-PREV-03:** antes de tocar uma prévia com o link vencido (ou quando o navegador recusa o link com `NotSupportedError`), o app pede um link novo e toca, sem aviso nem segundo toque.
 - **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (ou 1,5 s depois de o player carregar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
 - **INV-PLAY-02:** uma faixa com vídeo já conhecido (no aparelho ou no cache compartilhado) começa sem pedir nada à rede no toque.
 - **INV-PLAY-03:** só a resolução, no toque, de uma faixa que ninguém tocou antes gasta busca do YouTube e cota; a consulta em lote ao cache nunca busca nem consome.

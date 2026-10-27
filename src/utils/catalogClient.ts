@@ -1,5 +1,6 @@
 import type { FeedResponse, LiveStation, RadioGenre, Track, TrackPage } from '../types/music';
 import { apiFetch } from './apiFetch';
+import { isPreviewStale } from './previewUrl';
 
 /** Raised for any answer that is not a usable page, with a message fit for the user. */
 export class CatalogError extends Error {}
@@ -105,4 +106,23 @@ export async function fetchLiveStations(styleId: string, signal?: AbortSignal): 
 export function reportLiveStationPlayed(stationId: string): void {
   const uuid = stationId.replace(/^rb-/, '');
   void apiFetch(`/api/radio?click=${encodeURIComponent(uuid)}`).catch(() => undefined);
+}
+
+const freshPreviews = new Map<string, string>();
+
+/**
+ * A new preview address for a track whose old one expired (null when there is none or the server cannot say).
+ * The answer is reused for as long as it lasts, so tapping the same track again does not ask again.
+ */
+export async function fetchFreshPreviewUrl(trackId: string, signal?: AbortSignal): Promise<string | null> {
+  const kept = freshPreviews.get(trackId);
+  if (kept && !isPreviewStale(kept)) return kept;
+  try {
+    const body = (await getJson(`/api/search?preview=${encodeURIComponent(trackId)}`, signal)) as { previewUrl?: unknown } | null;
+    const url = typeof body?.previewUrl === 'string' && body.previewUrl.startsWith('http') ? body.previewUrl : null;
+    if (url) freshPreviews.set(trackId, url);
+    return url;
+  } catch {
+    return null;
+  }
 }

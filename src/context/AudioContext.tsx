@@ -19,6 +19,8 @@ import { PlayedCounter } from '../utils/playedCounter';
 import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { youtubeEngine } from '../utils/youtubeEngine';
+import { fetchFreshPreviewUrl } from '../utils/catalogClient';
+import { isPreviewStale } from '../utils/previewUrl';
 import { recordPlay } from '../utils/playHistory';
 import { loadChoices, nextVersionIndex, orderVersions, rememberChoice } from '../utils/videoChoice';
 import { isLiveTrack, liveStationToTrack } from '../utils/liveRadio';
@@ -305,7 +307,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     setIsBuffering(false);
     if (audioRef.current) {
-      audioRef.current.pause();
+      pauseAudio();
       audioRef.current.src = '';
     }
     if (shouldPlay) {
@@ -326,7 +328,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (trial.duration > 0) setDuration(Math.round(trial.duration));
     setCurrentTime(0);
     if (audioRef.current) {
-      audioRef.current.pause();
+      pauseAudio();
       audioRef.current.removeAttribute('src');
     }
     endTrial();
@@ -353,6 +355,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Plays the 30s catalog preview; returns false when the track has none.
   const previewRefusedRef = useRef(false);
+  /** When the app itself last paused the audio element: a pause just after that is not the system stopping the sound. */
+  const ownPauseAtRef = useRef(0);
+  const pauseAudio = useCallback(() => {
+    ownPauseAtRef.current = performance.now();
+    audioRef.current?.pause();
+  }, []);
   const playPreview = useCallback(async (track: Track, shouldPlay: boolean, notice?: string | null): Promise<boolean> => {
     const previewUrl = track.sources.previewUrl;
     if (!previewUrl || !audioRef.current) return false;
@@ -365,16 +373,45 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       notice: notice === null ? undefined : notice ?? 'Faixa completa indisponível, tocando a prévia de 30s.'
     });
     previewRefusedRef.current = false;
-    audioRef.current.src = previewUrl;
+    // The address signed by the catalog expires in ~15 minutes, and lists live for hours: a new one when it is old
+    let url = previewUrl;
+    if (isPreviewStale(url)) {
+      const fresh = await fetchFreshPreviewUrl(track.id);
+      logPlayback(fresh ? 'o link da prévia tinha vencido: pedi um novo' : 'o link da prévia tinha vencido e não consegui um novo');
+      if (fresh) url = fresh;
+      setAudioStreamUrl(url);
+    }
+    if (!audioRef.current) return false;
+    audioRef.current.src = url;
     if (shouldPlay) {
-      try {
-        await audioRef.current.play();
-        setIsPlaying(true);
-      } catch (err) {
+      let refusal: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          await audioRef.current.play();
+          setIsPlaying(true);
+          refusal = null;
+          break;
+        } catch (err) {
+          refusal = err;
+          // "Not supported" is the browser failing to load the address (an expired signature answers 403): one new address
+          if (attempt === 0 && (err as Error)?.name === 'NotSupportedError' && track.id.startsWith('deezer-')) {
+            const fresh = await fetchFreshPreviewUrl(track.id);
+            if (fresh && fresh !== url && audioRef.current) {
+              logPlayback('a prévia não carregou: pedi um link novo e tento de novo');
+              url = fresh;
+              setAudioStreamUrl(url);
+              audioRef.current.src = url;
+              continue;
+            }
+          }
+          break;
+        }
+      }
+      if (refusal) {
         // Said in the report: a refused start is otherwise silent (the screen only notices 6 s later)
         previewRefusedRef.current = true;
-        logPlayback(`a prévia foi recusada pelo navegador (${(err as Error)?.name ?? 'erro'})`);
-        console.warn('Preview playback notice:', err);
+        logPlayback(`a prévia foi recusada pelo navegador (${(refusal as Error)?.name ?? 'erro'})`);
+        console.warn('Preview playback notice:', refusal);
       }
     }
     setIsBuffering(false);
@@ -414,7 +451,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const onPause = () => {
       if (isUnlockClip(audio) || activeEngineRef.current === 'fallback') return;
       // Said with the page's visibility: a pause that arrives with the app hidden is the system stopping the sound
-      logPlayback(`áudio do navegador pausou (app ${document.visibilityState === 'hidden' ? 'em segundo plano' : 'visível'}, em ${Math.round(audio.currentTime)} s)`);
+      if (performance.now() - ownPauseAtRef.current > 1000) {
+        logPlayback(`áudio do navegador pausou (app ${document.visibilityState === 'hidden' ? 'em segundo plano' : 'visível'}, em ${Math.round(audio.currentTime)} s)`);
+      }
       setIsPlaying(false);
     };
     const onError = () => {
@@ -571,7 +610,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (isTrackOfflineAvailable(track.id, storage)) {
       const offlineBlobUrl = await getOfflineAudioUrl(track.id);
       if (offlineBlobUrl && audioRef.current) {
-        audioRef.current.pause();
+        pauseAudio();
         audioRef.current.src = offlineBlobUrl;
         setActiveEngine('native');
         setAudioStreamUrl(offlineBlobUrl);
@@ -596,10 +635,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // A video not known yet needs a search before the player can even load, and the iPhone only lets a track start
       // right after a tap: the preview plays now (the audio element was unlocked by the tap) and the full track
       // takes over when its player manages to start
-      inTrial = shouldPlay && !knownVideoIds(track.id) && Boolean(track.sources.previewUrl) && (await playPreview(track, true, null)) && !previewRefusedRef.current;
-      if (!inTrial) audioRef.current?.pause();
+      // The search for the video starts at once, alongside the preview (an old preview address is renewed first)
       const resolveStart = performance.now();
-      const resolution = await resolveFullTrack(track);
+      const resolving = resolveFullTrack(track);
+      inTrial = shouldPlay && !knownVideoIds(track.id) && Boolean(track.sources.previewUrl) && (await playPreview(track, true, null)) && !previewRefusedRef.current;
+      if (!inTrial) pauseAudio();
+      const resolution = await resolving;
       const found = resolution.videoIds;
       logPlayback(`vídeo resolvido em ${Math.round(performance.now() - resolveStart)} ms (${found.length} versão(ões)${resolution.quotaExceeded ? ', cota do dia acabada' : ''})`);
       quotaExceeded = resolution.quotaExceeded;
@@ -631,7 +672,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 4. A track that already carries its YouTube video goes straight to the headless player
     if (track.sources.youtubeId) {
       if (audioRef.current) {
-        audioRef.current.pause();
+        pauseAudio();
         audioRef.current.src = '';
       }
       triggerFallbackEngine(track, shouldPlay);
@@ -822,7 +863,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (audioRef.current) {
       if (isPlaying) {
         clearStartWatch();
-        audioRef.current.pause();
+        pauseAudio();
         setIsPlaying(false);
       } else {
         logPlayback('toque em ▶ (retomar)');
