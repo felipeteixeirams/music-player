@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { allowsWebGlBackground } from '../utils/webglBackground';
 
 const VERTEX = `
   attribute vec4 a_position;
@@ -72,20 +73,44 @@ function accentOf(element: Element): string {
  */
 export const SmokeyBackground: React.FC<SmokeyBackgroundProps> = ({ className = '' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Without WebGL (not allowed here, unavailable, or lost while the app was away) only the CSS glow stays, no canvas at all
+  const [useCanvas, setUseCanvas] = useState(() => allowsWebGlBackground(navigator.userAgent));
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const gl = canvas?.getContext('webgl', { antialias: false, powerPreference: 'low-power' });
-    if (!canvas || !gl) return;
+    if (!useCanvas || !canvas) return;
+    let gl: WebGLRenderingContext | null = null;
+    try {
+      gl = canvas.getContext('webgl', { antialias: false, powerPreference: 'low-power' });
+    } catch {
+      gl = null;
+    }
+    if (!gl) {
+      setUseCanvas(false);
+      return;
+    }
+    // The system may take the context back (memory pressure, the app going to the background): drop the canvas
+    // instead of leaving a black layer over the glow
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      setUseCanvas(false);
+    };
+    canvas.addEventListener('webglcontextlost', onContextLost);
 
     const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
     const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
     const program = gl.createProgram();
-    if (!vertex || !fragment || !program) return;
+    if (!vertex || !fragment || !program) {
+      setUseCanvas(false);
+      return;
+    }
     gl.attachShader(program, vertex);
     gl.attachShader(program, fragment);
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      setUseCanvas(false);
+      return;
+    }
     gl.useProgram(program);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
@@ -138,11 +163,12 @@ export const SmokeyBackground: React.FC<SmokeyBackgroundProps> = ({ className = 
     else frameId = requestAnimationFrame(loop);
 
     return () => {
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       cancelAnimationFrame(frameId);
       window.removeEventListener('pointermove', onPointerMove);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
-  }, []);
+  }, [useCanvas]);
 
   return (
     <div className={`absolute inset-0 overflow-hidden ${className}`} aria-hidden="true">
@@ -151,7 +177,7 @@ export const SmokeyBackground: React.FC<SmokeyBackgroundProps> = ({ className = 
         className="absolute inset-0"
         style={{ background: 'radial-gradient(60% 50% at 50% 38%, color-mix(in srgb, var(--color-accent) 33%, transparent), transparent 70%)' }}
       />
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full opacity-60 mix-blend-screen" />
+      {useCanvas && <canvas ref={canvasRef} className="absolute inset-0 h-full w-full opacity-60 mix-blend-screen" />}
     </div>
   );
 };

@@ -172,3 +172,56 @@ test('INV-AUTH-01: servidor mal configurado (503) não derruba a sessão do usu�
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   await expect(page.getByLabel('E-mail')).toHaveCount(0);
 });
+
+const REDMI_CHROME = 'Mozilla/5.0 (Linux; Android 13; 23028RN4DG) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+
+/** Counts the times the page asks for a WebGL context. */
+const countWebGlRequests = (page: import('@playwright/test').Page) =>
+  page.addInitScript(() => {
+    const w = window as unknown as { __webgl: number };
+    w.__webgl = 0;
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      if (type === 'webgl' || type === 'webgl2') w.__webgl += 1;
+      return (original as (...args: unknown[]) => unknown).call(this, type, ...rest) as never;
+    } as typeof original;
+  });
+
+test.describe('Android (Redmi, Chrome)', () => {
+  test.use({ userAgent: REDMI_CHROME });
+
+  test('INV-AUTH-05: o login e a tela do código abrem sem WebGL, com o brilho em CSS e sem canvas', async ({ page }) => {
+    await stubApi(page, { signedIn: false });
+    await countWebGlRequests(page);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'AuraStream' })).toBeVisible();
+    await page.getByLabel('E-mail').fill(testUser('ana').email);
+    await page.getByRole('button', { name: 'Receber código' }).click();
+    // The screen that went black on the phone: the code step stays up and usable
+    await expect(page.getByLabel('Código')).toBeVisible();
+    await expect(page.getByTestId('code-status')).toBeVisible();
+    await expect(page.locator('main canvas')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __webgl: number }).__webgl)).toBe(0);
+
+    await page.getByLabel('Código').fill(VALID_CODE);
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  });
+});
+
+test('INV-AUTH-05: fora do Android o login continua pedindo o fundo WebGL', async ({ page }) => {
+  await stubApi(page, { signedIn: false });
+  await countWebGlRequests(page);
+  await page.goto('/');
+  await expect(page.getByLabel('E-mail')).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __webgl: number }).__webgl)).toBeGreaterThan(0);
+});
+
+test('INV-AUTH-05: se o sistema tira o contexto WebGL, o canvas some e fica só o brilho em CSS', async ({ page }) => {
+  await stubApi(page, { signedIn: false });
+  await page.goto('/');
+  await expect(page.getByLabel('E-mail')).toBeVisible();
+  await page.evaluate(() => document.querySelector('main canvas')?.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
+  await expect(page.locator('main canvas')).toHaveCount(0);
+  await expect(page.getByLabel('E-mail')).toBeVisible();
+});
