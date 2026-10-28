@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Music2 } from 'lucide-react';
 import { MixArt, mixBackground } from './MixArt';
-import { prefetchResolved } from '../utils/audioEngine';
+import { prefetchResolved, warmResolve } from '../utils/audioEngine';
 import type { PersonalMix } from '../utils/personalMixes';
 
 /** "Escolhidos para você": large cards of playlists made from what this person plays, the next one peeking in. */
@@ -9,6 +9,8 @@ export const PersonalCards: React.FC<{ mixes: PersonalMix[]; onOpen: (mix: Perso
   // The first tracks of each card are asked about in the shared cache, so tapping one starts without a wait
   useEffect(() => {
     prefetchResolved(mixes.flatMap((mix) => mix.tracks.slice(0, 5)));
+    // The first two of each card are the ones most likely tapped: their videos are looked up ahead, in idle time
+    warmResolve(mixes.flatMap((mix) => mix.tracks.slice(0, 2)));
   }, [mixes]);
 
   if (mixes.length === 0) return null;

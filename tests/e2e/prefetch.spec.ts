@@ -60,3 +60,46 @@ test('INV-PLAY-02: o que foi descoberto fica no aparelho: tocar de novo depois d
   await expect.poll(() => loadedVideo(page)).toBe(SEARCHED);
   expect(resolveCalls(requests).length).toBe(before);
 });
+
+test.describe('pré-resolução antes do toque', () => {
+  const VIDEO = 'aaaaaaaaaaa';
+
+  test('INV-PLAY-14: as 2 primeiras faixas do cartão do Humor são procuradas em tempo ocioso, uma por vez, e tocar a primeira não pergunta de novo', async ({ page }) => {
+    await page.clock.setFixedTime(new Date(2026, 9, 28, 20, 0, 0));
+    const warms: string[] = [];
+    const requests = await stubApi(page, { videoIds: [VIDEO], warms });
+    await page.goto('/');
+    await expect(page.locator('[data-mix="mood"]')).toBeVisible();
+
+    // After the pause the app asks, one by one, with warm=1 (the first two of the card)
+    await expect.poll(() => warms.length, { timeout: 15_000 }).toBe(2);
+    expect(requests.filter((r) => r.startsWith('/api/resolve?') && r.includes('warm=1')).length).toBe(2);
+    expect(warms.every((id) => /^deezer-\d+$/.test(id))).toBe(true);
+    // It stays at two: the rest of the card is for the tap
+    await page.waitForTimeout(3500);
+    expect(warms.length).toBe(2);
+
+    // The first track of the card was looked up ahead: tapping Reproduzir asks the server for nothing more
+    const searchesBefore = requests.filter((r) => r.startsWith('/api/resolve?') && !r.includes('warm=1')).length;
+    await page.locator('[data-mix="mood"]').click();
+    await page.getByRole('button', { name: 'Reproduzir', exact: true }).click();
+    await page.waitForTimeout(800);
+    expect(requests.filter((r) => r.startsWith('/api/resolve?') && !r.includes('warm=1')).length).toBe(searchesBefore);
+  });
+
+  test('INV-PLAY-14: quando o servidor diz que a parte da cota para isso acabou, o app para e não insiste', async ({ page }) => {
+    await page.clock.setFixedTime(new Date(2026, 9, 28, 20, 0, 0));
+    const warms: string[] = [];
+    await stubApi(page, { warmSkipped: true, warms });
+    await page.goto('/');
+    await expect(page.locator('[data-mix="mood"]')).toBeVisible();
+    await expect.poll(() => warms.length, { timeout: 15_000 }).toBe(1);
+    await page.waitForTimeout(3500);
+    expect(warms.length, 'uma recusa encerra a pré-resolução do dia').toBe(1);
+    // The day is remembered on the device: after a reload nothing is asked
+    await page.reload();
+    await expect(page.locator('[data-mix="mood"]')).toBeVisible();
+    await page.waitForTimeout(4500);
+    expect(warms.length).toBe(1);
+  });
+});
