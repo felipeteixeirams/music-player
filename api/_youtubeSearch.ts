@@ -261,7 +261,7 @@ async function searchWeb(searchText: string, fetchImpl: FetchLike): Promise<Vide
 }
 
 /** Which search produced the candidates: the official API, the web search, or the web search after the API refused. */
-export type ResolveVia = 'official' | 'web' | 'web-after-official-failure' | 'web-api-suspended';
+export type ResolveVia = 'official' | 'web' | 'web-after-official-failure' | 'web-api-suspended' | 'web-after-official-empty';
 
 export interface ResolvedVideos {
   videoIds: string[];
@@ -302,9 +302,21 @@ export async function resolveYouTubeVideos(query: TrackQuery, options: ResolveOp
   const searchText = `${query.artist} ${query.title} official audio`;
   const { candidates, via } = await searchCandidates(searchText, options, fetchImpl);
   // oEmbed only catches some blocked videos; the player reports the rest and the caller tries the next id.
-  const ranked = rankCandidatesDetailed(candidates, query).slice(0, MAX_RESOLVED_VIDEOS + 1);
-  const checks = await Promise.all(ranked.map((entry) => isEmbeddable(entry.candidate.videoId, fetchImpl)));
-  const picks = ranked.filter((_, index) => checks[index]).slice(0, MAX_RESOLVED_VIDEOS);
+  const pick = async (found: VideoCandidate[]) => {
+    const ranked = rankCandidatesDetailed(found, query).slice(0, MAX_RESOLVED_VIDEOS + 1);
+    const checks = await Promise.all(ranked.map((entry) => isEmbeddable(entry.candidate.videoId, fetchImpl)));
+    return ranked.filter((_, index) => checks[index]).slice(0, MAX_RESOLVED_VIDEOS);
+  };
+
+  let picks = await pick(candidates);
+  // The official search answered but none of its videos is the track (the API is asked for the Music category only, and
+  // fan uploads of lesser-known artists are often filed elsewhere): the web search is asked for a second opinion. It costs
+  // no quota; if it is blocked or finds nothing either, the official answer ("nothing") stands.
+  if (picks.length === 0 && via === 'official') {
+    const second = await searchWeb(searchText, fetchImpl).catch(() => [] as VideoCandidate[]);
+    const extra = await pick(second);
+    if (extra.length > 0) return { videoIds: extra.map((entry) => entry.candidate.videoId), via: 'web-after-official-empty', picks: extra, considered: candidates.length + second.length };
+  }
   return { videoIds: picks.map((entry) => entry.candidate.videoId), via, picks, considered: candidates.length };
 }
 

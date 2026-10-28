@@ -310,3 +310,55 @@ test('describeResolution says what was chosen and why, or why nothing was', () =
   assert.match(none, /⚠️ .* 0 vídeo\(s\) via web em 90ms \| 7 candidato\(s\), nenhum aceito/);
 });
 
+
+const akashic = { artist: 'Akashic', title: 'Memories', duration: 565 };
+
+/** The official API finds videos, but none is the track; the web search has it. */
+function officialMissesWebHits(web: unknown) {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    const text = String(url);
+    calls.push(text);
+    if (text.includes('/oembed')) return Response.json({});
+    if (text.includes('googleapis.com') && text.includes('/search?')) {
+      return Response.json({ items: [{ id: { videoId: 'OTHER000001' }, snippet: { title: 'Memories - Maroon 5 (Official Video)', channelTitle: 'Maroon 5' } }] });
+    }
+    if (text.includes('googleapis.com')) return Response.json({ items: [{ id: 'OTHER000001', contentDetails: { duration: 'PT3M9S' } }] });
+    if (web === 'blocked') return new Response('no', { status: 429 });
+    return Response.json(web);
+  }) as unknown as typeof fetch;
+  return { fetchImpl, calls };
+}
+
+test('INV-PLAY-17: quando a busca oficial acha vídeos mas nenhum é a faixa, a busca web dá uma segunda opinião (sem gastar cota)', async () => {
+  const { fetchImpl, calls } = officialMissesWebHits(webPayload([{ id: 'AKASHIC0001', title: 'Akashic - Memories (Lyrics)', channel: 'M K', length: '9:26' }]));
+  const result = await resolveYouTubeVideos(akashic, { apiKey: 'k', fetchImpl });
+  assert.equal(result.via, 'web-after-official-empty');
+  assert.deepEqual(result.videoIds, ['AKASHIC0001']);
+  // One official search (and its details call) plus one web search: the second opinion is not a second official search
+  assert.equal(calls.filter((url) => url.includes('googleapis.com') && url.includes('/search?')).length, 1);
+  assert.equal(calls.filter((url) => url.includes('youtubei')).length, 1);
+});
+
+test('INV-PLAY-17: sem segunda opinião útil (web vazia ou bloqueada) a resposta oficial "nada" vale e continua sendo guardada como tal', async () => {
+  for (const web of [webPayload([{ id: 'NOPE0000001', title: 'Something Else Entirely', channel: 'X', length: '3:00' }]), 'blocked']) {
+    const { fetchImpl } = officialMissesWebHits(web);
+    const result = await resolveYouTubeVideos(akashic, { apiKey: 'k', fetchImpl });
+    assert.equal(result.via, 'official', 'o resultado vazio segue sendo o da API oficial (é o que o cache de "não achei" exige)');
+    assert.deepEqual(result.videoIds, []);
+  }
+});
+
+test('INV-PLAY-17: quando a busca oficial acha a faixa, a busca web nem é consultada', async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    const text = String(url);
+    calls.push(text);
+    if (text.includes('/oembed')) return Response.json({});
+    if (text.includes('/search?')) return Response.json({ items: [{ id: { videoId: 'WM8bTdBs-cw' }, snippet: { title: 'Metallica - One', channelTitle: 'Metallica' } }] });
+    return Response.json({ items: [{ id: 'WM8bTdBs-cw', contentDetails: { duration: 'PT7M27S' } }] });
+  }) as unknown as typeof fetch;
+  const result = await resolveYouTubeVideos(query, { apiKey: 'k', fetchImpl });
+  assert.equal(result.via, 'official');
+  assert.equal(calls.filter((url) => url.includes('youtubei')).length, 0);
+});
