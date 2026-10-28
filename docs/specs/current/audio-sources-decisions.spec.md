@@ -82,6 +82,10 @@ Quatro divergências foram achadas ao escrever este registro (2026-10-28):
 3. **O vigia de 6 s era curto para rádio ao vivo** (uma começou a tocar depois de o aviso aparecer). Corrigido no mesmo branch: 15 s para rádio ao vivo (INV-PLAY-12).
 4. **Downloads offline de prévia** usavam o link guardado sem renovação. Corrigido no PR #61, mas **sem objeto** desde o PR #68: os downloads foram retirados e o INV-PREV-04 saiu.
 
+### Pré-resolução do vídeo antes do toque (2026-10-28)
+
+**Hipótese (não medida no aparelho):** o iPhone aceita o início automático quando o vídeo já é conhecido no toque (medido, uma sessão de 5 faixas); uma faixa que ninguém tocou espera a busca depois do toque (cerca de 1 a 1,5 s) e falha. **Decisão do usuário:** procurar o vídeo antes do toque das faixas prováveis (as 2 próximas da fila e as 2 primeiras de cada cartão personalizado), em tempo ocioso, uma por vez, até 6 buscas por sessão. **Custo:** cada pré-resolução é uma busca (100 de 10.000 unidades); ela usa o mesmo total diário dos toques e só até 20 de 30 por pessoa, então o máximo de buscas por dia não aumenta (INV-PLAY-14). **Como confirmar:** T23 do roteiro, comparando o início de faixas pré-resolvidas com as outras. **Não resolve** o caso de uma faixa fora das pré-resolvidas (a busca continua no toque); a alternativa mais forte seguem sendo o Capacitor ou arquivos próprios.
+
 ## Frentes em aberto
 
 Atualizado em 2026-10-28, depois dos PRs #56 a #79. Ordenadas pela dependência de decisão do usuário:

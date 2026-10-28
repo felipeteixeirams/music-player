@@ -114,7 +114,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; usedToday?: number; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -210,6 +210,10 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
         return json(route, { ok: true });
       }
       if (url.searchParams.has('usage')) return json(route, { enabled: true, used: options.usedToday ?? 4, limit: 30 });
+      if (url.searchParams.get('warm') === '1') {
+        options.warms?.push(url.searchParams.get('id') ?? '');
+        return json(route, options.warmSkipped ? { videoIds: [], warm: 'skipped' } : { videoIds: options.videoIds ?? [], warm: 'searched' });
+      }
       if (options.quotaExceeded) return json(route, { videoIds: [], quota: { used: 30, limit: 30, exceeded: true } });
       return json(route, { videoIds: options.videoIds ?? [] });
     }

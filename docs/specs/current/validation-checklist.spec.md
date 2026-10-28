@@ -261,6 +261,14 @@ Esperado: movimento fluido e sem salto, no iPhone, no app instalado e no navegad
 
 Esperado: nenhum cartão com poucas faixas ou vazio; nenhuma lista que cobre cota do YouTube antes de tocar uma faixa.
 
+### T23: pré-resolução antes do toque
+
+1. Abra o app atualizado (versão da primeira linha de Ajustes > Diagnóstico), espere cerca de 10 s na home sem tocar em nada e abra o Diagnóstico: devem aparecer linhas `pré-resolução de "<faixa>": searched` ou `cached` (no máximo 6 buscas por sessão).
+2. Toque numa das 2 primeiras faixas de um cartão "Escolhidos para você" (ou deixe uma faixa tocando e toque numa das 2 próximas da fila): ela deve começar sem o anel demorar e sem o aviso "O iPhone não deixou a música começar sozinha". Compare o tempo com uma faixa fora dessas.
+3. Cole o relatório inteiro do Diagnóstico, dizendo se é o app instalado ou o Safari: ele diz se o vídeo era conhecido no toque e se o início foi sozinho.
+
+Esperado: faixas pré-resolvidas começam como as de vídeo já conhecido (o único caso medido como bem-sucedido no PWA). Custo: cada pré-resolução é uma busca no YouTube que entra no total diário (até 20 de 30 por pessoa para isso); se a cota do YouTube apertar nos logs (`pré-resolução:` em `[Resolve]`), reduzir `WARM_RESERVE`/a cota de pré-resolução.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
@@ -303,3 +311,4 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T20 | | | ⬜ | |
 | T21 | | | ⬜ | |
 | T22 | | | ⬜ | |
+| T23 | | | ⬜ | |

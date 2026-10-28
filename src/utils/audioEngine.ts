@@ -2,6 +2,8 @@ import { AudioEngineType, RepeatMode, Track } from '../types/music';
 import { apiFetch } from './apiFetch';
 import { ResolvedStore } from './resolvedStore';
 import { createLookupQueue } from './resolvePrefetch';
+import { logPlayback } from './playbackDiagnostics';
+import { createWarmQueue, type WarmResult } from './warmResolve';
 
 /**
  * Formats a duration in seconds into MM:SS format (e.g. 214 -> "03:34")
@@ -130,6 +132,8 @@ export interface FullTrackResolution {
   videoIds: string[];
   /** The user's daily allowance of tracks nobody has played before is used up: no search was made. */
   quotaExceeded: boolean;
+  /** Only for a warming request: what the server did. `skipped` means nothing was looked up (the answer says nothing about the track). */
+  warm?: WarmResult;
 }
 
 /** The videos known without asking anyone; undefined when the track has to be asked about. */
@@ -149,14 +153,16 @@ export function resolveFullTrack(track: Track, timeoutMs = 6000): Promise<FullTr
   if (noVideoThisSession.has(track.id)) return Promise.resolve({ videoIds: [], quotaExceeded: false });
 
   const inFlight = resolving.get(track.id);
-  if (inFlight) return inFlight;
+  // A tap that meets a warming request still on its way waits for it; if warming was refused (it said nothing about the
+  // track), the tap asks for itself
+  if (inFlight) return inFlight.then((result) => (result.warm === 'skipped' || result.warm === 'failed' ? resolveFullTrack(track, timeoutMs) : result));
 
   const request = fetchResolution(track, timeoutMs).finally(() => resolving.delete(track.id));
   resolving.set(track.id, request);
   return request;
 }
 
-async function fetchResolution(track: Track, timeoutMs: number): Promise<FullTrackResolution> {
+async function fetchResolution(track: Track, timeoutMs: number, warm = false): Promise<FullTrackResolution> {
   try {
     const params = new URLSearchParams({
       id: track.id,
@@ -164,19 +170,21 @@ async function fetchResolution(track: Track, timeoutMs: number): Promise<FullTra
       title: track.title,
       duration: String(track.duration)
     });
+    if (warm) params.set('warm', '1');
     const response = await apiFetch(`/api/resolve?${params}`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!response.ok) return { videoIds: [], quotaExceeded: false };
+    if (!response.ok) return { videoIds: [], quotaExceeded: false, ...(warm ? { warm: 'failed' as const } : {}) };
 
-    const data = (await response.json()) as { videoIds?: unknown; quota?: { exceeded?: unknown } } | null;
+    const data = (await response.json()) as { videoIds?: unknown; quota?: { exceeded?: unknown }; warm?: unknown } | null;
+    if (warm && data?.warm === 'skipped') return { videoIds: [], quotaExceeded: false, warm: 'skipped' };
     if (data?.quota?.exceeded === true) return { videoIds: [], quotaExceeded: true };
     const ids = Array.isArray(data?.videoIds)
       ? data.videoIds.filter((id): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id))
       : [];
     if (ids.length > 0) resolved.set(track.id, ids);
     else noVideoThisSession.add(track.id);
-    return { videoIds: ids, quotaExceeded: false };
+    return { videoIds: ids, quotaExceeded: false, ...(warm ? { warm: data?.warm === 'cached' ? ('cached' as const) : ('searched' as const) } : {}) };
   } catch {
-    return { videoIds: [], quotaExceeded: false };
+    return { videoIds: [], quotaExceeded: false, ...(warm ? { warm: 'failed' as const } : {}) };
   }
 }
 
@@ -213,6 +221,52 @@ export function prefetchResolved(tracks: Track[]): void {
     tracks
       .filter((track) => /^(deezer|itunes)-\d+$/.test(track.id) && !track.sources.youtubeId && !track.sources.localUrl)
       .map((track) => ({ id: track.id, artist: track.artist, title: track.title, duration: track.duration }))
+  );
+}
+
+const WARM_STOP_KEY = 'aurastream_warm_stop';
+const warmQueue = createWarmQueue<Track>({
+  isKnown: (id) => resolved.get(id) !== undefined || noVideoThisSession.has(id) || resolving.has(id),
+  warm: async (track) => {
+    const request = fetchResolution(track, 8000, true).finally(() => resolving.delete(track.id));
+    resolving.set(track.id, request);
+    const result = await request;
+    logPlayback(`pré-resolução de "${track.title}": ${result.warm ?? 'falhou'}${result.videoIds.length > 0 ? ' (vídeo conhecido antes do toque)' : ''}`);
+    return result.warm ?? 'failed';
+  },
+  canRun: () =>
+    typeof document !== 'undefined' &&
+    document.visibilityState === 'visible' &&
+    navigator.onLine !== false &&
+    !(navigator as { connection?: { saveData?: boolean } }).connection?.saveData,
+  today: () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }),
+  stoppedDay: {
+    get: () => {
+      try {
+        return localStorage.getItem(WARM_STOP_KEY);
+      } catch {
+        return null;
+      }
+    },
+    set: (day) => {
+      try {
+        localStorage.setItem(WARM_STOP_KEY, day);
+      } catch {
+        // the server says it again
+      }
+    }
+  }
+});
+
+/**
+ * Looks up, ahead of the tap and in idle time, the videos of tracks the person is likely to play (see `warmResolve.ts`):
+ * the next ones in the queue (`first`) and the first of each personal card. One at a time, a few per session; the server
+ * keeps part of the daily allowance for taps and refuses warming beyond it.
+ */
+export function warmResolve(tracks: Track[], first = false): void {
+  warmQueue.enqueue(
+    tracks.filter((track) => /^(deezer|itunes)-\d+$/.test(track.id) && !track.sources.youtubeId && !track.sources.localUrl),
+    first
   );
 }
 

@@ -70,6 +70,7 @@ function setup(options: { via?: ResolvedVideos['via']; videoIds?: string[]; sear
       return { videoIds: options.videoIds ?? [VIDEO], via: options.via ?? 'official', picks: [], considered: 1 };
     },
     dailyLimit: options.limit ?? 30,
+    warmLimit: Math.max(0, (options.limit ?? 30) - 10),
     now: () => now,
     log: () => undefined
   };
@@ -346,4 +347,41 @@ test('createAdmin.getCachedMany lê várias chaves numa chamada só', async () =
   assert.match(urls[0], /track_id=in\.\("deezer-1","h-abc"\)/);
   assert.deepEqual(many, { 'deezer-1': { videoIds: [VIDEO], resolvedAt: Date.parse('2026-01-01T00:00:00Z') } });
   assert.deepEqual(await createAdmin({ url: 'https://p.supabase.co', serviceKey: 's' }, fetchImpl).getCachedMany([]), {});
+});
+
+
+test('INV-PLAY-14: a pré-resolução (warm=1) só usa a parte da cota que não é reservada aos toques e nunca avisa "limite"', async () => {
+  const t = setup({ limit: 12 });
+  const song = (n: number, extra: Record<string, unknown> = {}) => ({ ...QUERY, id: `deezer-${n}`, title: `Faixa ${n}`, ...extra });
+  // Warming searches and says so; it counts in the same daily total as taps
+  const first = await resolveEndpoint(song(1, { warm: '1' }), USER, t.deps);
+  assert.deepEqual((first.body as { warm?: string }).warm, 'searched');
+  assert.equal(t.used.get(USER.id), 1);
+  // The same track again is a cache hit: free, and told apart from a search
+  const again = await resolveEndpoint(song(1, { warm: '1' }), USER, t.deps);
+  assert.equal((again.body as { warm?: string }).warm, 'cached');
+  assert.equal(t.used.get(USER.id), 1);
+
+  // Up to dailyLimit - 10 (here 2) can be warmed; after that warming is refused quietly, with no search and no quota notice
+  await resolveEndpoint(song(2, { warm: '1' }), USER, t.deps);
+  const before = t.searches();
+  const refused = await resolveEndpoint(song(3, { warm: '1' }), USER, t.deps);
+  assert.deepEqual(refused.body, { videoIds: [], warm: 'skipped' });
+  assert.equal(t.searches(), before, 'sem busca');
+  assert.equal(t.used.get(USER.id), 2, 'sem gastar cota');
+
+  // The part kept for taps is still there: a tap on a new track searches and counts
+  const tap = await resolveEndpoint(song(4), USER, t.deps);
+  assert.deepEqual((tap.body as { videoIds: string[] }).videoIds, [VIDEO]);
+  assert.equal(t.used.get(USER.id), 3);
+});
+
+test('INV-PLAY-14: sem banco ou sem usuário conhecido, a pré-resolução não busca no escuro', async () => {
+  const noDb = setup({ noAdmin: true });
+  const result = await resolveEndpoint({ ...QUERY, warm: '1' }, USER, noDb.deps);
+  assert.deepEqual(result.body, { videoIds: [], warm: 'skipped' });
+  assert.equal(noDb.searches(), 0);
+  const noUser = setup();
+  assert.deepEqual((await resolveEndpoint({ ...QUERY, warm: '1' }, null, noUser.deps)).body, { videoIds: [], warm: 'skipped' });
+  assert.equal(noUser.searches(), 0);
 });

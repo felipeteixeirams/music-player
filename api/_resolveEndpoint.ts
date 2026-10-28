@@ -5,6 +5,12 @@ import { describeResolution, MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos, t
 
 /** How many tracks nobody has played before each person may bring in per day (each costs a YouTube search). */
 export const DEFAULT_DAILY_NEW_TRACKS = 30;
+/**
+ * Of those allowances, this many are never spent on warming (resolving, ahead of the tap, tracks the person is likely
+ * to play): they stay for what is tapped. Warming and taps count against the same daily total, so warming cannot raise
+ * the most YouTube searches a person can cause in a day.
+ */
+export const WARM_RESERVE = 10;
 /** A found video is kept for this long; the player reporting it broken removes it sooner. */
 export const FOUND_TTL_MS = 180 * 24 * 3600 * 1000;
 /** "The official search found nothing" is kept for a day: it costs quota to ask again, but videos do appear. */
@@ -29,6 +35,8 @@ export interface ResolveDeps {
   admin: Admin | null;
   search: (query: TrackQuery) => Promise<ResolvedVideos>;
   dailyLimit: number;
+  /** The daily count at which warming stops (taps may go on to `dailyLimit`). */
+  warmLimit: number;
   now: () => number;
   log: (line: string) => void;
 }
@@ -36,10 +44,12 @@ export interface ResolveDeps {
 export function defaultDeps(): ResolveDeps {
   const config = adminConfigFromEnv();
   const limit = Number(process.env.DAILY_NEW_TRACKS);
+  const dailyLimit = Number.isInteger(limit) && limit > 0 ? limit : DEFAULT_DAILY_NEW_TRACKS;
   return {
     admin: config ? createAdmin(config) : null,
     search: (query) => resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY }),
-    dailyLimit: Number.isInteger(limit) && limit > 0 ? limit : DEFAULT_DAILY_NEW_TRACKS,
+    dailyLimit,
+    warmLimit: Math.max(0, dailyLimit - WARM_RESERVE),
     now: Date.now,
     log: (line) => console.log(line)
   };
@@ -103,21 +113,31 @@ export async function resolveEndpoint(
   const keys = cacheKeysFor(track, query.id);
   const { admin, now } = deps;
   const noStore = 'private, no-store';
+  // `warm=1`: the app resolves ahead of the tap a track the person is likely to play. Same cache, same search, but it may
+  // only use the part of the daily allowance that is not kept for taps, and it never reports "limit reached"
+  const warm = (Array.isArray(query.warm) ? query.warm[0] : query.warm) === '1';
 
   if (admin) {
     try {
       const hit = freshEntry(await admin.getCachedMany(keys), keys, now());
-      if (hit) return { status: 200, body: { videoIds: hit.videoIds }, cacheControl: noStore };
+      if (hit) return { status: 200, body: { videoIds: hit.videoIds, ...(warm ? { warm: 'cached' } : {}) }, cacheControl: noStore };
     } catch (err) {
       deps.log(`[Resolve] cache indisponível (${(err as Error).message}); buscando sem cache`);
     }
   }
 
+  // Without the database and a known person there is no allowance to keep: warming never searches blind
+  if (warm && !(admin && user)) return { status: 200, body: { videoIds: [], warm: 'skipped' }, cacheControl: noStore };
+
   let quota: ResolveQuota | undefined;
   let consumed = false;
   if (admin && user) {
     try {
-      const used = await admin.consume(user.id, deps.dailyLimit);
+      const used = await admin.consume(user.id, warm ? deps.warmLimit : deps.dailyLimit);
+      if (used < 0 && warm) {
+        // The part for warming is spent: say so quietly (the app stops warming for the day); no search, no "limit" notice
+        return { status: 200, body: { videoIds: [], warm: 'skipped' }, cacheControl: noStore };
+      }
       if (used < 0) {
         quota = { used: deps.dailyLimit, limit: deps.dailyLimit, exceeded: true };
         return { status: 200, body: { videoIds: [], quota }, cacheControl: noStore };
@@ -139,7 +159,7 @@ export async function resolveEndpoint(
     deps.log(`[Resolve] ⚠️ Falha ao localizar vídeo para "${artist} - ${title}": ${(err as Error)?.message || err}`);
     return { status: 200, body: { videoIds: [], ...(quota ? { quota } : {}) } };
   }
-  deps.log(`[Resolve] ${describeResolution(track, result, now() - startTime)}`);
+  deps.log(`[Resolve] ${warm ? 'pré-resolução: ' : ''}${describeResolution(track, result, now() - startTime)}`);
 
   // Found videos are always kept. An empty answer is kept only when the official API gave it: the unofficial web
   // search comes back empty when it is merely blocked or changed, and that must not stick to a good track.
@@ -149,7 +169,7 @@ export async function resolveEndpoint(
       deps.log(`[Resolve] cache não gravado: ${err.message}`)
     );
   }
-  return { status: 200, body: { videoIds: result.videoIds, ...(quota ? { quota } : {}) }, cacheControl: noStore };
+  return { status: 200, body: { videoIds: result.videoIds, ...(warm ? { warm: 'searched' } : {}), ...(quota ? { quota } : {}) }, cacheControl: noStore };
 }
 
 /**

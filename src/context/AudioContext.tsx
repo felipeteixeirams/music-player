@@ -6,7 +6,8 @@ import {
   resolveAudioDetails,
   resolveFullTrack,
   reportBrokenVideo,
-  prefetchResolved
+  prefetchResolved,
+  warmResolve
 } from '../utils/audioEngine';
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
@@ -205,7 +206,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // The next tracks of the queue: their videos are asked for now (from the shared cache only), so when the current one
   // ends, even with the screen locked, the next starts without waiting on the network
   useEffect(() => {
-    if (queue.length > 0) prefetchResolved(queue.slice(currentIndex + 1, currentIndex + 4));
+    if (queue.length > 0) {
+      prefetchResolved(queue.slice(currentIndex + 1, currentIndex + 4));
+      // The next two are the likeliest taps (or the next start): their videos are looked up now, in idle time
+      warmResolve(queue.slice(currentIndex + 1, currentIndex + 3), true);
+    }
   }, [queue, currentIndex]);
 
   useEffect(() => {
