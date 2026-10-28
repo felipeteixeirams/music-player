@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fakeYouTube, loadedVideo, stubApi, TOP_HITS } from './fixtures';
+import { fakeYouTube, loadedVideo, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const CACHED = 'AAAAAAAAAAA';
 const SEARCHED = 'BBBBBBBBBBB';
@@ -124,7 +124,7 @@ test.describe('fila com o limite de faixas novas esgotado', () => {
 
   test('INV-PLAY-16: tocar uma faixa sem vídeo com o limite esgotado ainda toca a prévia, com o aviso de sempre', async ({ page }) => {
     await fakeYouTube(page);
-    await stubApi(page, { quotaExceeded: true, previewUrl: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=' });
+    await stubApi(page, { quotaExceeded: true, previewUrl: silentClip(20) });
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
     await topHit(page, 1).click();
