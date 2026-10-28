@@ -98,6 +98,7 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-AUTH-02:** nenhum segredo (chave de serviço, segredo do JWT, senha do banco) chega ao pacote do navegador.
 - **INV-AUTH-03:** a resposta pública de `/api/health` traz só ids e níveis, nunca nomes de variáveis nem valores.
 - **INV-AUTH-04:** a tela de login responde igual para um e-mail com e sem convite.
+- **INV-AUTH-05:** no Android a tela de login não usa WebGL (só o brilho em CSS, sem `<canvas>`); no iPhone e no computador o fundo animado continua, e a perda do contexto WebGL (ou a falta dele) derruba o canvas e deixa o brilho em CSS, nunca uma camada preta. Origem: uma pessoa com Redmi (Chrome) viu a tela toda preta ao pedir o código; **hipótese** (não reproduzida) de que a mistura de camadas (`mix-blend-screen` sobre WebGL, sob um cartão com `backdrop-filter`) quebra a GPU de aparelhos de entrada.
 - **INV-CFG-01:** na Vercel a partida da função não consulta o Supabase (os serviços são conferidos por `/api/health?deep=1`); onde o processo é de longa duração (`server.ts`), a consulta ao subir continua.
 - **INV-DATA-01:** favoritos, playlists e histórico de uma pessoa nunca aparecem para outra no mesmo aparelho.
 - **INV-DATA-02:** uma alteração feita sem conexão nunca é perdida pela cópia mais antiga da conta.
