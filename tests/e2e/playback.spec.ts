@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fakeYouTube, silentClip, stubApi } from './fixtures';
+import { fakeYouTube, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const FIRST = 'AAAAAAAAAAA';
 const topHit = (page: Page) => page.locator('section[aria-label="Top Hits"] [role=button]').first();
@@ -99,7 +99,7 @@ test('INV-PLAY-08: tocar uma rádio também cria o player do YouTube no toque, a
   await expect.poll(() => page.evaluate(() => (window as any).__yt.loads)).toEqual([FIRST]);
 });
 
-test('INV-PLAY-10: o player fica pronto antes do toque, sem tocar nada, e o toque só carrega o vídeo real (nada de vídeo-reserva)', async ({ page }) => {
+test('INV-PLAY-10: o player fica pronto antes do toque, sem tocar nada; no toque de uma faixa nova ele é liberado com o vídeo-reserva mudo e o vídeo real, achado depois, entra no mesmo player com som', async ({ page }) => {
   await fakeYouTube(page);
   await stubApi(page, { videoIds: [FIRST], previewUrl: silentClip(20) });
   await page.route('**/api/resolve?*', async (route) => {
@@ -114,11 +114,24 @@ test('INV-PLAY-10: o player fica pronto antes do toque, sem tocar nada, e o toqu
   expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([]);
 
   await topHit(page).click();
-  // Nothing is played while the real video is searched: the button waits (loading) and the player is not asked yet
+  // In the tap itself the frame is released (the reserve video plays muted); the real video is still being searched
   await expect(page.getByRole('button', { name: 'Carregando música' })).toBeVisible();
-  expect(await page.evaluate(() => (window as any).__yt.log)).toEqual([]);
-  await expect.poll(() => page.evaluate(() => (window as any).__yt.log[0])).toBe(`load:${FIRST}`);
+  expect(await page.evaluate(() => (window as any).__yt.log)).toEqual(['mute', 'play']);
+  // The real video loads into the same frame and the sound comes back
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.log.slice(2, 4))).toEqual([`load:${FIRST}`, 'unmute']);
   expect(await page.evaluate(() => (window as any).__yt.created)).toBe(1);
+});
+
+test('INV-PLAY-10: uma faixa de vídeo já conhecido carrega no toque, sem vídeo-reserva', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST], cachedVideos: { [TOP_HITS[0].id]: [FIRST] }, lookups: [] });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+  await page.waitForTimeout(800);
+  await topHit(page).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.log[0])).toBe(`load:${FIRST}`);
+  expect(await page.evaluate(() => (window as any).__yt.log)).not.toContain('mute');
 });
 
 test('INV-PLAY-10: o player é criado assim que o app abre, sem esperar: um toque logo depois da abertura já o encontra', async ({ page }) => {

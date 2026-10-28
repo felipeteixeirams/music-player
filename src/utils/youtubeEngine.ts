@@ -19,6 +19,10 @@ interface YouTubeApi {
   loadVideoById(videoId: string): void;
   cueVideoById(videoId: string): void;
   playVideo(): void;
+  mute(): void;
+  unMute(): void;
+  isMuted(): boolean;
+  getVideoData?(): { video_id?: string };
   pauseVideo(): void;
   stopVideo(): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
@@ -95,6 +99,10 @@ class YouTubeEngine {
   private retries = 0;
   private started = false;
   private createdAt = 0;
+  /** A play already started from a tap (the reserve video or a real one): the frame may load videos by itself from now on. */
+  private unlocked = false;
+  /** The sound is off only because of the reserve video; it goes back on with the real one. */
+  private mutedByUs = false;
 
   setEvents(events: YouTubeEvents | null): void {
     this.events = events;
@@ -182,7 +190,36 @@ class YouTubeEngine {
     this.queued = null;
     if (play) this.api.loadVideoById(videoId);
     else this.api.cueVideoById(videoId);
+    // The reserve video (if one was playing) was only muted to be unheard: the real one has sound
+    this.restoreSound();
     if (play) this.armRetry();
+  }
+
+  /**
+   * Called inside the tap that starts a track whose video is not known yet. The iPhone lets a video load and play only
+   * when a tap started playing in that frame: the search for the video ends after the tap, and a video loaded then is
+   * not even buffered (reports of 2026-10-28: no "loaded" event, six silent seconds). So the tap starts the frame's own
+   * reserve video, muted and unheard, and the real video is loaded into the same frame when it is found. Once any play
+   * was started by a tap this is not needed again in the session.
+   */
+  unlockPlayback(): boolean {
+    if (this.unlocked || this.videoId || this.started) return false;
+    if (!this.ready || !this.api) {
+      logPlayback('o player do YouTube ainda não estava pronto no toque: a faixa nova pode precisar de outro toque');
+      return false;
+    }
+    this.unlocked = true;
+    this.mutedByUs = true;
+    this.api.mute();
+    this.api.playVideo();
+    logPlayback('player do YouTube liberado no toque (vídeo-reserva mudo, até a busca do vídeo terminar)');
+    return true;
+  }
+
+  private restoreSound(): void {
+    if (!this.mutedByUs || !this.api) return;
+    this.mutedByUs = false;
+    this.api.unMute();
   }
 
   play(): void {
@@ -209,7 +246,10 @@ class YouTubeEngine {
     this.started = false;
     this.cancelRetry();
     this.stopPolling();
-    if (this.ready && this.api) this.api.stopVideo();
+    if (this.ready && this.api) {
+      this.api.stopVideo();
+      this.restoreSound();
+    }
   }
 
   seekTo(seconds: number): void {
@@ -234,7 +274,16 @@ class YouTubeEngine {
   private onState(state: number): void {
     if (!this.videoId) return;
     if (state === STATE.PLAYING) {
+      // A late "playing" of the reserve video is not the track's
+      const playing = this.api?.getVideoData?.().video_id;
+      if (playing && playing !== this.videoId) return;
       this.started = true;
+      this.unlocked = true;
+      // The sound must be on now: a track that "plays" muted would look right and be silent
+      if (this.api?.isMuted?.() && !this.mutedByUs) {
+        logPlayback('o player do YouTube começou com o som desligado: religando');
+        this.api.unMute();
+      }
       this.cancelRetry();
       this.reportLength();
       this.startPolling();

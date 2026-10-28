@@ -278,6 +278,16 @@ Esperado: faixas pré-resolvidas começam como as de vídeo já conhecido (o ún
 
 Esperado: com a busca oficial suspensa o app continua tocando (busca web e cache) e nenhuma chamada vai à API oficial. Na cota real, o log `[YouTube] disjuntor aberto (quota)` marca o momento.
 
+### T26: faixa nova no primeiro toque (player liberado no toque)
+
+1. Com o app instalado e atualizado (versão no Diagnóstico), feche-o por completo e abra. Espere uns 5 s e, em Buscar, toque numa faixa que ninguém ouviu (um artista pouco conhecido, na página do artista).
+2. Esperado: depois de cerca de 1,5 s (a busca do vídeo) a faixa começa **sozinha, com som**, sem o aviso "O iPhone não deixou a música começar sozinha". O Diagnóstico mostra, em ordem: `player do YouTube liberado no toque (vídeo-reserva mudo…)`, `vídeo resolvido em … ms`, `player do YouTube carregado … ms depois do toque` e `começou a tocar (player do YouTube)`.
+3. Escute com atenção durante o primeiro segundo: **não deve haver som do vídeo-reserva** (um vídeo curto do YouTube). Se houver, o iOS ignorou o mudo: avise.
+4. Se a faixa começar **sem som** (barra andando, sem áudio), o Diagnóstico traz `o player do YouTube começou com o som desligado: religando`: avise e cole o relatório.
+5. Repita com uma segunda faixa nova logo depois: deve tocar do mesmo jeito.
+
+Esperado: faixas novas começam sozinhas mesmo com a busca demorando. Se o aviso continuar aparecendo com a linha "liberado no toque" presente, o iOS recusa mesmo assim e a hipótese está errada (próximo passo: o app nativo).
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
@@ -322,3 +332,4 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T22 | | | ⬜ | |
 | T23 | | | ⬜ | |
 | T24 | | | ⬜ | |
+| T26 | | | ⬜ | |
