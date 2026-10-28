@@ -29,7 +29,7 @@ Abra, no navegador logado na Vercel:
 | Endereço | Esperado |
 | --- | --- |
 | `/api/health` | `{"status":"ok", ...}` |
-| `/api/feed` | `categories` com 14 coleções (as de `api/_categories.ts`), cada uma com 15 faixas, `total` maior que 15 e `nextIndex` 15; `featured` preenchido |
+| `/api/feed` | `categories` com 14 coleções (as de `api/_categories.ts`), cada uma com 15 faixas, `total` maior que 15 e `nextIndex` 15; `featured` preenchido (a home não o mostra mais; fica por compatibilidade) |
 | `/api/category?id=classic-rock&index=15` | 20 faixas, `nextIndex` 35, nenhuma repetida da página anterior |
 | `/api/category?id=nao-existe` | 400 `Categoria desconhecida` |
 | `/api/search?q=queen&index=20` | 20 faixas, `source` `deezer`, `total` maior que 100 |
