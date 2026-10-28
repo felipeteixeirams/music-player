@@ -145,6 +145,45 @@ test('INV-PLAY-10: o player é criado assim que o app abre, sem esperar: um toqu
   await expect(page.getByTestId('playback-log')).toContainText(/player do YouTube criado ao abrir o app \(\d+ ms depois de a página abrir\)/);
 });
 
+test('INV-PLAY-10: o player é liberado de novo em todo toque de faixa nova com o player parado, não só no primeiro da sessão', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.route('**/api/resolve?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ videoIds: [FIRST] }) });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+  const muted = () => page.evaluate(() => (window as any).__yt.log.filter((entry: string) => entry === 'mute').length);
+
+  await topHit(page).click();
+  await expect.poll(muted).toBe(1);
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.loads.length)).toBe(1);
+
+  // The track plays; the person pauses it. The frame is no longer playing: the next new track must release it again
+  await page.getByRole('button', { name: 'Pausar música' }).first().click();
+  await page.locator('section[aria-label="Top Hits"] [role=button]').nth(1).click();
+  await expect.poll(muted, { timeout: 8000 }).toBe(2);
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.loads.length)).toBe(2);
+});
+
+test('o tempo da faixa não fica com a duração do vídeo-reserva: a barra segue a duração real do player', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as any).__ytStaleLength = true;
+  });
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+  await expect(page.getByRole('button', { name: /Abrir player expandido/ })).toBeVisible();
+  await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+  // Right after the load the player answers 0:19; a moment later its own length, 3:00, replaces it
+  await expect(page.getByText(/^-0[23]:\d\d$/)).toBeVisible({ timeout: 6000 });
+  await expect(page.getByText('-00:00')).toHaveCount(0);
+});
+
 test('INV-PLAY-11: a prévia, que só toca quando não há faixa completa, se for recusada pelo navegador aparece no relatório', async ({ page }) => {
   await fakeYouTube(page);
   // No video found for the track: the preview is the fallback

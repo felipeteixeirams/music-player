@@ -266,7 +266,7 @@ export async function fakeYouTube(target: Page): Promise<void> {
           }
           loadVideoById(id) {
             window.__yt.log.push('load:' + id);
-            this.id = id; this.base = 0; window.__yt.loads.push(id); this.set(3);
+            this.id = id; this.base = 0; this.loadedAt = performance.now(); window.__yt.loads.push(id); this.set(3);
             setTimeout(() => this.set(window.__ytMode === 'blocked' && !window.__ytAllow ? 5 : 1), 60);
           }
           cueVideoById(id) { this.id = id; this.base = 0; window.__yt.cues.push(id); this.set(5); }
@@ -278,7 +278,8 @@ export async function fakeYouTube(target: Page): Promise<void> {
           seekTo(s) { this.base = s; this.startedAt = performance.now(); }
           setVolume() {}
           getCurrentTime() { return this.base + (this.state === 1 ? (performance.now() - this.startedAt) / 1000 : 0); }
-          getDuration() { return this.id ? 180 : 0; }
+          // __ytStaleLength: right after a load the player still answers with the length of the video before (19 s, the reserve one)
+          getDuration() { return this.id ? (window.__ytStaleLength && performance.now() - (this.loadedAt || 0) < 1500 ? 19 : 180) : 0; }
           getPlayerState() { return this.state; }
         }
         window.YT = { Player };

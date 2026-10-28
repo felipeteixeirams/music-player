@@ -55,6 +55,8 @@ export interface YouTubeEvents {
   time(seconds: number): void;
   /** The video is loaded and its length is known. */
   loaded(durationSeconds: number): void;
+  /** The player's length changed after `loaded` (a stale one corrected). */
+  length?(durationSeconds: number): void;
 }
 
 let apiPromise: Promise<YouTubeGlobal> | null = null;
@@ -99,8 +101,12 @@ class YouTubeEngine {
   private retries = 0;
   private started = false;
   private createdAt = 0;
-  /** A play already started from a tap (the reserve video or a real one): the frame may load videos by itself from now on. */
-  private unlocked = false;
+  /** The frame is playing a video right now (the real one or the reserve): then it needs no release for the next load. */
+  private playing = false;
+  /** The reserve video was started by a tap and has not been replaced by the real video yet: its events are not the track's. */
+  private unlockPending = false;
+  /** The last length told to the screen, to notice when the player's own answer changes (the old video's length can linger). */
+  private lastLength = 0;
   /** The sound is off only because of the reserve video; it goes back on with the real one. */
   private mutedByUs = false;
 
@@ -180,6 +186,8 @@ class YouTubeEngine {
 
     this.videoId = videoId;
     this.wantPlay = play;
+    this.unlockPending = false;
+    this.lastLength = 0;
     this.reportedLength = false;
     this.started = false;
     this.cancelRetry();
@@ -203,13 +211,16 @@ class YouTubeEngine {
    * was started by a tap this is not needed again in the session.
    */
   unlockPlayback(): boolean {
-    if (this.unlocked || this.videoId || this.started) return false;
+    // A frame that is playing needs nothing: it takes the next video by itself. One that is idle, paused or was taken
+    // away by the system (a call, the app in the background) must be released again by this tap: the permission of an
+    // earlier tap does not last (report of 2026-10-28: the second new track of a session failed again)
+    if (this.playing || this.unlockPending) return false;
     if (!this.ready || !this.api) {
       logPlayback('o player do YouTube ainda não estava pronto no toque: a faixa nova pode precisar de outro toque');
       return false;
     }
-    this.unlocked = true;
     this.mutedByUs = true;
+    this.unlockPending = true;
     this.api.mute();
     this.api.playVideo();
     logPlayback('player do YouTube liberado no toque (vídeo-reserva mudo, até a busca do vídeo terminar)');
@@ -233,6 +244,9 @@ class YouTubeEngine {
 
   pause(): void {
     this.wantPlay = false;
+    // The tap that releases the frame starts the reserve video, and the track change pauses what played before: that
+    // pause must not undo the release
+    if (this.unlockPending) return;
     this.cancelRetry();
     if (this.queued) this.queued.play = false;
     if (this.ready && this.api && this.videoId) this.api.pauseVideo();
@@ -244,6 +258,8 @@ class YouTubeEngine {
     this.videoId = '';
     this.queued = null;
     this.started = false;
+    this.unlockPending = false;
+    this.playing = false;
     this.cancelRetry();
     this.stopPolling();
     if (this.ready && this.api) {
@@ -272,13 +288,15 @@ class YouTubeEngine {
   }
 
   private onState(state: number): void {
+    this.playing = state === STATE.PLAYING;
     if (!this.videoId) return;
     if (state === STATE.PLAYING) {
+      // The reserve video playing under the tap is not the track starting
+      if (this.unlockPending) return;
       // A late "playing" of the reserve video is not the track's
       const playing = this.api?.getVideoData?.().video_id;
       if (playing && playing !== this.videoId) return;
       this.started = true;
-      this.unlocked = true;
       // The sound must be on now: a track that "plays" muted would look right and be silent
       if (this.api?.isMuted?.() && !this.mutedByUs) {
         logPlayback('o player do YouTube começou com o som desligado: religando');
@@ -308,9 +326,14 @@ class YouTubeEngine {
 
   private reportLength(): void {
     if (this.reportedLength || !this.api) return;
+    // Right after a video is loaded the player may still answer with the length of the one before it (the reserve video
+    // is 19 s: the bar then ended at 0:19 of a six-minute track)
+    const loadedId = this.api.getVideoData?.().video_id;
+    if (loadedId && this.videoId && loadedId !== this.videoId) return;
     const length = this.api.getDuration();
     if (Number.isFinite(length) && length > 0) {
       this.reportedLength = true;
+      this.lastLength = length;
       this.events?.loaded(length);
     }
   }
@@ -318,7 +341,14 @@ class YouTubeEngine {
   private startPolling(): void {
     if (this.poll) return;
     this.poll = setInterval(() => {
-      if (this.api) this.events?.time(this.api.getCurrentTime());
+      if (!this.api) return;
+      this.events?.time(this.api.getCurrentTime());
+      // The player's own length can change after it was first told (see `reportLength`): the screen follows it
+      const length = this.api.getDuration();
+      if (this.lastLength > 0 && Number.isFinite(length) && length > 0 && Math.abs(length - this.lastLength) > 1) {
+        this.lastLength = length;
+        this.events?.length?.(length);
+      }
     }, POLL_MS);
   }
 

@@ -46,6 +46,9 @@ export const HeadlessPlayerFallback: React.FC = () => {
       loaded: (seconds) => {
         latest.current.setDuration(Math.round(seconds));
         latest.current.engineReady(seconds);
+      },
+      length: (seconds) => {
+        latest.current.setDuration(Math.round(seconds));
       }
     });
     return () => youtubeEngine.setEvents(null);
