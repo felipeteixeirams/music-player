@@ -202,6 +202,40 @@ Esperado: tudo funciona sem internet, exceto tocar a faixa completa. Os dados fi
 
 Esperado: a home nunca fica vazia depois de ter carregado uma vez. Observação: abrir o app offline depende também do service worker guardar a página e os arquivos do app; no iPhone, só vale depois de a página ter carregado uma vez com internet.
 
+## Rodada 7: aparência, home, artistas e rastreabilidade (implementadas em 2026-10-28, ainda sem teste no aparelho)
+
+### T16: aparência (Ajustes > Aparência)
+
+1. No navegador do iPhone, abra Ajustes > Aparência e alterne Automático, Claro e Escuro: as cores mudam na hora e a escolha continua depois de recarregar. Com o sistema em modo claro, Automático deve ficar claro.
+2. No app instalado, Automático deve ficar escuro (a barra de status do iOS tem texto branco fixo). Escolha Claro: a faixa sobre a barra de status deve ficar preta, com o relógio legível, sem emenda feia com o título.
+3. Abra o player aberto e a tela de login: continuam escuros em qualquer escolha.
+
+Esperado: o relógio e os ícones da barra de status ficam legíveis nos três modos. Se não ficarem, a faixa preta do topo (`.status-strip`) precisa de ajuste (hipótese não verificada).
+
+### T17: home dinâmica
+
+1. Abra o app em produção: a home deve mostrar até 14 coleções (Top Hits, Sertanejo, Pagode e Samba, Funk, Forró, MPB, Gospel, Pop Internacional, Rap e Hip Hop, Eletrônica, Classic Rock, Alternative, Lofi, Synthwave). Anote o tempo até a lista aparecer.
+2. Confira o conteúdo de cada coleção nova contra o nome (as playlists foram escolhidas pelo título, sem ouvir todas).
+3. Toque numa faixa e volte à home depois de a música tocar mais de 30 s: a prateleira "Tocadas recentemente" deve aparecer no topo.
+
+Esperado: nenhuma coleção vazia; a primeira carga não deve parecer lenta. Se for lenta, reduzir as coleções do feed ou carregar as de baixo sob demanda.
+
+### T18: artistas e álbuns
+
+1. Em Buscar, busque o nome de um artista: a linha "Artistas" aparece acima das faixas.
+2. Abra um artista: foto, ouvintes, Reproduzir, Aleatório, "Músicas mais tocadas", Álbuns e Artistas semelhantes.
+3. Abra um álbum e toque numa faixa; volte (o artista reaparece na hora); abra um artista semelhante e volte duas vezes (artista anterior, depois a busca).
+
+Esperado: Reproduzir toca a primeira, Aleatório liga o aleatório e toca uma qualquer. Limites conhecidos: artistas homônimos aparecem na linha; singles e reedições aparecem como álbuns.
+
+### T19: carregamento e início sem prévia (PRs #69 e #70)
+
+1. No app instalado, toque numa faixa que nunca ouviu: o botão de reproduzir mostra o anel girando, sem texto, até o som começar, e então vira pausa.
+2. Repita com faixas de vídeo já conhecido: o início deve ser quase imediato.
+3. Se o iPhone recusar o início tardio, deve aparecer o aviso com o ▶; anote quantas vezes acontece em dez faixas e cole o relatório de Ajustes > Diagnóstico.
+
+Esperado: a prévia só toca quando não há faixa completa. Resultado alimenta a matriz de compatibilidade.
+
 ### T20: rastreabilidade nos logs da Vercel
 
 1. Depois do deploy, abra o app, toque numa faixa e copie o código da sessão da primeira linha do relatório de Ajustes > Diagnóstico (`sessão <código>`).
@@ -218,11 +252,13 @@ Priorizadas, sujeitas ao resultado das rodadas acima:
 2. Limpezas pequenas: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
 3. Áudio com a tela bloqueada no app instalado (PWA): decidido usar pelo navegador (T04); sem correção para o player do YouTube. O áudio nativo (rádios ao vivo) toca em segundo plano no app instalado. Descobertas, opções e frentes em aberto: [fontes de áudio e decisões](audio-sources-decisions.spec.md).
 
+4. Crossfade entre faixas: **não viável** com o player do YouTube no iPhone (um só iframe, sem controle de volume por faixa fora do toque); revisitar se um dia houver arquivos de áudio próprios (ver as decisões de fontes de áudio).
+
 Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14), qualidade da escolha do vídeo (ver T03), abuso e cota, limpeza do código Piped, desempenho de listas longas, fila além da página carregada e integração contínua.
 
 ## Testes automáticos que já passam
 
-`npm test` (156 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (21 testes de ponta a ponta no Chromium com as rotas simuladas), `npm run lint`, `npm run build` e `npm run test:integrations:live` (4 smoke: prévias do Deezer, resolução de vídeos, iTunes e as playlists das coleções). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
+`npm test` (301 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (69 testes de ponta a ponta no Chromium com as rotas simuladas; contagens de 2026-10-28), `npm run lint`, `npm run build` e `npm run test:integrations:live` (smoke: prévias do Deezer, resolução de vídeos, iTunes, as 14 playlists das coleções e as rádios ao vivo). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
 
 ## Registro
 
@@ -243,3 +279,8 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T13 | | | ⬜ | |
 | T14 | | | ⬜ | |
 | T15 | | | ⬜ | |
+| T16 | | | ⬜ | |
+| T17 | | | ⬜ | |
+| T18 | | | ⬜ | |
+| T19 | | | ⬜ | |
+| T20 | | | ⬜ | |
