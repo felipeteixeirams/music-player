@@ -35,6 +35,7 @@ import { Play, Sparkles, Globe, Loader2, AlertCircle, WifiOff } from 'lucide-rea
 import { FeedResponse, Track } from './types/music';
 import { usePagedTracks } from './hooks/usePagedTracks';
 import { fetchArtistSearch, fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
+import { scrollToTop } from './utils/smoothScroll';
 import { ArtistScreen } from './components/ArtistScreen';
 import { AlbumScreen } from './components/AlbumScreen';
 import type { AlbumSummary, ArtistSummary } from './types/music';
@@ -130,6 +131,9 @@ const MusicAppContent: React.FC = () => {
   }, [feedAttempt]);
 
   const handleSelectTab = (tab: AppTab) => {
+    // Tapping the tab already open, at its first screen: the page rolls back to the top (nothing is reloaded)
+    const atTabRoot = tab === activeTab && !selectedCategoryId && artistStack.length === 0 && !selectedAlbum && !libraryView;
+    if (atTabRoot) scrollToTop();
     setActiveTab(tab);
     // Each tab opens at its own first screen, not inside a collection left open elsewhere
     setSelectedCategoryId(null);
