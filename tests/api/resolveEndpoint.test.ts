@@ -50,6 +50,10 @@ function fakeAdmin(limitFails = false) {
     async refund(userId) {
       used.set(userId, Math.max(0, (used.get(userId) ?? 0) - 1));
     },
+    async getServiceState() {
+      return null;
+    },
+    async setServiceState() {},
     async usedToday(userId) {
       return used.get(userId) ?? 0;
     }
@@ -58,12 +62,13 @@ function fakeAdmin(limitFails = false) {
   return { admin, cache, used, calls };
 }
 
-function setup(options: { via?: ResolvedVideos['via']; videoIds?: string[]; searchFails?: boolean; limit?: number; noAdmin?: boolean } = {}) {
+function setup(options: { via?: ResolvedVideos['via']; videoIds?: string[]; searchFails?: boolean; limit?: number; noAdmin?: boolean; suspended?: boolean } = {}) {
   const fake = fakeAdmin();
   let searches = 0;
   let now = 1_000_000;
   const deps: ResolveDeps = {
     admin: options.noAdmin ? null : fake.admin,
+    breaker: { check: async () => (options.suspended ? { until: 2_000_000, reason: 'quota' as const } : null) },
     search: async () => {
       searches++;
       if (options.searchFails) throw new Error('youtube down');
@@ -384,4 +389,18 @@ test('INV-PLAY-14: sem banco ou sem usuário conhecido, a pré-resolução não 
   const noUser = setup();
   assert.deepEqual((await resolveEndpoint({ ...QUERY, warm: '1' }, null, noUser.deps)).body, { videoIds: [], warm: 'skipped' });
   assert.equal(noUser.searches(), 0);
+});
+
+test('INV-PLAY-15: com a busca oficial suspensa a pré-resolução não busca nem gasta cota, e a resposta avisa quando a faixa veio da busca web', async () => {
+  const t = setup({ suspended: true, via: 'web-api-suspended' });
+  const warm = await resolveEndpoint({ ...QUERY, warm: '1' }, USER, t.deps);
+  assert.deepEqual(warm.body, { videoIds: [], warm: 'skipped' });
+  assert.equal(t.searches(), 0);
+  assert.equal(t.used.get(USER.id) ?? 0, 0);
+
+  // A tap still searches (the web search): it counts for the person and says the official search is off
+  const tap = await resolveEndpoint(QUERY, USER, t.deps);
+  assert.deepEqual((tap.body as { videoIds: string[]; youtube?: string }).youtube, 'suspended');
+  assert.equal((tap.body as { videoIds: string[] }).videoIds.length, 1);
+  assert.equal(t.used.get(USER.id), 1);
 });

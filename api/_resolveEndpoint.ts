@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { AuthUser } from './_auth.js';
 import { adminConfigFromEnv, createAdmin, type Admin } from './_supabaseAdmin.js';
+import { createYoutubeBreaker, newBreakerMemory, type BreakerState, type YoutubeBreaker } from './_youtubeBreaker.js';
 import { describeResolution, MAX_TRACK_DURATION_SECONDS, resolveYouTubeVideos, type ResolvedVideos, type TrackQuery } from './_youtubeSearch.js';
 
 /** How many tracks nobody has played before each person may bring in per day (each costs a YouTube search). */
@@ -33,6 +34,8 @@ export interface EndpointResult {
 
 export interface ResolveDeps {
   admin: Admin | null;
+  /** Whether the official YouTube search is suspended (its quota is spent); the search itself consults it too. */
+  breaker: Pick<YoutubeBreaker, 'check'>;
   search: (query: TrackQuery) => Promise<ResolvedVideos>;
   dailyLimit: number;
   /** The daily count at which warming stops (taps may go on to `dailyLimit`). */
@@ -41,13 +44,35 @@ export interface ResolveDeps {
   log: (line: string) => void;
 }
 
+/** What this instance knows of the breaker between requests (the shared state is in the database). */
+const breakerMemory = newBreakerMemory();
+
+/** The breaker of the YouTube search, tied to the database when there is one. */
+export function breakerFor(admin: Admin | null): YoutubeBreaker {
+  return createYoutubeBreaker({
+    memory: breakerMemory,
+    store: admin
+      ? {
+          get: async (key) => {
+            const row = await admin.getServiceState(key);
+            return row ? ({ until: row.until, reason: row.reason as BreakerState['reason'] } as BreakerState) : null;
+          },
+          set: (key, state) => admin.setServiceState(key, state.until, state.reason)
+        }
+      : null
+  });
+}
+
 export function defaultDeps(): ResolveDeps {
   const config = adminConfigFromEnv();
   const limit = Number(process.env.DAILY_NEW_TRACKS);
   const dailyLimit = Number.isInteger(limit) && limit > 0 ? limit : DEFAULT_DAILY_NEW_TRACKS;
+  const admin = config ? createAdmin(config) : null;
+  const breaker = breakerFor(admin);
   return {
-    admin: config ? createAdmin(config) : null,
-    search: (query) => resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY }),
+    admin,
+    breaker,
+    search: (query) => resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY, breaker }),
     dailyLimit,
     warmLimit: Math.max(0, dailyLimit - WARM_RESERVE),
     now: Date.now,
@@ -128,6 +153,9 @@ export async function resolveEndpoint(
 
   // Without the database and a known person there is no allowance to keep: warming never searches blind
   if (warm && !(admin && user)) return { status: 200, body: { videoIds: [], warm: 'skipped' }, cacheControl: noStore };
+  // While the official search is suspended (its quota is spent) nothing is looked up ahead of a tap
+  const suspended = await deps.breaker.check();
+  if (warm && suspended) return { status: 200, body: { videoIds: [], warm: 'skipped' }, cacheControl: noStore };
 
   let quota: ResolveQuota | undefined;
   let consumed = false;
@@ -169,7 +197,9 @@ export async function resolveEndpoint(
       deps.log(`[Resolve] cache não gravado: ${err.message}`)
     );
   }
-  return { status: 200, body: { videoIds: result.videoIds, ...(warm ? { warm: 'searched' } : {}), ...(quota ? { quota } : {}) }, cacheControl: noStore };
+  // `youtube: 'suspended'` tells the app the official search is off (the day's quota is spent): what it found came from the web search
+  const degraded = (await deps.breaker.check()) ? { youtube: 'suspended' } : {};
+  return { status: 200, body: { videoIds: result.videoIds, ...(warm ? { warm: 'searched' } : {}), ...degraded, ...(quota ? { quota } : {}) }, cacheControl: noStore };
 }
 
 /**

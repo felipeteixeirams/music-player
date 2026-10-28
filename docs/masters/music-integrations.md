@@ -103,6 +103,23 @@ Leia a [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md
 
 Com dependências instaladas, execute `npm test` para os testes determinísticos. Execute `npm run test:integrations:live` separadamente quando houver acesso à rede; esse comando consulta serviços públicos e pode falhar por indisponibilidade externa.
 
+## Mapa de falhas da reprodução e o que o app faz
+
+Atualizado em 2026-10-28. Cada linha é uma causa conhecida, onde ela aparece e o tratamento. "Planejado" ainda não existe (próximas etapas da mesma frente: fila inteligente e ajuste do limite por pessoa).
+
+| Falha | Onde se vê | Tratamento hoje | Planejado |
+| --- | --- | --- | --- |
+| Cota diária do YouTube acabou (403 `quotaExceeded`) | log `[YouTube] disjuntor aberto (quota)`, `/api/health?deep=1` | Disjuntor global (INV-PLAY-15); busca web; faixas conhecidas seguem completas | Fila que prioriza e pula |
+| Busca web do YouTube vazia ou bloqueada | `via web…` com 0 vídeos | Resposta vazia não é guardada no cache (só a da API oficial); cai na prévia de 30 s | Avisar uma vez que a busca de faixas novas volta amanhã |
+| Limite diário da pessoa (30 faixas novas) | aviso "limite de faixas novas de hoje", Ajustes mostra X de 30 | Prévia de 30 s; conhecidas completas | Subir o teto individual (proteção, não regra) |
+| Chave do YouTube recusada ou API desligada | log `[YouTube] API oficial indisponível`, disjuntor `key` por 10 min | Busca web enquanto isso | Aviso no `/api/health` |
+| Vídeo que não pode ser incorporado (erros 101/150 do player, oEmbed 401/403/404) | player chama `handleFallbackError` | Tenta a versão seguinte (até 3); depois a prévia; o vídeo ruim é denunciado e sai do cache | — |
+| Supabase fora do ar | log `[Resolve] cache/cota indisponível` | Busca sem cache nem limite (cai no limite por minuto e no disjuntor da instância) | Limite local por instância |
+| Rede lenta ou sem resposta (6 s) | `[Net] sem resposta`, anel de carregamento | O pedido é abandonado, o app segue; o vigia mostra o aviso só depois de 6 s sem som | — |
+| iPhone recusa o início automático | Diagnóstico `sem som 6 s depois…` | Tentativas silenciosas a cada 1,5 s e a cada toque; aviso com ▶ | Segurar o anel por mais tempo |
+| Link da prévia do Deezer vencido | prévia recusada | Renovação (`GET /api/search?preview=`) | — |
+| Erro de JavaScript no app | `[Client]` nos logs, tela "Algo deu errado" | `ErrorBoundary` e `/api/report` | — |
+
 ## Invariantes da reprodução (não quebre)
 
 Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.test.ts` reprova se algum ficar sem teste, ou se um teste citar um id que não existe aqui). O que vale em cada ambiente está na [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md).
@@ -117,6 +134,7 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-PLAY-01:** a tela nunca mostra "tocando" quando não sai som: sem som em 6 s (a contagem recomeça uma vez, por mais 6 s, quando o player do YouTube termina de carregar; 15 s numa rádio ao vivo, cuja transmissão pode demorar a começar) o botão volta a ▶ com o aviso, e se o som começar depois a tela volta a "tocando".
 - **INV-PLAY-12:** uma rádio ao vivo tem 15 s para começar antes de o aviso aparecer: uma transmissão que demora 7 s a começar toca sem aviso.
 - **INV-PLAY-14:** o vídeo das faixas prováveis é procurado antes do toque (`warmResolve`, `GET /api/resolve?warm=1`): as 2 próximas da fila e as 2 primeiras de cada cartão personalizado, uma por vez, em tempo ocioso, com a página visível, sem economia de dados, até 6 buscas por sessão. Ela usa o mesmo total diário de cada pessoa que os toques (não aumenta o máximo de buscas ao YouTube), mas só até `dailyLimit - WARM_RESERVE` (20 de 30); passado disso o servidor responde `warm: 'skipped'`, sem buscar e sem aviso de limite, e o app para pelo resto do dia. Sem banco ou sem pessoa conhecida o servidor nunca busca em nome da pré-resolução. Um toque que encontra uma pré-resolução em andamento espera por ela; se ela foi recusada ou falhou, o toque pergunta por conta própria.
+- **INV-PLAY-15:** quando a cota diária do YouTube acaba, o primeiro erro `quotaExceeded`/`dailyLimitExceeded` abre um disjuntor (`api/_youtubeBreaker.ts`, tabela `service_state`, compartilhado entre as instâncias e lembrado 30 s em cada uma): a busca oficial para até a meia-noite do Pacífico (quando o YouTube zera a cota), as buscas seguintes vão direto à busca web (`via web-api-suspended`) sem chamar a API oficial, a pré-resolução não busca nem gasta cota, e a resposta de `/api/resolve` traz `youtube: 'suspended'`. Erros que não são de cota (timeout, 500) não abrem o disjuntor; erro de ritmo (`rateLimitExceeded`) suspende 1 minuto e de chave (`keyInvalid`, `accessNotConfigured`) 10 minutos. O disjuntor nunca impede a busca: sem banco ou sem a tabela ele vale só na instância, e `/api/health?deep=1` informa `youtubeSearch: normal|suspended`.
 - **INV-PLAY-02:** uma faixa com vídeo já conhecido (no aparelho ou no cache compartilhado) começa sem pedir nada à rede no toque.
 - **INV-PLAY-03:** só a resolução, no toque, de uma faixa que ninguém tocou antes gasta busca do YouTube e cota; a consulta em lote ao cache nunca busca nem consome.
 - **INV-PLAY-04:** o toque numa faixa desbloqueia o elemento de áudio do navegador, e os eventos do clipe de silêncio nunca contam como música.

@@ -115,6 +115,10 @@ O link de prévia do Deezer é assinado (`hdnea=exp=…`) e para de funcionar ce
 
 Tocar uma faixa não deve esperar a rede quando o vídeo já é conhecido: `resolveFullTrack` responde na hora com o que o aparelho guarda (`ResolvedStore`) e `prefetchResolved` (carrosséis, listas e a fila) pergunta em lote ao cache compartilhado (`POST /api/resolve` com `lookup`, que nunca busca nem gasta cota). Ao criar uma lista ou carrossel de faixas novo, chame `prefetchResolved`; ao mexer no cache do servidor, mantenha as duas chaves (id do catálogo e música, `cacheKeysFor`) e a denúncia que limpa as duas. A única coisa que gasta busca do YouTube é a resolução de uma faixa que ninguém tocou: no toque, ou antes dele pela pré-resolução (`warmResolve`, `GET /api/resolve?warm=1`, `src/utils/warmResolve.ts`), que procura em tempo ocioso o vídeo das 2 próximas da fila e das 2 primeiras de cada cartão personalizado. Ela divide o mesmo total diário dos toques, mas só até `dailyLimit - WARM_RESERVE` (a parte restante fica para os toques; INV-PLAY-14); ao criar um novo ponto de pré-resolução, passe por `warmResolve` e não por `resolveFullTrack`.
 
+## Cota do YouTube esgotada: disjuntor
+
+Quando a cota diária da YouTube Data API acaba, o primeiro erro `quotaExceeded` abre um disjuntor (`api/_youtubeBreaker.ts`, tabela `service_state` da migração `0003`, compartilhado entre as instâncias): a busca oficial para até a meia-noite do Pacífico, e as buscas seguintes vão direto à busca web (`via web-api-suspended`). A pré-resolução fica desligada enquanto isso e a resposta de `/api/resolve` traz `youtube: 'suspended'`. Ele nunca impede a busca e falha aberto (sem banco ou sem a tabela vale só na instância). Ao tratar um novo tipo de falha da reprodução ou da busca, acrescente a linha ao "Mapa de falhas da reprodução" do [master de integrações](docs/masters/music-integrations.md) (INV-PLAY-15). A migração `0003_service_state.sql` é aplicada à mão no painel do Supabase (SQL Editor), como as anteriores.
+
 ## Triagem: relato de problema ou "regressão"
 
 Antes de dizer que algo regrediu (ou que "não tem como resolver"), nesta ordem:

@@ -1,4 +1,5 @@
 import { extractYouTubeId } from './_youtubeId.js';
+import { classifyYouTubeError, YouTubeApiError, type YoutubeBreaker } from './_youtubeBreaker.js';
 
 type FetchLike = typeof fetch;
 
@@ -18,6 +19,8 @@ export interface VideoCandidate {
 export interface ResolveOptions {
   apiKey?: string;
   fetchImpl?: FetchLike;
+  /** Stops asking the official API while its quota is spent (see `_youtubeBreaker.ts`). */
+  breaker?: YoutubeBreaker;
 }
 
 /** A song longer than this is not a catalog track: refuse before spending a YouTube search on it. */
@@ -214,7 +217,12 @@ export async function isEmbeddable(videoId: string, fetchImpl: FetchLike = fetch
 
 async function getJson(url: string, init: RequestInit, fetchImpl: FetchLike): Promise<unknown> {
   const response = await fetchImpl(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  if (!response.ok) throw new Error(`YouTube HTTP ${response.status}`);
+  if (!response.ok) {
+    // The Data API says why in the body (quotaExceeded, keyInvalid...): the breaker needs it, a bare status is not enough
+    const body = (await response.json().catch(() => null)) as { error?: { errors?: { reason?: unknown }[] } } | null;
+    const reason = body?.error?.errors?.[0]?.reason;
+    throw new YouTubeApiError(response.status, typeof reason === 'string' ? reason : '');
+  }
   return response.json();
 }
 
@@ -253,7 +261,7 @@ async function searchWeb(searchText: string, fetchImpl: FetchLike): Promise<Vide
 }
 
 /** Which search produced the candidates: the official API, the web search, or the web search after the API refused. */
-export type ResolveVia = 'official' | 'web' | 'web-after-official-failure';
+export type ResolveVia = 'official' | 'web' | 'web-after-official-failure' | 'web-api-suspended';
 
 export interface ResolvedVideos {
   videoIds: string[];
@@ -272,10 +280,15 @@ async function searchCandidates(
 ): Promise<{ candidates: VideoCandidate[]; via: ResolveVia }> {
   if (!options.apiKey) return { candidates: await searchWeb(searchText, fetchImpl), via: 'web' };
 
+  // The breaker is open (the quota is spent, or the key was refused a moment ago): do not even ask the official API
+  if (await options.breaker?.check()) return { candidates: await searchWeb(searchText, fetchImpl), via: 'web-api-suspended' };
+
   try {
     return { candidates: await searchOfficial(searchText, options.apiKey, fetchImpl), via: 'official' };
   } catch (err) {
     console.warn(`[YouTube] API oficial indisponível (${(err as Error)?.message || err}); usando a busca web.`);
+    const reason = classifyYouTubeError(err);
+    if (reason) await options.breaker?.trip(reason);
     return { candidates: await searchWeb(searchText, fetchImpl), via: 'web-after-official-failure' };
   }
 }

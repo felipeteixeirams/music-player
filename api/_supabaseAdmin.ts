@@ -28,6 +28,9 @@ export interface Admin {
   consume(userId: string, limit: number): Promise<number>;
   refund(userId: string): Promise<void>;
   usedToday(userId: string, now: number): Promise<number>;
+  /** The shared state of a third-party service (the YouTube search breaker): null when none or already over. */
+  getServiceState(key: string): Promise<{ until: number; reason: string } | null>;
+  setServiceState(key: string, until: number, reason: string): Promise<void>;
 }
 
 /** Today's date in São Paulo, the day the quota counts in (same as the SQL function). */
@@ -89,6 +92,17 @@ export function createAdmin(config: AdminConfig, fetchImpl: typeof fetch = fetch
     },
     async refund(userId) {
       await call('/rpc/refund_resolve', { method: 'POST', body: JSON.stringify({ p_user: userId }) });
+    },
+    async getServiceState(key) {
+      const rows = (await (await call(`/service_state?select=until,reason&key=${eq(key)}`)).json()) as { until: string; reason: string }[];
+      return rows[0] ? { until: Date.parse(rows[0].until), reason: rows[0].reason } : null;
+    },
+    async setServiceState(key, until, reason) {
+      await call('/service_state?on_conflict=key', {
+        method: 'POST',
+        body: JSON.stringify({ key, until: new Date(until).toISOString(), reason, updated_at: new Date().toISOString() }),
+        prefer: 'resolution=merge-duplicates,return=minimal'
+      });
     },
     async usedToday(userId, now) {
       const rows = (await (
