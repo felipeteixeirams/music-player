@@ -94,6 +94,7 @@ class YouTubeEngine {
   private retry: ReturnType<typeof setTimeout> | null = null;
   private retries = 0;
   private started = false;
+  private createdAt = 0;
 
   setEvents(events: YouTubeEvents | null): void {
     this.events = events;
@@ -108,7 +109,7 @@ class YouTubeEngine {
    * Creates the frame now. Called inside the user's tap: a frame made at that moment may start sound by itself later,
    * a frame made seconds afterwards (once the network answered) is refused by the iPhone.
    */
-  prime(): void {
+  prime(origin: 'toque' | 'abertura' = 'toque'): void {
     if (this.iframe || typeof document === 'undefined') return;
     const params = new URLSearchParams({
       enablejsapi: '1',
@@ -141,7 +142,9 @@ class YouTubeEngine {
     });
     document.body.appendChild(iframe);
     this.iframe = iframe;
-    logPlayback('player do YouTube criado no toque');
+    this.createdAt = performance.now();
+    // How long the app had been open tells whether a tap beat the opening one (the report keeps the order of events)
+    logPlayback(`player do YouTube criado ${origin === 'abertura' ? 'ao abrir o app' : 'no toque'} (${Math.round(this.createdAt)} ms depois de a página abrir)`);
 
     // Touches the iPhone accepts as a user gesture for media: touchend and click (pointerup is not certain to count)
     for (const type of ['pointerup', 'touchend', 'click']) document.addEventListener(type, this.nudge, true);
@@ -220,7 +223,7 @@ class YouTubeEngine {
 
   private onReady(): void {
     this.ready = true;
-    logPlayback('player do YouTube pronto');
+    logPlayback(`player do YouTube pronto (${Math.round(performance.now() - this.createdAt)} ms depois de criado)`);
     this.api?.setVolume(Math.round(this.volume * 100));
     if (this.queued) {
       const { id, play } = this.queued;
