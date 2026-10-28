@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fakeYouTube, loadedVideo, stubApi, TOP_HITS } from './fixtures';
+import { fakeYouTube, loadedVideo, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const CACHED = 'AAAAAAAAAAA';
 const SEARCHED = 'BBBBBBBBBBB';
@@ -101,5 +101,33 @@ test.describe('pré-resolução antes do toque', () => {
     await expect(page.locator('[data-mix="mood"]')).toBeVisible();
     await page.waitForTimeout(4500);
     expect(warms.length).toBe(1);
+  });
+});
+
+test.describe('fila com o limite de faixas novas esgotado', () => {
+  test('INV-PLAY-16: a fila pula as faixas sem vídeo, vai para a próxima de vídeo conhecido e avisa uma vez; a faixa tocada pelo dedo nunca é pulada', async ({ page }) => {
+    // Tracks 1 and 4 have a known video; the allowance of new tracks is spent (any other track is refused)
+    const requests = await openApp(page, { quotaExceeded: true, cachedVideos: { [TOP_HITS[0].id]: [CACHED], [TOP_HITS[3].id]: [SEARCHED] }, lookups: [] });
+    await expect.poll(() => requests.length).toBeGreaterThan(0);
+    await page.waitForTimeout(800);
+
+    await topHit(page, 0).click();
+    await expect.poll(() => loadedVideo(page)).toBe(CACHED);
+    // The rest of the list (track 4 among it) is loaded and looked up while the first plays
+    await page.waitForTimeout(1500);
+
+    await page.getByRole('button', { name: 'Avançar para a próxima faixa' }).click();
+    // Track 2 has no video and no allowance: passed over; the queue goes to track 4, whose video is known
+    await expect.poll(() => loadedVideo(page), { timeout: 8000 }).toBe(SEARCHED);
+    await expect(page.getByText(/Puladas \d+ faixas? sem vídeo: você chegou ao limite de faixas novas de hoje/)).toBeVisible();
+  });
+
+  test('INV-PLAY-16: tocar uma faixa sem vídeo com o limite esgotado ainda toca a prévia, com o aviso de sempre', async ({ page }) => {
+    await fakeYouTube(page);
+    await stubApi(page, { quotaExceeded: true, previewUrl: silentClip(20) });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await topHit(page, 1).click();
+    await expect(page.getByText(/limite de faixas novas de hoje\. Tocando a prévia de 30s/)).toBeVisible();
   });
 });

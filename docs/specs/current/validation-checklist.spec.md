@@ -278,6 +278,15 @@ Esperado: faixas pré-resolvidas começam como as de vídeo já conhecido (o ún
 
 Esperado: com a busca oficial suspensa o app continua tocando (busca web e cache) e nenhuma chamada vai à API oficial. Na cota real, o log `[YouTube] disjuntor aberto (quota)` marca o momento.
 
+### T25: fila com o limite de faixas novas esgotado
+
+1. Gaste o limite do dia (Ajustes mostra "Faixas novas hoje: 30 de 30"; para testar sem gastar, peça para baixar `DAILY_NEW_TRACKS` na Vercel, por exemplo para 1) e toque uma playlist de faixas que ninguém ouviu, mas com algumas já ouvidas pelo grupo.
+2. Avance com o botão de próxima ou deixe a faixa acabar: a fila deve passar direto para a próxima faixa de vídeo conhecido, sem tocar prévias de 30 s, e avisar uma vez "Puladas N faixas sem vídeo: você chegou ao limite de faixas novas de hoje".
+3. Toque com o dedo numa faixa sem vídeo: deve tocar a prévia de 30 s com o aviso de limite (nunca ser pulada).
+4. Numa playlist inteira de faixas desconhecidas, a fila pula até 8 seguidas e depois toca a prévia da atual (não fica girando).
+
+Esperado: sem prévias picadas no meio da lista; o diagnóstico mostra `faixa sem vídeo na fila: passei para a próxima`.
+
 ### T26: faixa nova no primeiro toque (player liberado no toque)
 
 1. Com o app instalado e atualizado (versão no Diagnóstico), feche-o por completo e abra. Espere uns 5 s e, em Buscar, toque numa faixa que ninguém ouviu (um artista pouco conhecido, na página do artista).
@@ -332,4 +341,5 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T22 | | | ⬜ | |
 | T23 | | | ⬜ | |
 | T24 | | | ⬜ | |
+| T25 | | | ⬜ | |
 | T26 | | | ⬜ | |

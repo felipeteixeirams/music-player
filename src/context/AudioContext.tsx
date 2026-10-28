@@ -10,6 +10,7 @@ import {
   warmResolve,
   knownVideoIds
 } from '../utils/audioEngine';
+import { allowanceDay, KNOWN_LOOKAHEAD, MAX_QUEUE_SKIPS, nextKnownIndex, skipNotice } from '../utils/smartQueue';
 import { fetchRadioTracks } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
 import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
@@ -133,6 +134,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const radioRefillingRef = useRef(false);
   const radioStationRef = useRef<RadioStation | null>(null);
   const radioSkipsRef = useRef(0);
+  /** Tracks passed over in the queue for having no video, told to the person once the next one starts. */
+  const queueSkipsRef = useRef({ count: 0, quota: false });
+  /** The day the allowance of new tracks was seen spent (São Paulo's day), so the queue prefers known tracks. */
+  const quotaSpentDayRef = useRef<string | null>(null);
   const playNextRef = useRef<() => void>(() => {});
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
 
@@ -208,7 +213,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ends, even with the screen locked, the next starts without waiting on the network
   useEffect(() => {
     if (queue.length > 0) {
-      prefetchResolved(queue.slice(currentIndex + 1, currentIndex + 4));
+      // With the allowance spent the queue looks further ahead for tracks whose video is known (free lookups, no search)
+      const ahead = quotaSpentDayRef.current === allowanceDay() ? KNOWN_LOOKAHEAD : 3;
+      prefetchResolved(queue.slice(currentIndex + 1, currentIndex + 1 + ahead));
       // The next two are the likeliest taps (or the next start): their videos are looked up now, in idle time
       warmResolve(queue.slice(currentIndex + 1, currentIndex + 3), true);
     }
@@ -261,6 +268,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPlaying(true);
     setIsBuffering(false);
     setPlaybackStatus((prev) => (prev.notice === TAP_NOTICE || prev.notice === BACKGROUND_NOTICE ? { ...prev, notice: undefined } : prev));
+    // Tracks the queue passed over for having no video: said once, when the next one is really playing
+    const skipped = queueSkipsRef.current;
+    if (skipped.count > 0) {
+      const notice = skipNotice(skipped.count, skipped.quota);
+      queueSkipsRef.current = { count: 0, quota: false };
+      setPlaybackStatus((prev) => (prev.error ? prev : { ...prev, notice }));
+    }
   }, [clearStartWatch]);
 
   const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
@@ -295,6 +309,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
     radioSkipsRef.current += 1;
+    playNextRef.current();
+    return true;
+  }, []);
+
+  /**
+   * A queue track that has no video (nobody played it and the allowance is spent, or none was found) is passed over
+   * instead of playing as a 30 s preview in the middle of the list. Returns true when it moved on; after
+   * MAX_QUEUE_SKIPS in a row it stops skipping, so a queue with no playable track does not spin.
+   */
+  const skipQueueTrackWithoutVideo = useCallback((quotaSpent: boolean): boolean => {
+    const skipped = queueSkipsRef.current;
+    if (skipped.count >= MAX_QUEUE_SKIPS) {
+      queueSkipsRef.current = { count: 0, quota: false };
+      return false;
+    }
+    queueSkipsRef.current = { count: skipped.count + 1, quota: skipped.quota || quotaSpent };
+    logPlayback(`faixa sem vídeo na fila${quotaSpent ? ' (limite de faixas novas do dia)' : ''}: passei para a próxima (${skipped.count + 1})`);
     playNextRef.current();
     return true;
   }, []);
@@ -545,8 +576,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isPlaying, isExpanded]);
 
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
-  const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true) => {
+  /**
+   * `origin` 'tap': the person chose this track (it plays, even as a preview). 'queue': the queue moved on to it (next,
+   * end of the previous one): a track with no video is passed over.
+   */
+  const loadAndPlayTrack = useCallback(async (track: Track, engineChoice: AudioEngineType, shouldPlay = true, origin: 'tap' | 'queue' = 'tap') => {
     const token = ++loadTokenRef.current;
+    if (origin === 'tap') queueSkipsRef.current = { count: 0, quota: false };
     if (shouldPlay) {
       // The track playing until now stops with the tap, not after the search for the next video
       youtubeEngine.pause();
@@ -571,6 +607,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const found = resolution.videoIds;
       logPlayback(`vídeo resolvido em ${Math.round(performance.now() - resolveStart)} ms (${found.length} versão(ões)${resolution.quotaExceeded ? ', cota do dia acabada' : ''})`);
       quotaExceeded = resolution.quotaExceeded;
+      if (quotaExceeded) quotaSpentDayRef.current = allowanceDay();
       if (loadTokenRef.current !== token) return;
       // The version the user picked before comes first, even when the search no longer returns it
       const ids = orderVersions(found, loadChoices(storage)[track.id]);
@@ -580,6 +617,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: ids[0] } }, shouldPlay);
         return;
       }
+      // No video for a track the queue moved on to: pass over it (the person did not choose this one)
+      if (origin === 'queue' && shouldPlay && skipQueueTrackWithoutVideo(quotaExceeded)) return;
     }
 
     // 2. Catalog preview (Deezer): direct audio URL, used when the full recording is unavailable
@@ -617,7 +656,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPlaybackStatus({ error: 'Esta faixa não tem prévia disponível.' });
     setIsPlaying(false);
     setIsBuffering(false);
-  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack, storage, expectPlayback]);
+  }, [triggerFallbackEngine, playPreview, skipUnplayableTrack, skipQueueTrackWithoutVideo, storage, expectPlayback]);
 
   // When track finishes (Native audio listener)
   useEffect(() => {
@@ -900,7 +939,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const nextIdx = repeatMode === 'one' ? currentIndex : currentIndex + 1;
       if (nextIdx < queue.length) {
         setCurrentIndex(nextIdx);
-        loadAndPlayTrack(queue[nextIdx], preferredEngine, true);
+        loadAndPlayTrack(queue[nextIdx], preferredEngine, true, 'queue');
       } else {
         void refillRadio().then((added) => {
           if (added.length === 0) {
@@ -908,19 +947,33 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return;
           }
           setCurrentIndex(nextIdx);
-          loadAndPlayTrack(added[0], preferredEngine, true);
+          loadAndPlayTrack(added[0], preferredEngine, true, 'queue');
         });
       }
       return;
     }
 
     const advance = () => {
-      const nextIdx = getNextTrackIndex(currentIndex, queue.length, isShuffle, repeatMode);
+      let nextIdx = getNextTrackIndex(currentIndex, queue.length, isShuffle, repeatMode);
+      // With the allowance of new tracks spent, the next one is the next whose video is already known (when the order is the list's own)
+      if (quotaSpentDayRef.current === allowanceDay() && !isShuffle && repeatMode !== 'one') {
+        const known = nextKnownIndex(queue, currentIndex, (track) => Boolean(track.sources.youtubeId || track.sources.localUrl || knownVideoIds(track.id)?.length));
+        if (known >= 0) {
+          if (known > nextIdx && nextIdx >= 0) queueSkipsRef.current = { count: queueSkipsRef.current.count + (known - nextIdx), quota: true };
+          nextIdx = known;
+        }
+      }
       if (nextIdx >= 0 && nextIdx < queue.length) {
         setCurrentIndex(nextIdx);
-        loadAndPlayTrack(queue[nextIdx], preferredEngine, true);
+        loadAndPlayTrack(queue[nextIdx], preferredEngine, true, 'queue');
       } else {
         setIsPlaying(false);
+        // The rest of the list was passed over for having no video: say so instead of stopping in silence
+        if (queueSkipsRef.current.count > 0) {
+          const notice = skipNotice(queueSkipsRef.current.count, queueSkipsRef.current.quota);
+          queueSkipsRef.current = { count: 0, quota: false };
+          setPlaybackStatus((prev) => ({ ...prev, notice }));
+        }
       }
     };
 
@@ -933,7 +986,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return;
         }
         setCurrentIndex(currentIndex + 1);
-        loadAndPlayTrack(added[0], preferredEngine, true);
+        loadAndPlayTrack(added[0], preferredEngine, true, 'queue');
       });
       return;
     }
@@ -952,7 +1005,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const prevIdx = getPreviousTrackIndex(currentIndex, queue.length);
     if (prevIdx >= 0 && prevIdx < queue.length) {
       setCurrentIndex(prevIdx);
-      loadAndPlayTrack(queue[prevIdx], preferredEngine, true);
+      loadAndPlayTrack(queue[prevIdx], preferredEngine, true, 'queue');
     }
   }, [currentIndex, queue, preferredEngine, loadAndPlayTrack]);
 
