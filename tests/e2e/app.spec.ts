@@ -11,8 +11,8 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
 });
 
-test('a tela Início mostra o destaque e um carrossel por coleção', async ({ page }) => {
-  await expect(page.getByRole('button', { name: `Reproduzir ${TOP_HITS[0].title}` })).toBeVisible();
+test('a tela Início mostra os cartões personalizados e um carrossel por coleção', async ({ page }) => {
+  await expect(page.locator('section[aria-label="Escolhidos para você"]')).toBeVisible();
   for (const name of COLLECTION_NAMES) {
     await expect(page.locator(`section[aria-label="${name}"]`)).toBeVisible();
   }
@@ -498,6 +498,9 @@ test.describe('cartões personalizados da home', () => {
     const cards = page.locator('section[aria-label="Escolhidos para você"]');
     await expect(cards.getByRole('heading', { name: 'Escolhidos para você' })).toBeVisible();
     await expect(cards.locator('[data-mix]')).toHaveCount(1);
+    // The old "top of Brazil" highlight is gone: the cards are the top of the home
+    await expect(page.getByText('NO TOPO DO BRASIL AGORA')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Reproduzir Primeira Faixa$/ })).toHaveCount(0);
     const mood = cards.locator('[data-mix="mood"]');
     await expect(mood).toContainText('Humor para você');
     await expect(mood).toContainText('Para a noite');

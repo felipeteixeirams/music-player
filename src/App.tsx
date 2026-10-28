@@ -31,7 +31,7 @@ import { usePlayHistory } from './hooks/usePlayHistory';
 import type { QueueSource } from './utils/queueSource';
 import { youtubeEngine } from './utils/youtubeEngine';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
-import { Play, Sparkles, Globe, Loader2, AlertCircle, WifiOff } from 'lucide-react';
+import { Globe, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { FeedResponse, Track } from './types/music';
 import { usePagedTracks } from './hooks/usePagedTracks';
 import { fetchArtistSearch, fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
@@ -230,7 +230,6 @@ const MusicAppContent: React.FC = () => {
     return allLiveTracks;
   }, [allLiveTracks, searchQuery, searchScope, likedTracks, activeTab]);
 
-  const featuredTrack = feed?.featured ?? null;
   const inDetail = Boolean(activeCategory || selectedArtist || activeMix);
   const isSearchTab = activeTab === 'search' && !inDetail;
   const isRadioTab = activeTab === 'radio' && !inDetail;
@@ -492,48 +491,6 @@ const MusicAppContent: React.FC = () => {
               )}
 
               <PersonalCards mixes={personalMixes} onOpen={(mix) => setSelectedMixId(mix.id)} />
-
-              {/* Dynamic Live Featured Highlight Banner */}
-              {featuredTrack && (
-                <div className="px-4 pt-3">
-                  <div className="relative overflow-hidden rounded-sheet p-5 bg-elevated shadow-xl">
-                    {/* Subtle background cover glow */}
-                    <div className="absolute right-0 top-0 bottom-0 w-1/2 opacity-25 overflow-hidden pointer-events-none">
-                      <img
-                        src={featuredTrack.coverUrl}
-                        alt=""
-                        className="w-full h-full object-cover blur-sm scale-125"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-r from-elevated via-transparent to-transparent" />
-                    </div>
-
-                    <div className="relative z-10 max-w-[280px]">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-accent mb-1">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>NO TOPO DO BRASIL AGORA</span>
-                      </div>
-                      <h1 className="text-[22px] font-bold text-label tracking-tight leading-tight">
-                        {featuredTrack.title}
-                      </h1>
-                      <p className="text-xs text-label-secondary mt-0.5 truncate">
-                        {featuredTrack.artist} · {featuredTrack.album || 'Single Oficial'}
-                      </p>
-
-                      <button
-                        onClick={() => {
-                          const topHits = feed?.categories['top-hits'];
-                          playTrack(featuredTrack, topHits?.tracks ?? [featuredTrack], topHits && topHits.nextIndex !== null ? categorySource('top-hits', topHits.nextIndex) : undefined);
-                        }}
-                        aria-label={`Reproduzir ${featuredTrack.title}`}
-                        className="mt-3.5 flex items-center gap-2 px-5 py-2 rounded-full bg-accent text-white font-semibold text-[15px] hover:bg-accent-pressed active:scale-95 transition-all"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Reproduzir Agora</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* What this person played lately, so the home is never the same twice */}
               {recentTracks.length > 0 && (
