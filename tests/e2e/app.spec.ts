@@ -486,3 +486,40 @@ test.describe('tocar na aba já aberta', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   });
 });
+
+test.describe('cartões personalizados da home', () => {
+  test('INV-HOME-01: o humor da hora aparece sem histórico, os favoritos entram com 5 curtidas e o cartão abre a lista', async ({ page }) => {
+    // Evening: the mood is the Top Hits collection, which the stubbed feed has
+    await page.clock.setFixedTime(new Date(2026, 9, 28, 20, 0, 0));
+    await stubApi(page);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+
+    const cards = page.locator('section[aria-label="Escolhidos para você"]');
+    await expect(cards.getByRole('heading', { name: 'Escolhidos para você' })).toBeVisible();
+    await expect(cards.locator('[data-mix]')).toHaveCount(1);
+    const mood = cards.locator('[data-mix="mood"]');
+    await expect(mood).toContainText('Humor para você');
+    await expect(mood).toContainText('Para a noite');
+    // Nothing to build the others from yet
+    await expect(cards.locator('[data-mix="favorites"]')).toHaveCount(0);
+
+    // Five favorites (the carousels of Top Hits and Classic Rock show three each)
+    const hits = page.locator('section[aria-label="Top Hits"]');
+    for (const hit of TOP_HITS.slice(0, 3)) await hits.getByRole('button', { name: `Favoritar ${hit.title}`, exact: true }).click();
+    const rock = page.locator('section[aria-label="Classic Rock"]');
+    await rock.getByRole('button', { name: /^Favoritar/ }).nth(0).click();
+    await rock.getByRole('button', { name: /^Favoritar/ }).nth(1).click();
+    await expect(cards.locator('[data-mix="favorites"]')).toBeVisible();
+
+    // Open one: its page has the header, Reproduzir and Aleatório and the tracks; back returns to the home
+    await cards.locator('[data-mix="favorites"]').click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Seus favoritos' })).toBeVisible();
+    await expect(page.getByTestId('mix-page')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reproduzir', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Aleatório' })).toBeVisible();
+    await page.getByRole('button', { name: 'Início' }).first().click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await expect(cards.locator('[data-mix="mood"]')).toBeVisible();
+  });
+});

@@ -36,6 +36,10 @@ import { FeedResponse, Track } from './types/music';
 import { usePagedTracks } from './hooks/usePagedTracks';
 import { fetchArtistSearch, fetchCategoryPage, fetchFeed, fetchSearchPage } from './utils/catalogClient';
 import { scrollToTop } from './utils/smoothScroll';
+import { PersonalCards } from './components/PersonalCards';
+import { MixScreen } from './components/MixScreen';
+import { usePersonalMixes } from './hooks/usePersonalMixes';
+import type { MixKind } from './utils/personalMixes';
 import { ArtistScreen } from './components/ArtistScreen';
 import { AlbumScreen } from './components/AlbumScreen';
 import type { AlbumSummary, ArtistSummary } from './types/music';
@@ -57,7 +61,7 @@ const MusicAppContent: React.FC = () => {
   const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
   const { compact, expand } = useScrollChrome();
   const { playlists } = usePlaylists();
-  const { recent: recentTracks, clear: clearHistory } = usePlayHistory();
+  const { recent: recentTracks, entries: historyEntries, clear: clearHistory } = usePlayHistory();
   const { storage } = useAuth();
 
   // The home opens with the last feed saved on this device while the fresh one is fetched, and keeps it
@@ -74,6 +78,9 @@ const MusicAppContent: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedMixId, setSelectedMixId] = useState<MixKind | null>(null);
+  const personalMixes = usePersonalMixes({ entries: historyEntries, liked: likedTracks, feed: feed?.categories, storage });
+  const activeMix = selectedMixId ? personalMixes.find((mix) => mix.id === selectedMixId) ?? null : null;
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchScope, setSearchScope] = useState<'catalog' | 'online'>('catalog');
   // Each submit starts a new search, even for the same words
@@ -132,11 +139,12 @@ const MusicAppContent: React.FC = () => {
 
   const handleSelectTab = (tab: AppTab) => {
     // Tapping the tab already open, at its first screen: the page rolls back to the top (nothing is reloaded)
-    const atTabRoot = tab === activeTab && !selectedCategoryId && artistStack.length === 0 && !selectedAlbum && !libraryView;
+    const atTabRoot = tab === activeTab && !selectedCategoryId && !activeMix && artistStack.length === 0 && !selectedAlbum && !libraryView;
     if (atTabRoot) scrollToTop();
     setActiveTab(tab);
     // Each tab opens at its own first screen, not inside a collection left open elsewhere
     setSelectedCategoryId(null);
+    setSelectedMixId(null);
     setArtistStack([]);
     setSelectedAlbum(null);
     // Tapping Library again goes back to its menu
@@ -223,12 +231,14 @@ const MusicAppContent: React.FC = () => {
   }, [allLiveTracks, searchQuery, searchScope, likedTracks, activeTab]);
 
   const featuredTrack = feed?.featured ?? null;
-  const inDetail = Boolean(activeCategory || selectedArtist);
+  const inDetail = Boolean(activeCategory || selectedArtist || activeMix);
   const isSearchTab = activeTab === 'search' && !inDetail;
   const isRadioTab = activeTab === 'radio' && !inDetail;
   const isLibraryTab = activeTab === 'library' && !inDetail;
   const hasTypedQuery = searchQuery.trim().length > 0;
-  const screenTitle = selectedAlbum
+  const screenTitle = activeMix
+    ? activeMix.title
+    : selectedAlbum
     ? selectedAlbum.title
     : selectedArtist
     ? selectedArtist.name
@@ -250,7 +260,9 @@ const MusicAppContent: React.FC = () => {
         <TopBar
           title={screenTitle}
           onBack={
-            selectedAlbum
+            activeMix
+              ? () => setSelectedMixId(null)
+              : selectedAlbum
               ? () => setSelectedAlbum(null)
               : selectedArtist
               ? () => setArtistStack((stack) => stack.slice(0, -1))
@@ -298,7 +310,9 @@ const MusicAppContent: React.FC = () => {
         />
 
         <main className="flex-1 space-y-4">
-          {selectedArtist ? (
+          {activeMix ? (
+            <MixScreen mix={activeMix} />
+          ) : selectedArtist ? (
             <>
               {/* The artist stays mounted under the album, so going back shows it at once */}
               <div hidden={Boolean(selectedAlbum)}>
@@ -476,6 +490,8 @@ const MusicAppContent: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              <PersonalCards mixes={personalMixes} onOpen={(mix) => setSelectedMixId(mix.id)} />
 
               {/* Dynamic Live Featured Highlight Banner */}
               {featuredTrack && (
