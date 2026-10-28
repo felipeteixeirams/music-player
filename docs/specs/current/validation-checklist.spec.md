@@ -252,6 +252,15 @@ Esperado: o fluxo de uma pessoa se acompanha por `sid=` ou `uid=`; um erro do ap
 
 Esperado: movimento fluido e sem salto, no iPhone, no app instalado e no navegador. Com "reduzir movimento" ligado no sistema, vai direto ao topo.
 
+### T22: cartões "Escolhidos para você"
+
+1. Na home, o primeiro cartão deve ser o do Humor (conforme a hora: manhã MPB, tarde Pop Internacional, noite Top Hits, madrugada Lofi). Com histórico de reprodução (algumas dezenas de faixas), aparecem também "Mix para você" e "Estação de descoberta"; com 5 curtidas, "Seus favoritos"; com faixas ouvidas há mais de 14 dias, "Redescubra".
+2. Confira que o "Mix para você" tem de fato os seus artistas mais ouvidos (nome igual, sem homônimo) e que a "Estação de descoberta" não repete o que você já ouviu.
+3. Abra um cartão e toque em Reproduzir e em Aleatório; feche o app, abra de novo no mesmo dia: a ordem deve ser a mesma, e a lista não deve pedir nada novo ao catálogo (veja `[Search]` nos logs).
+4. Compare o visual com o Apple Music: cor, desenho em contorno, rótulo, título, descrição, o próximo cartão aparecendo.
+
+Esperado: nenhum cartão com poucas faixas ou vazio; nenhuma lista que cobre cota do YouTube antes de tocar uma faixa.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
@@ -293,3 +302,4 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T19 | | | ⬜ | |
 | T20 | | | ⬜ | |
 | T21 | | | ⬜ | |
+| T22 | | | ⬜ | |

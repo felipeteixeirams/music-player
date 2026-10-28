@@ -26,5 +26,5 @@ export function usePlayHistory() {
     emitHistoryChanged();
   }, [storage]);
 
-  return { recent, clear };
+  return { recent, entries, clear };
 }

@@ -91,6 +91,8 @@ As opacidades dos quatro materiais (`--ma-ultrathin|thin|regular|thick`) são 0,
 8. **Home dinâmica** (feito em 2026-10-28, PR #71): 14 coleções, prateleira "Tocadas recentemente" e feed com 30 min de cache, `INV-UI-05` (T17).
 9. **Artistas e álbuns** (feito em 2026-10-28, PRs #72 e #73): artistas na busca, página do artista (mais tocadas, álbuns, semelhantes) e página do álbum, `INV-UI-06` (T18).
 
+10. **Cartões personalizados** (feito em 2026-10-28): "Escolhidos para você" no topo da home, `INV-HOME-01` (T22). Rolagem ao topo ao tocar na aba aberta: `INV-UI-07` (T21).
+
 ## Critérios de aceite
 
 - Nenhuma tela migrada usa hex solto, `white/NN` avulso, `purple-*`, `pink-*` ou `backdrop-blur-*` isolado.
