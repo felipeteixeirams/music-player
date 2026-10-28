@@ -297,6 +297,15 @@ Esperado: sem prévias picadas no meio da lista; o diagnóstico mostra `faixa se
 
 Esperado: faixas novas começam sozinhas mesmo com a busca demorando. Se o aviso continuar aparecendo com a linha "liberado no toque" presente, o iOS recusa mesmo assim e a hipótese está errada (próximo passo: o app nativo).
 
+### T27: faixas que a busca oficial rejeitava (segunda opinião)
+
+1. No SQL Editor do Supabase, apague os "não achei" guardados (valem por 1 dia e escondem o que a correção resolve): `delete from public.video_cache where cardinality(video_ids) = 0;`.
+2. Com o app atualizado, abra a página de um artista pouco conhecido (como Akashic) e toque em faixas que antes tocavam só a prévia ("Memories", "Give Me Shelter", "For Freedom").
+3. Esperado: a faixa completa começa (depois da busca, cerca de 1,5 a 3 s); nos logs da Vercel a linha mostra `via web-after-official-empty`. Faixas que ninguém acha continuam na prévia.
+4. Confira a versão certa do vídeo (a música que você espera, não uma coletânea nem um vídeo de outra faixa).
+
+Esperado: menos faixas caindo na prévia de 30 s por "nenhum aceito". A segunda opinião é a busca web (frágil, sem cota); se ela falhar, o comportamento é o de antes.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
@@ -343,3 +352,4 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T24 | | | ⬜ | |
 | T25 | | | ⬜ | |
 | T26 | | | ⬜ | |
+| T27 | | | ⬜ | |
