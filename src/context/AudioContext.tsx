@@ -770,14 +770,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    * so a track that arrives later may start on its own, and create the hidden YouTube player in the same tap (the
    * videos are loaded into it afterwards, with no new frame).
    */
-  const primeInTap = useCallback(() => {
+  const primeInTap = useCallback((track?: Track | null) => {
     unlockAudioElement(audioRef.current);
     youtubeEngine.prime();
+    // A track whose video is not known yet is found only after the tap: the frame is released now, while the tap counts
+    // (`null`: a live station, which does not use the YouTube player; a known video loads inside the tap anyway)
+    if (track === null) return;
+    if (track && (track.sources.youtubeId || track.sources.localUrl || knownVideoIds(track.id)?.length)) return;
+    youtubeEngine.unlockPlayback();
   }, []);
 
   // Main playback controls
   const playTrack = useCallback((track: Track, customQueue?: Track[], source?: QueueSource) => {
-    primeInTap();
+    primeInTap(track);
 
     if (customQueue) {
       setRadioStation(null);
@@ -897,7 +902,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [radioStation, queue.length, currentIndex, loadMoreQueue]);
 
   const startLiveRadio = useCallback((station: LiveStation) => {
-    primeInTap();
+    primeInTap(null);
     const track = liveStationToTrack(station);
     // A live broadcast is not a queue: no radio mode, no list around it
     setRadioStation(null);
