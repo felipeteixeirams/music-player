@@ -6,7 +6,7 @@ Este é o master do domínio de interface visual: tokens, materiais translúcido
 
 ## Estado
 
-**Status: direção definida; fundação (fase 1), barras (fase 2) listas, carrosséis, categorias, rádio e destaque da home (fase 3), e player aberto e janelas de cache e instalação (fase 4) implementadas em 2026-10-25. O modo claro (fase 5) e os extras do iOS 26 (fase 6: barra de abas que recolhe e deslizar o mini player) foram implementados no mesmo dia; as fases 1 a 6 estão completas. A fase 7 (paridade de estrutura com o Apple Music, ver o satélite) está em andamento: título grande por aba, tela Buscar com grade de coleções e menu de ajustes, barra de abas em cápsula com mini player em pílula, Rádio em grade com arte e Biblioteca como menu de seções estão feitos; a fase 7 está completa.**
+**Status: as fases 1 a 7 do satélite estão completas (2026-10-25) e a interface seguiu evoluindo em 2026-10-28: aparência por escolha (`INV-UI-04`), home dinâmica com 14 coleções e "Tocadas recentemente" (`INV-UI-05`), artistas e álbuns (`INV-UI-06`), rolagem ao topo ao tocar na aba aberta (`INV-UI-07`), cartões personalizados "Escolhidos para você" no lugar do destaque do Top Hits (`INV-HOME-01`) e login sem WebGL no Android. Falta validar no aparelho o que foi feito depois de 2026-10-25 (T16 a T22 do roteiro de validação).**
 
 ## Direção
 

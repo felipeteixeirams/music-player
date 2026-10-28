@@ -11,6 +11,8 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 - Favoritos, playlists e escolhas de versão por conta, com migração dos dados do aparelho: implementado em 2026-10-26 (etapa 2).
 - Cache compartilhado de vídeos e cota diária de faixas novas por pessoa: implementado em 2026-10-26 (etapa 3); contrato em [Contratos](../specs/current/music-integration-contracts.spec.md).
 - Histórico de reprodução por conta, com tela "Reproduzidas recentemente" na Biblioteca: implementado em 2026-10-26 (etapa 4). As quatro etapas planejadas estão concluídas.
+- Rastreabilidade dos logs (`rid`, `sid`, `uid`) e relatório de erros do app (`POST /api/report`): implementada em 2026-10-28 (PR #75); falta validar nos logs da Vercel (T20).
+- Tela de login sem WebGL no Android (`INV-AUTH-05`, PR #76): implementada em 2026-10-28; a causa da tela preta no Redmi é hipótese e falta o retorno da pessoa.
 
 ## Decisões
 
