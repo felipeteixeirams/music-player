@@ -89,7 +89,7 @@ Quatro divergências foram achadas ao escrever este registro (2026-10-28):
 
 ## Frentes em aberto
 
-Atualizado em 2026-10-28, depois dos PRs #56 a #79. Ordenadas pela dependência de decisão do usuário:
+Atualizado em 2026-10-28, depois dos PRs #56 a #82. Ordenadas pela dependência de decisão do usuário:
 
 1. **Testar no aparelho o que os PRs #60 a #79 trouxeram** e colar o relatório de Ajustes > Diagnóstico (a primeira linha traz o código da sessão): rádios por estilo com a tela bloqueada por 1 a 2 minutos (PR #60), renovação do link vencido da prévia (PR #61), anel de carregamento e início sem prévia (PR #69), aparência Clara no app instalado (PR #70), home com 14 coleções (PR #71), artistas e álbuns (PRs #72 e #73), rastreabilidade nos logs (PR #75), rolagem ao topo (PR #77) e cartões personalizados (PR #78). Os roteiros são T16 a T22 do [roteiro de validação](validation-checklist.spec.md); atualizar a [matriz](compatibility-matrix.spec.md) no mesmo dia.
 2. **A pessoa do Android Redmi (Chrome)**: depois do deploy dos PRs #75 e #76, tentar o login de novo. A causa da tela preta é **hipótese** (GPU de entrada com WebGL sob desfoque, `INV-AUTH-05`). Faltam as respostas dela: a tela escureceu ao enviar o código ou ao voltar do e-mail, abriu pelo ícone ou pelo Chrome, versões do Android e do Chrome. Se continuar, procurar `[Client]` e `route=` com o `sid` dela nos logs da Vercel.

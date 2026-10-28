@@ -269,6 +269,15 @@ Esperado: nenhum cartão com poucas faixas ou vazio; nenhuma lista que cobre cot
 
 Esperado: faixas pré-resolvidas começam como as de vídeo já conhecido (o único caso medido como bem-sucedido no PWA). Custo: cada pré-resolução é uma busca no YouTube que entra no total diário (até 20 de 30 por pessoa para isso); se a cota do YouTube apertar nos logs (`pré-resolução:` em `[Resolve]`), reduzir `WARM_RESERVE`/a cota de pré-resolução.
 
+### T24: cota do YouTube esgotada (disjuntor)
+
+1. Aplique a migração `supabase/migrations/0003_service_state.sql` no SQL Editor do Supabase (uma vez). Confirme com `/api/health?deep=1`: `youtubeSearch: "normal"`.
+2. Para simular sem esperar a cota acabar: no SQL Editor, `insert into public.service_state (key, until, reason) values ('youtube_api', now() + interval '10 minutes', 'quota') on conflict (key) do update set until = excluded.until, reason = excluded.reason;`. Em até 30 s `/api/health?deep=1` deve dizer `youtubeSearch: "suspended"`.
+3. Toque numa faixa que ninguém tocou: nos logs da Vercel deve aparecer `via web-api-suspended` (sem chamada à API oficial) e, no relatório do Diagnóstico, a faixa começa normalmente; faixas conhecidas seguem completas. A pré-resolução não deve aparecer.
+4. Desfaça: `delete from public.service_state where key = 'youtube_api';`. Em até 30 s volta a `normal`.
+
+Esperado: com a busca oficial suspensa o app continua tocando (busca web e cache) e nenhuma chamada vai à API oficial. Na cota real, o log `[YouTube] disjuntor aberto (quota)` marca o momento.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
@@ -312,3 +321,4 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T21 | | | ⬜ | |
 | T22 | | | ⬜ | |
 | T23 | | | ⬜ | |
+| T24 | | | ⬜ | |

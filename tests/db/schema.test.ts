@@ -229,3 +229,19 @@ test('refund_resolve devolve uma unidade da cota do dia, sem passar de zero, e �
     await db.exec('delete from usage_daily');
   }
 });
+
+
+test('INV-PLAY-15: service_state (o disjuntor da busca do YouTube) só o servidor lê e escreve; app e anônimo não enxergam nada', async () => {
+  await as('service_role', null, async (q) => {
+    await q.exec(`insert into public.service_state (key, until, reason) values ('youtube_api', now() + interval '6 hours', 'quota')
+                  on conflict (key) do update set until = excluded.until`);
+    const rows = await q.query<{ reason: string }>(`select reason from public.service_state where key = 'youtube_api'`);
+    assert.equal(rows.rows[0].reason, 'quota');
+  });
+  await as('authenticated', USER_A, async (q) => {
+    await assert.rejects(() => q.query('select * from public.service_state'), /permission denied/);
+  });
+  await as('anon', null, async (q) => {
+    await assert.rejects(() => q.query('select * from public.service_state'), /permission denied/);
+  });
+});
