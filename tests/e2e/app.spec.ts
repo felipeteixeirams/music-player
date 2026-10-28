@@ -423,3 +423,66 @@ test('INV-OBS-01/03: as chamadas levam os ids de rastreio e um erro não tratado
   await expect.poll(() => reports.length).toBe(1);
   expect(reports[0]).toMatchObject({ kind: 'error', message: expect.stringContaining('falha de teste'), mode: 'browser' });
 });
+
+test.describe('tocar na aba já aberta', () => {
+  const scrollY = (page: import('@playwright/test').Page) => page.evaluate(() => Math.round(window.scrollY));
+  const makeTall = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      document.body.style.minHeight = '4000px';
+      window.scrollTo(0, 1500);
+    });
+
+  test('INV-UI-07: rola ao topo com animação (não de um salto) e sem pedir nada à rede', async ({ page }) => {
+    const requests = await stubApi(page);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await makeTall(page);
+    await expect.poll(() => scrollY(page)).toBeGreaterThan(1000);
+    const before = requests.length;
+
+    // Samples of the position as it travels, taken in the page's own frames
+    const samples = await page.evaluate(
+      () =>
+        new Promise<number[]>((resolve) => {
+          const seen: number[] = [];
+          const nav = [...document.querySelectorAll('nav button')].find((b) => b.textContent?.includes('Início')) as HTMLElement;
+          nav.click();
+          const tick = () => {
+            seen.push(Math.round(window.scrollY));
+            if (window.scrollY > 0 && seen.length < 200) requestAnimationFrame(tick);
+            else resolve(seen);
+          };
+          requestAnimationFrame(tick);
+        })
+    );
+    expect(samples[samples.length - 1]).toBe(0);
+    expect(samples.length).toBeGreaterThan(10);
+    // Never goes back down, starts gently (the first step is small) and brakes at the end (the last steps are small)
+    expect(samples.every((value, i) => i === 0 || value <= samples[i - 1])).toBe(true);
+    const steps = samples.slice(1).map((value, i) => samples[i] - value);
+    const biggest = Math.max(...steps);
+    expect(steps[0]).toBeLessThan(biggest / 2);
+    expect(steps[steps.length - 2] ?? 0).toBeLessThan(biggest / 2);
+    // Nothing is reloaded (the shared-cache lookup of the visible tracks is not part of the scroll)
+    expect(requests.slice(before).filter((request) => !request.startsWith('/api/resolve'))).toEqual([]);
+  });
+
+  test('INV-UI-07: com "reduzir movimento" vai direto ao topo', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await stubApi(page);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await makeTall(page);
+    await nav(page, 'Início').click();
+    await expect.poll(() => scrollY(page)).toBe(0);
+  });
+
+  test('INV-UI-07: com uma coleção aberta o toque só a fecha, como antes', async ({ page }) => {
+    await stubApi(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Ver todas as faixas de Top Hits' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Top Hits' })).toBeVisible();
+    await nav(page, 'Início').click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  });
+});

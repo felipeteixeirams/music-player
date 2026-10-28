@@ -244,6 +244,14 @@ Esperado: a prévia só toca quando não há faixa completa. Resultado alimenta 
 
 Esperado: o fluxo de uma pessoa se acompanha por `sid=` ou `uid=`; um erro do aparelho aparece como `[Client]`. Se a retenção de logs do plano gratuito for curto demais, avaliar guardar os erros numa tabela (decisão registrada no master de contas e dados).
 
+### T21: tocar na aba já aberta rola ao topo
+
+1. Na home, role bem para baixo e toque em "Início" na barra de baixo: a página sobe com animação (começo suave, meio rápido, parada macia), sem recarregar as listas. Repita em Rádio, Biblioteca (primeira tela) e Buscar.
+2. Durante a subida, encoste o dedo na tela: ela deve parar onde está.
+3. Abra uma coleção e toque em "Início": só fecha a coleção, como antes.
+
+Esperado: movimento fluido e sem salto, no iPhone, no app instalado e no navegador. Com "reduzir movimento" ligado no sistema, vai direto ao topo.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
@@ -284,3 +292,4 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T18 | | | ⬜ | |
 | T19 | | | ⬜ | |
 | T20 | | | ⬜ | |
+| T21 | | | ⬜ | |
