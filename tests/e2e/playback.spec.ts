@@ -121,6 +121,17 @@ test('INV-PLAY-10: o player fica pronto antes do toque, sem tocar nada, e o toqu
   expect(await page.evaluate(() => (window as any).__yt.created)).toBe(1);
 });
 
+test('INV-PLAY-10: o player é criado assim que o app abre, sem esperar: um toque logo depois da abertura já o encontra', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.goto('/');
+  // Not after a pause of seconds: a tap one second after launch (seen on a device) must find the frame already made
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 1500 }).toBe(1);
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  await expect(page.getByTestId('playback-log')).toContainText(/player do YouTube criado ao abrir o app \(\d+ ms depois de a página abrir\)/);
+});
+
 test('INV-PLAY-11: a prévia, que só toca quando não há faixa completa, se for recusada pelo navegador aparece no relatório', async ({ page }) => {
   await fakeYouTube(page);
   // No video found for the track: the preview is the fallback
