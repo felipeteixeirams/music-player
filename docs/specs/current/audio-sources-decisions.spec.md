@@ -84,17 +84,22 @@ Quatro divergências foram achadas ao escrever este registro (2026-10-28):
 
 ## Frentes em aberto
 
-Atualizado em 2026-10-28, depois dos PRs #56 a #73. Ordenadas pela dependência de decisão do usuário:
+Atualizado em 2026-10-28, depois dos PRs #56 a #79. Ordenadas pela dependência de decisão do usuário:
 
-1. **Testar no aparelho o que os PRs #60 a #73 trouxeram**: rádios por estilo com a tela bloqueada por 1 a 2 minutos (PR #60), renovação do link vencido da prévia (PR #61), anel de carregamento e início sem prévia (PR #69), aparência Clara no app instalado (PR #70), home com 14 coleções (PR #71) e páginas de artista e álbum (PRs #72 e #73). Os roteiros são T16 a T19 do [roteiro de validação](validation-checklist.spec.md); colar o relatório de Ajustes > Diagnóstico e atualizar a [matriz](compatibility-matrix.spec.md) no mesmo dia.
-2. **Decidir sobre o app nativo (Capacitor)**: há Mac e conta de desenvolvedor Apple?
-3. **Decidir sobre arquivos de áudio próprios** (Supabase Storage): fazer a checagem de faixa de bytes, limites e custo. É também o único caminho para crossfade e para offline de verdade.
-4. **Crossfade** (pedido do usuário): registrado, não implementado. Com o player do YouTube no iPhone não é viável (um só iframe, e o iOS recusa começar um segundo vídeo fora do toque); só com `<audio>` e arquivos próprios.
-5. **Decidir sobre a rota `/api/audio`** (proxy de áudio): sem uso desde a retirada dos downloads. Removê-la baixa as funções da Vercel de 7 para 6 e exige atualizar o `AGENTS.md` e os testes.
-6. **Medir o uso da cota da YouTube Data API** a partir dos logs da Vercel (resoluções pela API oficial contra a busca web).
-7. **Repetir no aparelho os itens T01 a T15** do roteiro que a matriz ainda marca como não testados.
-8. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
-9. **Ativar a regra "Require status checks to pass"** (job `checks`) na `main`, para o merge exigir o CI.
-10. **Melhorias de documentação** ainda não feitas: encurtar o `AGENTS.md`, um fato em um lugar só, rótulos de evidência em todas as seções.
-11. **Ruído conhecido, sem impacto no uso**: avisos intermitentes de tempo esgotado do Supabase na verificação profunda de configuração (partida a frio) e o aviso `url.parse()` de uma dependência.
-12. **Branches remotos já mergeados** para o usuário apagar (a sessão na nuvem recebe 403 ao tentar): todos os `docs/*`, `feat/*`, `fix/*` e `chore/*` listados por `git branch -r` que estejam sem commits à frente da `main`. A opção "Automatically delete head branches" em Settings > General evita o acúmulo.
+1. **Testar no aparelho o que os PRs #60 a #79 trouxeram** e colar o relatório de Ajustes > Diagnóstico (a primeira linha traz o código da sessão): rádios por estilo com a tela bloqueada por 1 a 2 minutos (PR #60), renovação do link vencido da prévia (PR #61), anel de carregamento e início sem prévia (PR #69), aparência Clara no app instalado (PR #70), home com 14 coleções (PR #71), artistas e álbuns (PRs #72 e #73), rastreabilidade nos logs (PR #75), rolagem ao topo (PR #77) e cartões personalizados (PR #78). Os roteiros são T16 a T22 do [roteiro de validação](validation-checklist.spec.md); atualizar a [matriz](compatibility-matrix.spec.md) no mesmo dia.
+2. **A pessoa do Android Redmi (Chrome)**: depois do deploy dos PRs #75 e #76, tentar o login de novo. A causa da tela preta é **hipótese** (GPU de entrada com WebGL sob desfoque, `INV-AUTH-05`). Faltam as respostas dela: a tela escureceu ao enviar o código ou ao voltar do e-mail, abriu pelo ícone ou pelo Chrome, versões do Android e do Chrome. Se continuar, procurar `[Client]` e `route=` com o `sid` dela nos logs da Vercel.
+3. **Decidir sobre o app nativo (Capacitor)**: há Mac e conta de desenvolvedor Apple?
+4. **Decidir sobre arquivos de áudio próprios** (Supabase Storage): fazer a checagem de faixa de bytes, limites e custo. É também o único caminho para crossfade e para offline de verdade.
+5. **Crossfade** (pedido do usuário): registrado, não implementado. Com o player do YouTube no iPhone não é viável (um só iframe, e o iOS recusa começar um segundo vídeo fora do toque); só com `<audio>` e arquivos próprios.
+6. **Decidir sobre a rota `/api/audio`** (proxy de áudio): sem uso desde a retirada dos downloads. Removê-la baixa as funções da Vercel de 8 para 7 e exige atualizar o `AGENTS.md` e os testes.
+7. **Medir o uso da cota da YouTube Data API** a partir dos logs da Vercel (resoluções pela API oficial contra a busca web); agora os logs têm `uid`, `sid` e `route`, então dá para contar por pessoa.
+8. **Repetir no aparelho os itens T01 a T15** do roteiro que a matriz ainda marca como não testados.
+9. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
+10. **Configurar o GitHub**: ativar a regra "Require status checks to pass" (job `checks`) na `main`, para o merge exigir o CI, e "Automatically delete head branches" em Settings > General, para os branches mesclados saírem sozinhos.
+11. **Retenção dos erros do app**: os logs da Vercel no plano gratuito guardam pouco tempo. Se o usuário sentir falta de histórico, guardar os `[Client]` numa tabela do Supabase (hoje só vão para o log).
+12. **Limite de taxa global das rotas**: hoje é por instância; precisa do firewall da Vercel ou de armazenamento compartilhado.
+13. **Retirar o campo `featured` de `/api/feed`**: a home não o mostra desde o PR #79; ficou só por compatibilidade com apps abertos. Pode sair depois de as versões antigas sumirem.
+14. **Limpezas pequenas de código**: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
+15. **Melhorias de documentação** ainda não feitas: encurtar o `AGENTS.md`, um fato em um lugar só, rótulos de evidência em todas as seções.
+16. **Ruído conhecido, sem impacto no uso**: avisos intermitentes de tempo esgotado do Supabase na verificação profunda de configuração (partida a frio) e o aviso `url.parse()` de uma dependência.
+17. **Branches remotos já mergeados** para o usuário apagar (a sessão na nuvem recebe 403 ao tentar): todos os `docs/*`, `feat/*`, `fix/*` e `chore/*` listados por `git branch -r` que estejam sem commits à frente da `main` (conferir com `git rev-list --count origin/main..<branch>`). Para apagar de uma vez: `git push origin --delete $(git branch -r | sed 's#^ *origin/##' | grep -v '^HEAD\|^main$')`.
