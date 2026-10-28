@@ -26,6 +26,19 @@ test('de uma página do site mas sem login, as rotas de dados respondem 401', as
   expect((await bad.json()).code).toBe('invalid_session');
 });
 
+test('INV-OBS-02: o relatório de erro não exige login, devolve o id do pedido e recusa o que não é de uma página do site', async ({ request }) => {
+  const sameSite = { 'Sec-Fetch-Site': 'same-origin', 'X-Request-Id': 'req-e2e-0001', 'X-Session-Id': 'sess-e2e-0001' };
+  const ok = await request.post('/api/report', { headers: sameSite, data: { kind: 'error', message: 'falha no login', version: 'e2e', mode: 'browser' } });
+  expect(ok.status()).toBe(204);
+  expect(ok.headers()['x-request-id']).toBe('req-e2e-0001');
+  expect((await request.post('/api/report', { headers: sameSite, data: { kind: 'nada' } })).status()).toBe(400);
+  expect((await request.post('/api/report', { data: { kind: 'error', message: 'x' } })).status()).toBe(403);
+  // The data routes still ask for the login, and say the request id in the refusal
+  const refused = await request.get('/api/feed', { headers: sameSite });
+  expect(refused.status()).toBe(401);
+  expect(refused.headers()['x-request-id']).toBe('req-e2e-0001');
+});
+
 test('a rota de saúde informa que o login está ligado', async ({ request }) => {
   const health = await (await request.get('/api/health')).json();
   expect(health.login).toBe(true);

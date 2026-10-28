@@ -64,6 +64,16 @@ Variável nova no código: declare-a em `.env.example` e em `DOCUMENTED_VARS` de
 - `/api/health` informa `login` (o servidor tem as variáveis do Supabase) e `cache` (tem a chave de serviço do cache e da cota); é o primeiro lugar a olhar depois de mudar variáveis na Vercel.
 - No pedido de código, o console do navegador (inspetor do Safari) registra `[Login] pedido de código recusado: status=… code=…`, sem e-mail nem código, e a tela distingue: sem conexão, e-mail inválido, o servidor não conseguiu enviar o e-mail (SMTP errado ou recusado pelo provedor), os três limites de envio e código incorreto ou expirado.
 
+## Rastreabilidade dos logs (2026-10-28)
+
+Objetivo: ligar um problema relatado a uma pessoa e a um fluxo, nos logs da Vercel, sem pedir que a pessoa cole nada (ela pode nem conseguir abrir o app, como a tela preta no Android Redmi).
+
+- **Etiqueta em toda linha do pedido:** `rid=<pedido> sid=<sessão do app> uid=<id da conta> route=<endpoint>`. Quem faz: `api/_trace.ts` (contexto por pedido com `AsyncLocalStorage` e `console` embrulhado por `installTraceLogging`), iniciado no `guard`/`authorizeRequest` (as rotas e o `server.ts`). Para seguir um fluxo (tocar uma faixa: `/api/resolve`, cota, cache), filtre por `sid=` ou `uid=`; para um pedido só, por `rid=`.
+- **Do lado do app:** `src/utils/trace.ts` cria `sessionId` (uma abertura) e `newRequestId()` (um pedido); o `apiFetch` os manda em `X-Session-Id` e `X-Request-Id` e registra `[Net] <status> rid=… sid=…` quando falha. O servidor devolve `X-Request-Id`.
+- **Erros do aparelho:** `window.onerror`, `unhandledrejection` e a `ErrorBoundary` (que também mostra "Algo deu errado", o código da sessão e "Recarregar", no lugar da tela preta) chamam `reportClientError` (`src/utils/errorReporter.ts`): até 5 por abertura, sem repetir, ignorando ruído (`Script error.`, `ResizeObserver`, abortos). Vão para `POST /api/report` (`api/report.ts`, 8ª função da Vercel; exige mesma origem e limite de 20 por minuto, mas **não** exige login) e viram uma linha `[Client] kind=… v=… mode=pwa|browser ua=… path=… msg=… stack=… recent=…`, com `recent` = as últimas 8 linhas do log de reprodução. Com o login enviado, a linha leva o `uid`.
+- **Código da sessão:** aparece na tela de erro e na primeira linha do relatório de Ajustes > Diagnóstico (`sessão <código>`); com ele se acha o resto no log (`sid=<código>`).
+- **Privacidade (decisão do usuário, 2026-10-28):** o id da conta inteiro vai para o log (não o e-mail). Retenção de logs da Vercel no plano gratuito é curta; este registro serve para investigar, não para auditar. Nada de e-mail, token ou chave: `scrub` troca por `[e-mail]`, `[token]` e `[segredo]` e deixa tudo em uma linha.
+
 ## Código por e-mail: validade, reenvio e abuso
 
 - O código vale 90 s e um novo só pode ser pedido 60 s depois (`CODE_TTL_MS` e `RESEND_COOLDOWN_MS` em `src/utils/loginCode.ts`). Quem de fato expira o código e recusa pedidos cedo demais é o Supabase, por endereço e por rede, então um script que ignore a tela não passa; a tela só mostra a contagem (e a lembra ao recarregar a página).
@@ -99,12 +109,15 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-AUTH-03:** a resposta pública de `/api/health` traz só ids e níveis, nunca nomes de variáveis nem valores.
 - **INV-AUTH-04:** a tela de login responde igual para um e-mail com e sem convite.
 - **INV-CFG-01:** na Vercel a partida da função não consulta o Supabase (os serviços são conferidos por `/api/health?deep=1`); onde o processo é de longa duração (`server.ts`), a consulta ao subir continua.
+- **INV-OBS-01:** toda linha de log escrita durante um pedido de `api/` começa com `rid=`, `sid=` (quando o app mandou), `uid=` (depois do login) e `route=`, e a resposta devolve `X-Request-Id`; ids de formato estranho vindos do cliente são trocados.
+- **INV-OBS-02:** o relatório de erro do app (`POST /api/report`) aceita só tipos conhecidos, vira uma única linha cortada e nunca leva e-mail, token ou chave; não exige login, mas respeita a origem e o limite por endereço.
+- **INV-OBS-03:** o app reporta no máximo 5 erros por abertura, sem repetir o mesmo, e ignora ruído que não dá para agir.
 - **INV-DATA-01:** favoritos, playlists e histórico de uma pessoa nunca aparecem para outra no mesmo aparelho.
 - **INV-DATA-02:** uma alteração feita sem conexão nunca é perdida pela cópia mais antiga da conta.
 
 ## Código proprietário
 
-`api/_auth.ts` (verificação e cache do token), `api/_config.ts` e `api/_healthEndpoint.ts` (verificação da configuração), `scripts/check-bundle.mjs` e `scripts/check-deploy.mjs`, `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents,supabaseRest}.ts`, `src/utils/{playedCounter,playHistory,playHistoryRemote,playHistorySync}.ts`, `src/hooks/usePlayHistory.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/playHistory.test.ts`, `tests/e2e/history.spec.ts`, `tests/db/schema.test.ts`.
+`api/_trace.ts`, `api/_reportEndpoint.ts`, `api/report.ts`, `src/utils/trace.ts`, `src/utils/errorReporter.ts` e `src/components/ErrorBoundary.tsx` (rastreabilidade), `api/_auth.ts` (verificação e cache do token), `api/_config.ts` e `api/_healthEndpoint.ts` (verificação da configuração), `scripts/check-bundle.mjs` e `scripts/check-deploy.mjs`, `api/_resolveEndpoint.ts` e `api/_supabaseAdmin.ts` (cache e cota), `api/_guard.ts` (`authorizeRequest`), `src/utils/{supabaseConfig,authClient,apiFetch}.ts`, `src/context/AuthContext.tsx`, `src/components/{LoginScreen,SyncAgent}.tsx`, `src/utils/loginCode.ts`, `src/utils/{scopedStorage,userData,userDataRemote,userDataSync,userDataEvents,supabaseRest}.ts`, `src/utils/{playedCounter,playHistory,playHistoryRemote,playHistorySync}.ts`, `src/hooks/usePlayHistory.ts`, `supabase/migrations/`. Testes: `tests/api/auth.test.ts`, `tests/e2e/login.spec.ts`, `tests/e2e/sync.spec.ts`, `tests/userData.test.ts`, `tests/userDataSync.test.ts`, `tests/playHistory.test.ts`, `tests/e2e/history.spec.ts`, `tests/db/schema.test.ts`.
 
 ## Navegação para a especificação
 

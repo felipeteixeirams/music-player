@@ -44,7 +44,7 @@ O player do YouTube é `src/utils/youtubeEngine.ts` (API de iframe do próprio Y
 
 ## Funções da Vercel
 
-Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 7: `audio`, `category`, `feed`, `health`, `radio`, `resolve` e `search`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
+Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 8: `audio`, `category`, `feed`, `health`, `radio`, `report`, `resolve` e `search`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
 
 ## Interface em PWA no iPhone
 
@@ -90,6 +90,10 @@ Favoritos, playlists e escolhas de versão são da conta: leia e grave sempre pe
 ## Histórico de reprodução
 
 O histórico não passa pelo `UserDataSnapshot`: só cresce, então cada reprodução entra numa fila de envio (`recordPlay` em `src/utils/playHistory.ts`) e `PlayHistorySync` a envia e lê a lista da conta. Quem conta a reprodução é `PlayedCounter`, alimentado pelo relógio do player em `AudioContext` (nos dois caminhos: áudio nativo e player oculto); mexer em como o relógio chega lá exige conferir o histórico nos testes e2e (`tests/e2e/history.spec.ts` usa faixas de 4 s com áudio de verdade, silencioso, via `stubApi(page, { shortTracks: true })`). Chamadas REST ao Supabase com o token do usuário usam `createRestCaller` (`src/utils/supabaseRest.ts`).
+
+## Rastreabilidade dos logs
+
+Toda linha de log escrita durante um pedido começa com `rid=` (o pedido), `sid=` (a sessão do app no aparelho), `uid=` (o id da conta, depois do login) e `route=` (`api/_trace.ts`; o `guard` inicia o rastro e `installTraceLogging` põe a etiqueta em `console.log/info/warn/error`). O app gera `sid` (uma abertura) e `rid` (um pedido) em `src/utils/trace.ts` e os envia em `X-Session-Id` e `X-Request-Id` pelo `apiFetch`, que também registra `[Net] <status> rid=… sid=…` quando uma chamada falha; o servidor devolve `X-Request-Id`. Erros que o app não tratou (`window.onerror`, promessas rejeitadas e a `ErrorBoundary`) vão para `POST /api/report` (sem exigir login: o erro pode estar na tela de login) e viram `[Client] kind=… v=… mode=pwa|browser ua=… msg=… stack=… recent=…`, com o fim do log de reprodução. O código da sessão aparece na tela de erro e no relatório de Ajustes > Diagnóstico: com ele se acha tudo no log da Vercel (`sid=<código>`). Nunca ponha e-mail, token ou chave num log (`scrub`); o id da conta inteiro é aceito (decisão do usuário, 2026-10-28). Ao criar uma rota, use `guard` (já inicia o rastro) e não crie outro formato de linha. Detalhes e invariantes (`INV-OBS-01` a `03`) em [docs/masters/accounts-and-data.md](docs/masters/accounts-and-data.md).
 
 ## Falhas de login: 401 e 503
 

@@ -400,3 +400,26 @@ test('INV-UI-04: Ajustes > Aparência troca o esquema e lembra a escolha', async
   await page.getByRole('radiogroup', { name: 'Aparência' }).getByRole('radio', { name: 'Escuro' }).click();
   await expect(root).not.toHaveClass(/scheme-light/);
 });
+
+test('INV-OBS-01/03: as chamadas levam os ids de rastreio e um erro não tratado é reportado com o código da sessão', async ({ page }) => {
+  const requests = await stubApi(page);
+  const headers: Record<string, string>[] = [];
+  const reports: { kind: string; message: string; mode: string }[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === '/api/feed') headers.push(request.headers());
+    if (url.pathname === '/api/report') reports.push(request.postDataJSON());
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  expect(requests.some((r) => r.startsWith('/api/feed'))).toBe(true);
+  expect(headers[0]['x-request-id']).toMatch(/^[0-9a-f]{10}$/);
+  expect(headers[0]['x-session-id']).toMatch(/^[0-9a-f]{12}$/);
+
+  // An error nobody handled: the app tells the server's log, once, however many times it happens
+  await page.evaluate(() => {
+    for (let i = 0; i < 3; i += 1) setTimeout(() => { throw new Error('falha de teste'); }, 0);
+  });
+  await expect.poll(() => reports.length).toBe(1);
+  expect(reports[0]).toMatchObject({ kind: 'error', message: expect.stringContaining('falha de teste'), mode: 'browser' });
+});

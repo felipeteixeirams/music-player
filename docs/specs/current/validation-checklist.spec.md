@@ -202,7 +202,7 @@ Esperado: tudo funciona sem internet, exceto tocar a faixa completa. Os dados fi
 
 Esperado: a home nunca fica vazia depois de ter carregado uma vez. Observação: abrir o app offline depende também do service worker guardar a página e os arquivos do app; no iPhone, só vale depois de a página ter carregado uma vez com internet.
 
-## Rodada 7: aparência, home e artistas (implementadas em 2026-10-28, ainda sem teste no aparelho)
+## Rodada 7: aparência, home, artistas e rastreabilidade (implementadas em 2026-10-28, ainda sem teste no aparelho)
 
 ### T16: aparência (Ajustes > Aparência)
 
@@ -235,6 +235,14 @@ Esperado: Reproduzir toca a primeira, Aleatório liga o aleatório e toca uma qu
 3. Se o iPhone recusar o início tardio, deve aparecer o aviso com o ▶; anote quantas vezes acontece em dez faixas e cole o relatório de Ajustes > Diagnóstico.
 
 Esperado: a prévia só toca quando não há faixa completa. Resultado alimenta a matriz de compatibilidade.
+
+### T20: rastreabilidade nos logs da Vercel
+
+1. Depois do deploy, abra o app, toque numa faixa e copie o código da sessão da primeira linha do relatório de Ajustes > Diagnóstico (`sessão <código>`).
+2. Nos logs da Vercel (Runtime Logs), busque `sid=<código>`: devem aparecer linhas de `/api/feed`, `/api/resolve` etc. começando por `rid=… sid=… uid=<id da conta> route=…`. Confira que o `uid` é o da sua conta no painel do Supabase e que nenhuma linha tem e-mail, token ou chave.
+3. Para ver o relatório de erro: num navegador do computador, abra o console e execute `setTimeout(() => { throw new Error('teste de rastreio') })`. Deve aparecer no log uma linha `[Client] kind=error … msg="teste de rastreio"` com o mesmo `sid`.
+
+Esperado: o fluxo de uma pessoa se acompanha por `sid=` ou `uid=`; um erro do aparelho aparece como `[Client]`. Se a retenção de logs do plano gratuito for curto demais, avaliar guardar os erros numa tabela (decisão registrada no master de contas e dados).
 
 ## Frentes em aberto (fora dos testes)
 
@@ -275,3 +283,4 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T17 | | | ⬜ | |
 | T18 | | | ⬜ | |
 | T19 | | | ⬜ | |
+| T20 | | | ⬜ | |

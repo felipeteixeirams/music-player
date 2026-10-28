@@ -6,7 +6,8 @@ import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
 import { resolveRoute } from './api/_resolveEndpoint';
 import { healthBody } from './api/_healthEndpoint';
 import { reportStartupOnce } from './api/_config';
-import { authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
+import { authorizeReport, authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
+import { reportEndpoint } from './api/_reportEndpoint';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +19,7 @@ app.use(express.json());
 
 // Same protection as the Vercel functions: same-origin pages only, a per-address rate limit and a signed-in user
 const policyFor = (path: string): GuardPolicy | null =>
-  path.startsWith('/health') ? null
+  path.startsWith('/health') || path.startsWith('/report') ? null
   : path.startsWith('/resolve') ? POLICIES.resolve
   : path.startsWith('/audio') ? POLICIES.audio
   : POLICIES.catalog;
@@ -26,12 +27,25 @@ app.use('/api', async (req, res, next) => {
   const policy = policyFor(req.path);
   if (!policy) return next();
   const decision = await authorizeRequest(req.headers, policy, { method: req.method, url: req.originalUrl });
+  if (decision.requestId) res.setHeader('X-Request-Id', decision.requestId);
   if (decision.ok) {
     res.locals.user = decision.user ?? null;
     return next();
   }
   if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
   return res.status(decision.status).json({ error: decision.message, ...(decision.code ? { code: decision.code } : {}) });
+});
+
+// Endpoint: POST /api/report: the app reports an error it could not handle (no login needed: it may be on the login screen)
+app.post('/api/report', async (req, res) => {
+  const decision = await authorizeReport(req.headers, { method: req.method, url: req.originalUrl });
+  if (decision.requestId) res.setHeader('X-Request-Id', decision.requestId);
+  if (!decision.ok) {
+    if (decision.retryAfterSeconds) res.setHeader('Retry-After', String(decision.retryAfterSeconds));
+    return res.status(decision.status).json({ error: decision.message });
+  }
+  const { status, body } = reportEndpoint(req.body);
+  return status === 204 ? res.status(204).end() : res.status(status).json(body);
 });
 
 // In-memory cache for the home feed
