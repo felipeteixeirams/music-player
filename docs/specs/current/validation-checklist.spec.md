@@ -306,6 +306,18 @@ Esperado: faixas novas começam sozinhas mesmo com a busca demorando. Se o aviso
 
 Esperado: menos faixas caindo na prévia de 30 s por "nenhum aceito". A segunda opinião é a busca web (frágil, sem cota); se ela falhar, o comportamento é o de antes.
 
+### T28: podcasts (etapa 1)
+
+1. Com o app atualizado, abra Buscar e toque no cartão **Podcasts**. Busque "Despertar Zen" (ou "Monja Coen") e abra o programa.
+2. Confira os episódios (do mais novo ao mais antigo) e troque para "Mais antigos": a ordem inverte e o "Continuar" muda para o primeiro episódio da nova ordem. Saia do programa e volte: a escolha ficou.
+3. Toque num episódio: ele deve tocar em poucos segundos, sem a busca de vídeo (o Diagnóstico não mostra `vídeo resolvido`). Abra o player expandido e confira os controles: episódio anterior, voltar 15, tocar/pausar, avançar 30, próximo episódio, o botão de velocidade e a fila.
+4. Mude a velocidade (1,25×, 1,5×) e ouça: a voz acelera sem ficar grave ou aguda demais. Toque em voltar 15 e avançar 30.
+5. Ouça 1 minuto, pause, saia do app, volte e toque **Continuar**: ele deve retomar perto do ponto (o Diagnóstico mostra `episódio retomado em N s`).
+6. Deixe um episódio acabar (ou avance até o fim): o próximo da lista toca sozinho.
+7. **App instalado, tela bloqueada:** com um episódio tocando, bloqueie a tela por 2 minutos. Esperado: segue tocando (áudio nativo, como as rádios); a tela de bloqueio mostra voltar 15 e avançar 30.
+
+Esperado: tudo isso sem gastar cota (Ajustes > Faixas novas hoje não sobe) e sem entrar no histórico de músicas. Se o feed do programa estiver parado, a lista termina na data do último episódio publicado.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:

@@ -2,6 +2,7 @@ import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
 import { buildDeezerFeed, fetchAlbumPage, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
 import { findRadioStation } from './_radios.js';
+import { PodcastError, searchShows, showWithEpisodes } from './_podcasts.js';
 import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick } from './_radioBrowser.js';
 
 /** What an endpoint answers, independent of the HTTP framework (Vercel handlers and the Express server share it). */
@@ -41,10 +42,12 @@ export async function categoryEndpoint(query: { id?: unknown; index?: unknown; l
 const MAX_QUERY_LENGTH = 200;
 
 export async function searchEndpoint(
-  query: { q?: unknown; index?: unknown; limit?: unknown; preview?: unknown; artists?: unknown; artist?: unknown; album?: unknown },
+  query: { q?: unknown; index?: unknown; limit?: unknown; preview?: unknown; artists?: unknown; artist?: unknown; album?: unknown; podcasts?: unknown; podcast?: unknown },
   fetchImpl?: typeof fetch
 ): Promise<EndpointResult> {
   if (query.preview !== undefined) return previewEndpoint(query.preview, fetchImpl);
+  if (query.podcasts !== undefined) return podcastSearchEndpoint(query.podcasts, fetchImpl);
+  if (query.podcast !== undefined) return podcastShowEndpoint(query.podcast, fetchImpl);
   if (query.artists !== undefined) return artistSearchEndpoint(query.artists, fetchImpl);
   if (query.album !== undefined) return albumEndpoint(query.album, fetchImpl);
   if (query.artist !== undefined) return artistEndpoint(query.artist, query, fetchImpl);
@@ -69,6 +72,32 @@ export async function searchEndpoint(
 }
 
 const firstText = (value: unknown): unknown => (Array.isArray(value) ? value[0] : value);
+
+/** `GET /api/search?podcasts=<text>`: the shows whose name or host matches. An empty list is a valid answer. */
+async function podcastSearchEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<EndpointResult> {
+  try {
+    const shows = await searchShows(raw, fetchImpl);
+    return { status: 200, body: { shows }, cacheControl: shows.length > 0 ? 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600' : undefined };
+  } catch (err: any) {
+    if (err instanceof PodcastError && err.status < 500) return failure(err.status, err.message);
+    console.warn(`[Podcast] ⚠️ Busca falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível buscar podcasts agora');
+  }
+}
+
+/** `GET /api/search?podcast=<iTunes id>`: the show and its episodes, newest first. */
+async function podcastShowEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<EndpointResult> {
+  const startTime = Date.now();
+  try {
+    const result = await showWithEpisodes(raw, fetchImpl);
+    console.log(`[Podcast] ✅ ${result.show.id} → ${result.episodes.length} episódio(s) em ${Date.now() - startTime}ms`);
+    return { status: 200, body: result, cacheControl: result.episodes.length > 0 ? 'public, max-age=300, s-maxage=900, stale-while-revalidate=1800' : undefined };
+  } catch (err: any) {
+    if (err instanceof PodcastError && err.status < 500) return failure(err.status, err.message);
+    console.warn(`[Podcast] ⚠️ Programa ${String(raw)} falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível carregar este podcast agora');
+  }
+}
 
 /** `GET /api/search?artists=<text>`: the few artists whose name matches. An empty list is a valid answer. */
 async function artistSearchEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<EndpointResult> {

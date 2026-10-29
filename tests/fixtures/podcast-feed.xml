@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+<channel>
+  <title><![CDATA[Despertar Zen]]></title>
+  <description><![CDATA[Palestras da mestra do Zen budismo brasileiro.]]></description>
+  <language>pt-br</language>
+  <itunes:image href="https://img.example/zen.jpg"/>
+  <item>
+    <title><![CDATA[Purificar Karmas &amp; Conhecer a Mente | Monja Coen]]></title>
+    <description><![CDATA[<p>Uma palestra <b>longa</b>.</p>]]></description>
+    <pubDate>Mon, 18 May 2020 10:00:19 GMT</pubDate>
+    <enclosure url="https://cdn.example/a.mp3?x=1&amp;y=2" length="1" type="audio/mpeg"/>
+    <guid isPermaLink="false">guid-a</guid>
+    <itunes:duration>01:08:28</itunes:duration>
+  </item>
+  <item>
+    <title>Propósito da Espiritualidade</title>
+    <pubDate>Mon, 25 May 2020 10:00:07 GMT</pubDate>
+    <enclosure url="http://cdn.example/b.mp3" length="2" type="audio/mpeg"/>
+    <itunes:duration>4205</itunes:duration>
+    <itunes:image href="https://img.example/b.jpg"/>
+  </item>
+  <item>
+    <title>Sem áudio</title>
+    <pubDate>Mon, 01 Jun 2020 10:00:07 GMT</pubDate>
+  </item>
+  <item>
+    <title>Vídeo, não áudio</title>
+    <enclosure url="https://cdn.example/c.mp4" length="3" type="video/mp4"/>
+  </item>
+  <item>
+    <title>Curto</title>
+    <pubDate>Tue, 02 Jun 2020 10:00:00 GMT</pubDate>
+    <enclosure url="https://cdn.example/d.mp3" length="4"/>
+    <itunes:duration>9:32</itunes:duration>
+  </item>
+</channel>
+</rss>

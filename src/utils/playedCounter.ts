@@ -1,4 +1,5 @@
 import type { Track } from '../types/music';
+import { isPodcastTrack } from './podcastTrack';
 
 /** A play counts after this much listening, or half the track when it is shorter than twice this. */
 export const PLAY_THRESHOLD_SECONDS = 25;
@@ -23,7 +24,8 @@ export class PlayedCounter {
   constructor(private readonly onPlayed: (track: Track) => void) {}
 
   tick(track: Track | null, seconds: number): void {
-    if (!track) return;
+    // A podcast episode is not a play of music: it stays out of the history and of the mixes made from it
+    if (!track || isPodcastTrack(track)) return;
     if (track.id !== this.trackId) {
       this.trackId = track.id;
       this.listened = 0;

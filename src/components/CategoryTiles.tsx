@@ -1,5 +1,5 @@
 import React from 'react';
-import { Radio } from 'lucide-react';
+import { Podcast, Radio } from 'lucide-react';
 import { CATEGORIES } from '../data/musicCatalog';
 import type { TrackPage } from '../types/music';
 import { RemoteImage } from './RemoteImage';
@@ -28,13 +28,22 @@ interface CategoryTilesProps {
   pages?: Record<string, TrackPage>;
   onSelectCategory: (categoryId: string) => void;
   onSelectRadio: () => void;
+  onSelectPodcasts: () => void;
 }
 
 /** Browse grid of the Search tab: one tile per collection plus the radio, as in Apple Music. */
-export const CategoryTiles: React.FC<CategoryTilesProps> = ({ pages, onSelectCategory, onSelectRadio }) => (
+export const CategoryTiles: React.FC<CategoryTilesProps> = ({ pages, onSelectCategory, onSelectRadio, onSelectPodcasts }) => (
   <section className="px-4 py-2" aria-label="Explorar">
     <h2 className="text-[22px] font-bold text-label tracking-tight mb-3">Explorar tudo</h2>
     <div className="grid grid-cols-2 gap-3">
+      <button
+        onClick={onSelectPodcasts}
+        className="relative overflow-hidden rounded-card aspect-[16/9] text-left bg-gradient-to-br from-[#b3182c] to-[#5a0f1c] active:scale-[0.97] transition-transform"
+      >
+        <Podcast className="absolute right-3 top-3 w-9 h-9 text-white/40" aria-hidden="true" />
+        <span className="absolute left-3 bottom-2.5 text-[17px] font-semibold text-white">Podcasts</span>
+      </button>
+
       <button
         onClick={onSelectRadio}
         className="relative overflow-hidden rounded-card aspect-[16/9] text-left bg-accent active:scale-[0.97] transition-transform"
