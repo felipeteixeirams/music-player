@@ -261,9 +261,11 @@ const warmQueue = createWarmQueue<Track>({
 /**
  * Looks up, ahead of the tap and in idle time, the videos of tracks the person is likely to play (see `warmResolve.ts`):
  * the next ones in the queue (`first`) and the first of each personal card. One at a time, a few per session; the server
- * keeps part of the daily allowance for taps and refuses warming beyond it.
+ * keeps part of the daily allowance for taps and refuses warming beyond it. Off unless the build sets
+ * `VITE_WARM_RESOLVE=1` (decision of 2026-10-29: it spent searches on tracks nobody tapped).
  */
 export function warmResolve(tracks: Track[], first = false): void {
+  if (import.meta.env.VITE_WARM_RESOLVE !== '1') return;
   warmQueue.enqueue(
     tracks.filter((track) => /^(deezer|itunes)-\d+$/.test(track.id) && !track.sources.youtubeId && !track.sources.localUrl),
     first
