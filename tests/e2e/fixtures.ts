@@ -54,6 +54,14 @@ const COLLECTIONS: Record<string, FakeTrack[]> = {
   'pop-internacional': [track(61, 'Pop Um', 'Star P'), track(62, 'Pop Dois', 'Star P'), track(63, 'Pop Três', 'Star Q')]
 };
 
+/** A podcast show with three episodes (newest first); their audio is a silent 20 s clip on a host that tests answer. */
+export const PODCAST_SHOW = { id: '4242', title: 'Despertar Zen', author: 'Monja Coen', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' };
+export const PODCAST_EPISODES = [
+  { id: 'pod-4242-aaaaaaaaaa', title: 'Palestra Três', publishedAt: '2020-05-25T10:00:00.000Z', durationSeconds: 20, audioUrl: 'https://podcast.example/3.mp3', description: '', coverUrl: '' },
+  { id: 'pod-4242-bbbbbbbbbb', title: 'Palestra Dois', publishedAt: '2020-05-18T10:00:00.000Z', durationSeconds: 20, audioUrl: 'https://podcast.example/2.mp3', description: '', coverUrl: '' },
+  { id: 'pod-4242-cccccccccc', title: 'Palestra Um', publishedAt: '2020-05-11T10:00:00.000Z', durationSeconds: 20, audioUrl: 'https://podcast.example/1.mp3', description: '', coverUrl: '' }
+];
+
 const PAGE_SIZE = 3;
 
 function collectionPage(id: string, index: number) {
@@ -118,7 +126,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; dzcdnCovers?: 'open' | 'blocked'; proxiedCovers?: string[]; otherVideoIds?: string[]; avoids?: string[]; reports?: string[]; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; podcastAudioUrls?: string[]; dzcdnCovers?: 'open' | 'blocked'; proxiedCovers?: string[]; otherVideoIds?: string[]; avoids?: string[]; reports?: string[]; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -176,6 +184,13 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     }
     if (url.pathname === '/api/search' && url.searchParams.has('preview')) {
       return json(route, { id: url.searchParams.get('preview'), previewUrl: FRESH_PREVIEW });
+    }
+    if (url.pathname === '/api/search' && url.searchParams.has('podcasts')) {
+      const q = (url.searchParams.get('podcasts') ?? '').toLowerCase();
+      return json(route, { shows: q.includes('zen') || q.includes('monja') ? [PODCAST_SHOW] : [] });
+    }
+    if (url.pathname === '/api/search' && url.searchParams.has('podcast')) {
+      return json(route, { show: { ...PODCAST_SHOW, description: 'Palestras sobre o Zen.' }, episodes: PODCAST_EPISODES });
     }
     if (url.pathname === '/api/search' && url.searchParams.has('artists')) {
       return json(route, { artists: [{ id: '1783', name: 'Artista Teste', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 1234567 }] });
@@ -264,6 +279,12 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       ? route.abort('blockedbyclient')
       : route.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64') })
   );
+
+  // The audio files of the podcast episodes: a silent 20 s clip
+  await target.route('https://podcast.example/**', (route) => {
+    options.podcastAudioUrls?.push(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(silentClip(20).split(',')[1], 'base64') });
+  });
 
   // The live stations the directory stub names: a silent stream, so playing one needs no network
   await target.route('https://stream.example/**', (route) =>

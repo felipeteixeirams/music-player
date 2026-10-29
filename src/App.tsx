@@ -44,6 +44,10 @@ import { ArtistScreen } from './components/ArtistScreen';
 import { AlbumScreen } from './components/AlbumScreen';
 import type { AlbumSummary, ArtistSummary } from './types/music';
 import { RemoteImage } from './components/RemoteImage';
+import { PodcastsHome } from './components/PodcastsHome';
+import { PodcastScreen } from './components/PodcastScreen';
+import { fetchPodcastSearch } from './utils/podcastClient';
+import type { PodcastShowSummary } from './types/music';
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
 const MIX_TRACKS_PER_CATEGORY = 2;
@@ -90,6 +94,8 @@ const MusicAppContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   // Where the user is inside the Library tab (null: its menu of sections)
   const [libraryView, setLibraryView] = useState<LibraryView | null>(null);
+  // Podcasts open from the Search tab: their search, or a show (reached from there or from the search results)
+  const [podcastView, setPodcastView] = useState<{ kind: 'home' } | { kind: 'show'; show: PodcastShowSummary; from: 'home' | 'search' } | null>(null);
 
   // Register service worker on mount
   useEffect(() => {
@@ -142,7 +148,7 @@ const MusicAppContent: React.FC = () => {
 
   const handleSelectTab = (tab: AppTab) => {
     // Tapping the tab already open, at its first screen: the page rolls back to the top (nothing is reloaded)
-    const atTabRoot = tab === activeTab && !selectedCategoryId && !activeMix && artistStack.length === 0 && !selectedAlbum && !libraryView;
+    const atTabRoot = tab === activeTab && !selectedCategoryId && !activeMix && artistStack.length === 0 && !selectedAlbum && !libraryView && !podcastView;
     if (atTabRoot) scrollToTop();
     setActiveTab(tab);
     // Each tab opens at its own first screen, not inside a collection left open elsewhere
@@ -150,6 +156,7 @@ const MusicAppContent: React.FC = () => {
     setSelectedMixId(null);
     setArtistStack([]);
     setSelectedAlbum(null);
+    setPodcastView(null);
     // Tapping Library again goes back to its menu
     setLibraryView(null);
     // Text typed in the search box belongs to the search screen; left behind it would filter the others
@@ -180,11 +187,14 @@ const MusicAppContent: React.FC = () => {
   const [artistStack, setArtistStack] = useState<ArtistSummary[]>([]);
   const selectedArtist = artistStack[artistStack.length - 1] ?? null;
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumSummary | null>(null);
+  const [searchPodcasts, setSearchPodcasts] = useState<PodcastShowSummary[]>([]);
   useEffect(() => {
     setSearchArtists([]);
+    setSearchPodcasts([]);
     if (!submittedSearch) return;
     const controller = new AbortController();
     fetchArtistSearch(submittedSearch.query, controller.signal).then(setSearchArtists, () => undefined);
+    fetchPodcastSearch(submittedSearch.query, controller.signal).then((shows) => setSearchPodcasts(shows.slice(0, 8)), () => undefined);
     return () => controller.abort();
   }, [submittedSearch]);
 
@@ -233,13 +243,17 @@ const MusicAppContent: React.FC = () => {
     return allLiveTracks;
   }, [allLiveTracks, searchQuery, searchScope, likedTracks, activeTab]);
 
-  const inDetail = Boolean(activeCategory || selectedArtist || activeMix);
+  const inDetail = Boolean(activeCategory || selectedArtist || activeMix || podcastView);
   const isSearchTab = activeTab === 'search' && !inDetail;
   const isRadioTab = activeTab === 'radio' && !inDetail;
   const isLibraryTab = activeTab === 'library' && !inDetail;
   const hasTypedQuery = searchQuery.trim().length > 0;
   const screenTitle = activeMix
     ? activeMix.title
+    : podcastView
+    ? podcastView.kind === 'show'
+      ? podcastView.show.title
+      : 'Podcasts'
     : selectedAlbum
     ? selectedAlbum.title
     : selectedArtist
@@ -264,6 +278,8 @@ const MusicAppContent: React.FC = () => {
           onBack={
             activeMix
               ? () => setSelectedMixId(null)
+              : podcastView
+              ? () => setPodcastView(podcastView.kind === 'show' && podcastView.from === 'home' ? { kind: 'home' } : null)
               : selectedAlbum
               ? () => setSelectedAlbum(null)
               : selectedArtist
@@ -275,7 +291,11 @@ const MusicAppContent: React.FC = () => {
               : undefined
           }
           backLabel={
-            selectedAlbum
+            podcastView
+              ? podcastView.kind === 'show' && podcastView.from === 'home'
+                ? 'Podcasts'
+                : 'Buscar'
+              : selectedAlbum
               ? selectedArtist?.name ?? 'Voltar'
               : selectedArtist
               ? artistStack.length > 1
@@ -314,6 +334,12 @@ const MusicAppContent: React.FC = () => {
         <main className="flex-1 space-y-4">
           {activeMix ? (
             <MixScreen mix={activeMix} />
+          ) : podcastView ? (
+            podcastView.kind === 'show' ? (
+              <PodcastScreen key={podcastView.show.id} show={podcastView.show} />
+            ) : (
+              <PodcastsHome onOpenShow={(show) => setPodcastView({ kind: 'show', show, from: 'home' })} />
+            )
           ) : selectedArtist ? (
             <>
               {/* The artist stays mounted under the album, so going back shows it at once */}
@@ -398,6 +424,19 @@ const MusicAppContent: React.FC = () => {
                     </div>
                   </section>
                 )}
+                {searchPodcasts.length > 0 && (
+                  <section aria-label="Podcasts" className="px-4 pb-2">
+                    <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">Podcasts</h2>
+                    <div className="flex gap-3 overflow-x-auto">
+                      {searchPodcasts.map((show) => (
+                        <button key={show.id} onClick={() => setPodcastView({ kind: 'show', show, from: 'search' })} className="flex w-28 shrink-0 flex-col gap-1.5 text-left active:opacity-60">
+                          <RemoteImage src={show.coverUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-28 w-28 rounded-cover object-cover bg-fill-tertiary" />
+                          <span className="w-full truncate text-[13px] text-label">{show.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 <TrackList
                   tracks={onlineSearch.tracks}
                   title="Músicas Encontradas"
@@ -434,6 +473,7 @@ const MusicAppContent: React.FC = () => {
                   pages={feed?.categories}
                   onSelectCategory={(id) => setSelectedCategoryId(id)}
                   onSelectRadio={() => handleSelectTab('radio')}
+                  onSelectPodcasts={() => setPodcastView({ kind: 'home' })}
                 />
               )
             ) : hasTypedQuery ? (
@@ -474,6 +514,7 @@ const MusicAppContent: React.FC = () => {
                 pages={feed?.categories}
                 onSelectCategory={(id) => setSelectedCategoryId(id)}
                 onSelectRadio={() => handleSelectTab('radio')}
+                onSelectPodcasts={() => setPodcastView({ kind: 'home' })}
               />
             )
           ) : (

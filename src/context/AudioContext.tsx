@@ -22,6 +22,9 @@ import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
+import { isPodcastTrack } from '../utils/podcastTrack';
+import { readProgress, resumePosition, saveProgress } from '../utils/podcastProgress';
+import { nextSpeed, readSpeed, saveSpeed } from '../utils/podcastSpeed';
 import { youtubeEngine } from '../utils/youtubeEngine';
 import { fetchFreshPreviewUrl } from '../utils/catalogClient';
 import { isPreviewStale } from '../utils/previewUrl';
@@ -99,6 +102,11 @@ interface AudioContextType {
   markWrongVersion: () => void;
   /** Moves a track of the queue (absolute positions, both after the playing one) to another place. */
   moveQueueTrack: (from: number, to: number) => void;
+  /** Podcast episodes only: the speed (1 = normal) and the button that goes to the next one. */
+  playbackSpeed: number;
+  cycleSpeed: () => void;
+  /** Moves the position by this many seconds (negative goes back); a podcast's 15 back and 30 ahead. */
+  skipBy: (seconds: number) => void;
   toggleExpanded: (open?: boolean) => void;
   /** The station playing as a radio: the queue renews itself and never runs out. Null for ordinary lists. */
   radioStation: RadioStation | null;
@@ -131,6 +139,9 @@ const QUOTA_NOTICE = 'Você chegou ao limite de faixas novas de hoje. Tocando a 
 
 /** How long a one-off notice stays on screen. */
 const NOTICE_FLASH_MS = 6000;
+
+/** How often a podcast episode's position is written down while it plays. */
+const PROGRESS_SAVE_MS = 5000;
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { storage } = useAuth();
@@ -179,6 +190,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [audioStreamUrl, setAudioStreamUrl] = useState<string>('');
   const [engineLoadId, setEngineLoadId] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => readSpeed(typeof localStorage === 'undefined' ? null : localStorage));
+  const playbackSpeedRef = useRef(playbackSpeed);
+  playbackSpeedRef.current = playbackSpeed;
+  const storageRef = useRef(storage);
+  storageRef.current = storage;
+  const lastProgressSaveRef = useRef(0);
   const [userSeekRequest, setUserSeekRequest] = useState<number | null>(null);
   
   const [likedLibrary, setLikedLibrary] = useState<LikedLibrary>(() => {
@@ -436,6 +453,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (audio.currentTime !== undefined) {
         setCurrentTime(audio.currentTime);
         playedCounterRef.current?.tick(currentTrackRef.current, audio.currentTime);
+        // A podcast episode remembers where it stands (every few seconds; a pause or the end saves too)
+        const episode = currentTrackRef.current;
+        if (episode && isPodcastTrack(episode) && performance.now() - lastProgressSaveRef.current > PROGRESS_SAVE_MS) {
+          lastProgressSaveRef.current = performance.now();
+          saveProgress(storageRef.current, episode.id, audio.currentTime, Number.isFinite(audio.duration) ? audio.duration : episode.duration);
+        }
       }
     };
 
@@ -459,6 +482,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Said with the page's visibility: a pause that arrives with the app hidden is the system stopping the sound
       if (performance.now() - ownPauseAtRef.current > 1000) {
         logPlayback(`áudio do navegador pausou (app ${document.visibilityState === 'hidden' ? 'em segundo plano' : 'visível'}, em ${Math.round(audio.currentTime)} s)`);
+      }
+      const episode = currentTrackRef.current;
+      if (episode && isPodcastTrack(episode) && !audio.ended && audio.currentTime > 0) {
+        saveProgress(storageRef.current, episode.id, audio.currentTime, Number.isFinite(audio.duration) ? audio.duration : episode.duration);
       }
       setIsPlaying(false);
     };
@@ -630,6 +657,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       if (audioRef.current) {
         audioRef.current.src = streamUrl;
+        // A podcast episode resumes where the person stopped, at their speed (the position is applied once the file
+        // says how long it is: the iPhone ignores a seek before that)
+        const audio = audioRef.current;
+        const podcast = isPodcastTrack(track);
+        audio.defaultPlaybackRate = podcast ? playbackSpeedRef.current : 1;
+        audio.playbackRate = podcast ? playbackSpeedRef.current : 1;
+        if (podcast) {
+          setPlaybackStatus({ quality: 'Podcast', instanceUsed: track.podcast?.showTitle ?? 'Podcast' });
+          const resumeAt = resumePosition(readProgress(storageRef.current)[track.id]);
+          if (resumeAt > 0) {
+            setCurrentTime(resumeAt);
+            const seekToSaved = () => {
+              if (audio.getAttribute('src') === streamUrl) audio.currentTime = resumeAt;
+            };
+            if (audio.readyState >= 1) seekToSaved();
+            else audio.addEventListener('loadedmetadata', seekToSaved, { once: true });
+            logPlayback(`episódio retomado em ${Math.round(resumeAt)} s`);
+          }
+        }
         if (shouldPlay) {
           audioRef.current.play().catch((err) => {
             console.warn('Native stream autoplay notice:', err);
@@ -659,6 +705,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setPlaybackStatus({ error: 'A transmissão foi interrompida. Toque em reproduzir para sintonizar de novo.' });
         return;
       }
+      const episode = currentTrackRef.current;
+      if (episode && isPodcastTrack(episode)) {
+        // Listened to the end: shown as played, and the next episode of the list follows
+        saveProgress(storageRef.current, episode.id, episode.duration || audio.duration || 0, episode.duration || audio.duration || 0);
+        playNext();
+        return;
+      }
       if (repeatMode === 'one') {
         audio.currentTime = 0;
         audio.play().catch(() => {});
@@ -679,7 +732,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (nextIdx >= 0 && nextIdx < queue.length && nextIdx !== currentIndex) {
       const nextTrack = queue[nextIdx];
       // Warm up browser audio stream cache if native
-      if (nextTrack.sources.localUrl) {
+      if (nextTrack.sources.localUrl && !isPodcastTrack(nextTrack)) {
         const preloader = new Audio();
         preloader.preload = 'metadata';
         preloader.src = nextTrack.sources.localUrl;
@@ -726,13 +779,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       });
 
+      const podcast = isPodcastTrack(currentTrack);
       navigator.mediaSession.setActionHandler('seekbackward', live ? null : (details) => {
-        const offset = details.seekOffset || 10;
+        const offset = details.seekOffset || (podcast ? 15 : 10);
         mediaActionsRef.current?.seekTo(Math.max(0, currentTimeRef.current - offset));
       });
 
       navigator.mediaSession.setActionHandler('seekforward', live ? null : (details) => {
-        const offset = details.seekOffset || 10;
+        const offset = details.seekOffset || (podcast ? 30 : 10);
         mediaActionsRef.current?.seekTo(Math.min(durationRef.current, currentTimeRef.current + offset));
       });
     } catch (e) {
@@ -934,6 +988,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const playNext = useCallback(() => {
     if (isLiveTrack(currentTrackRef.current)) return;
+    if (isPodcastTrack(currentTrackRef.current)) {
+      // Episodes follow the list in the order the person chose: no shuffle, no repeat, no wrapping around at the end
+      const nextIdx = currentIndex + 1;
+      if (nextIdx < queue.length) {
+        setCurrentIndex(nextIdx);
+        loadAndPlayTrack(queue[nextIdx], preferredEngine, true, 'tap');
+      } else {
+        setIsPlaying(false);
+        setIsBuffering(false);
+      }
+      return;
+    }
     if (radioStation) {
       // A radio has no shuffle or end: it moves on, asking for more when the queue runs dry
       const nextIdx = repeatMode === 'one' ? currentIndex : currentIndex + 1;
@@ -1002,6 +1068,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       mediaActionsRef.current?.seekTo(0);
       return;
     }
+    if (isPodcastTrack(currentTrackRef.current)) {
+      // The episode before in the list; at the first one there is nothing before, so it starts over
+      if (currentIndex > 0) {
+        setCurrentIndex(currentIndex - 1);
+        loadAndPlayTrack(queue[currentIndex - 1], preferredEngine, true, 'tap');
+      } else {
+        mediaActionsRef.current?.seekTo(0);
+      }
+      return;
+    }
     const prevIdx = getPreviousTrackIndex(currentIndex, queue.length);
     if (prevIdx >= 0 && prevIdx < queue.length) {
       setCurrentIndex(prevIdx);
@@ -1020,6 +1096,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setUserSeekRequest(target);
     }
   }, [activeEngine]);
+
+  const skipBy = useCallback((seconds: number) => {
+    mediaActionsRef.current?.seekTo(currentTimeRef.current + seconds);
+  }, []);
+
+  const cycleSpeed = useCallback(() => {
+    const speed = nextSpeed(playbackSpeedRef.current);
+    setPlaybackSpeed(speed);
+    saveSpeed(typeof localStorage === 'undefined' ? null : localStorage, speed);
+    if (audioRef.current && isPodcastTrack(currentTrackRef.current)) {
+      audioRef.current.defaultPlaybackRate = speed;
+      audioRef.current.playbackRate = speed;
+    }
+  }, []);
 
   mediaActionsRef.current = { togglePlayPause, playNext, playPrevious, seekTo };
 
@@ -1219,6 +1309,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       switchVersion,
       markWrongVersion,
       moveQueueTrack,
+      playbackSpeed,
+      cycleSpeed,
+      skipBy,
       toggleExpanded,
       radioStation,
       startRadio,
@@ -1268,6 +1361,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       switchVersion,
       markWrongVersion,
       moveQueueTrack,
+      playbackSpeed,
+      cycleSpeed,
+      skipBy,
       toggleExpanded,
       radioStation,
       startRadio,

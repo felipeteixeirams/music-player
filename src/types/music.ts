@@ -18,6 +18,36 @@ export interface Track {
   sources: AudioSource;
   lyrics?: string[];
   releaseYear?: number;
+  /** Present for a podcast episode: it plays from `sources.localUrl` (the feed's audio file), never from YouTube. */
+  podcast?: PodcastInfo;
+}
+
+export interface PodcastInfo {
+  showId: string;
+  showTitle: string;
+  /** ISO date, "" when the feed gave none. */
+  publishedAt: string;
+}
+
+/** A podcast show, as the search finds it. `id` is the iTunes collection id. */
+export interface PodcastShowSummary {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl: string;
+  description?: string;
+  language?: string;
+}
+
+/** One episode of a show's feed, newest first. */
+export interface PodcastEpisodeItem {
+  id: string;
+  title: string;
+  publishedAt: string;
+  durationSeconds: number;
+  audioUrl: string;
+  description: string;
+  coverUrl: string;
 }
 
 export interface Category {

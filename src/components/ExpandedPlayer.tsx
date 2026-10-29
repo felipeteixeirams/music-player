@@ -22,6 +22,8 @@ import { fetchSyncedLyrics, LrcLine } from '../utils/lrclibClient';
 import { PlaybackNotice } from './PlaybackNotice';
 import { useCoverColor } from '../hooks/useCoverColor';
 import { isLiveTrack } from '../utils/liveRadio';
+import { isPodcastTrack } from '../utils/podcastTrack';
+import { speedLabel } from '../utils/podcastSpeed';
 import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { LyricsView } from './LyricsView';
 import { QueueList } from './QueueList';
@@ -31,6 +33,8 @@ export const ExpandedPlayer: React.FC = () => {
   const playback = usePlaybackState();
   const {
     currentTrack,
+    currentIndex,
+    queue,
     isPlaying,
     isShuffle,
     repeatMode,
@@ -48,7 +52,10 @@ export const ExpandedPlayer: React.FC = () => {
     toggleLike,
     isLiked,
     radioStation,
-    isLive
+    isLive,
+    playbackSpeed,
+    cycleSpeed,
+    skipBy
   } = useAudio();
   const { currentTime, duration } = usePlaybackTime();
   const { openAddToPlaylist, playlists } = usePlaylists();
@@ -64,7 +71,7 @@ export const ExpandedPlayer: React.FC = () => {
 
   React.useEffect(() => {
     if (!currentTrack) return;
-    if (isLiveTrack(currentTrack)) {
+    if (isLiveTrack(currentTrack) || isPodcastTrack(currentTrack)) {
       setSyncedLyrics([]);
       setLyricsSynced(false);
       return;
@@ -102,12 +109,13 @@ export const ExpandedPlayer: React.FC = () => {
   const isRadio = isLive || Boolean(radioStation);
   // One button for "keep this song": it is a favorite and/or in some playlist
   const saved = liked || playlists.some((playlist) => playlist.tracks.some((track) => track.id === currentTrack.id));
-  const hasLyrics = !isLive && syncedLyrics.length > 0;
+  const isPodcast = isPodcastTrack(currentTrack);
+  const hasLyrics = !isLive && !isPodcast && syncedLyrics.length > 0;
   // The menu holds what only matters now and then: the versions of the track (they come from the YouTube video that plays)
   const hasMenu = !isLive && versionCount > 0;
   // A track without lyrics falls back to the cover; a live station has no queue to show
   const activeView = view === 'lyrics' && !hasLyrics ? 'cover' : view === 'queue' && isLive ? 'cover' : view;
-  const saveButton = isLive ? (
+  const saveButton = isLive || isPodcast ? (
     <div className="w-11 h-11 shrink-0" aria-hidden="true" />
   ) : (
     <button
@@ -337,7 +345,36 @@ export const ExpandedPlayer: React.FC = () => {
         </div>
         )}
 
+        {/* 5. Controls of a podcast episode: the episode before, 15 s back, play, 30 s ahead, the next episode */}
+        {isPodcast && (
+          <div className="flex items-center justify-between px-1 my-2">
+            <button onClick={playPrevious} aria-label="Episódio anterior" className="w-11 h-11 flex items-center justify-center text-label active:scale-90 transition-all">
+              <SkipBack className="w-7 h-7 fill-current" />
+            </button>
+            <button onClick={() => skipBy(-15)} aria-label="Voltar 15 segundos" className="relative w-14 h-14 flex items-center justify-center text-label active:scale-90 transition-all">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8" /><path d="M4 4v4h4" /></svg>
+              <span className="absolute mt-[3px] text-[12px] font-bold" aria-hidden="true">15</span>
+            </button>
+            <button
+              onClick={togglePlayPause}
+              aria-label={playbackLabel(playback, { pause: 'Pausar reprodução', play: 'Iniciar reprodução', loading: 'Carregando reprodução' })}
+              aria-busy={playback === 'loading'}
+              className="w-[68px] h-[68px] rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
+            >
+              <PlaybackIcon state={playback} className="w-11 h-11" playOffset="ml-1" />
+            </button>
+            <button onClick={() => skipBy(30)} aria-label="Avançar 30 segundos" className="relative w-14 h-14 flex items-center justify-center text-label active:scale-90 transition-all">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8" /><path d="M20 4v4h-4" /></svg>
+              <span className="absolute mt-[3px] text-[12px] font-bold" aria-hidden="true">30</span>
+            </button>
+            <button onClick={playNext} aria-label="Próximo episódio" disabled={currentIndex >= queue.length - 1} className="w-11 h-11 flex items-center justify-center text-label active:scale-90 transition-all disabled:opacity-30">
+              <SkipForward className="w-7 h-7 fill-current" />
+            </button>
+          </div>
+        )}
+
         {/* 5. Centralized Geometric Media Controls */}
+        {!isPodcast && (
         <div className="flex items-center justify-between px-2 my-2">
           {/* Shuffle Button */}
           {isRadio ? <div className="w-11 h-11" aria-hidden="true" /> : (
@@ -409,10 +446,15 @@ export const ExpandedPlayer: React.FC = () => {
           </button>
           )}
         </div>
+        )}
 
         {/* 6. Bottom buttons, as in Apple Music: lyrics on the left (only when there are some), the queue on the right */}
         <div className="mt-3 flex h-11 items-center justify-between px-2">
-          {hasLyrics ? (
+          {isPodcast ? (
+            <button onClick={cycleSpeed} aria-label={`Velocidade de reprodução, ${speedLabel(playbackSpeed)}`} className="flex h-9 min-w-14 items-center justify-center rounded-full bg-white/15 px-3 text-[14px] font-bold tabular-nums text-label active:scale-95">
+              {speedLabel(playbackSpeed)}
+            </button>
+          ) : hasLyrics ? (
             <button
               onClick={() => setView(activeView === 'lyrics' ? 'cover' : 'lyrics')}
               aria-label="Letra"
