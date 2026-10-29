@@ -301,7 +301,7 @@ export async function fakeYouTube(target: Page): Promise<void> {
           setVolume() {}
           getCurrentTime() { return this.base + (this.state === 1 ? (performance.now() - this.startedAt) / 1000 : 0); }
           // __ytStaleLength: right after a load the player still answers with the length of the video before (19 s, the reserve one)
-          getDuration() { return this.id ? (window.__ytStaleLength && performance.now() - (this.loadedAt || 0) < 1500 ? 19 : 180) : 0; }
+          getDuration() { if (this.id && window.__ytBogusLength && this.state === 1 && this.getCurrentTime() > 1) return Math.max(8, Math.floor(this.getCurrentTime())); return this.id ? (window.__ytStaleLength && performance.now() - (this.loadedAt || 0) < 1500 ? 19 : 180) : 0; }
           getPlayerState() { return this.state; }
         }
         window.YT = { Player };

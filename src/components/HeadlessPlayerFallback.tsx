@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { videoIdFromUrl, youtubeEngine } from '../utils/youtubeEngine';
+import { plausiblePlayerLength } from '../utils/playerLength';
+import { logPlayback } from '../utils/playbackDiagnostics';
 
 /**
  * Bridge between the playback state and the hidden YouTube player (`youtubeEngine`, which owns the iframe: it is
@@ -8,6 +10,7 @@ import { videoIdFromUrl, youtubeEngine } from '../utils/youtubeEngine';
  */
 export const HeadlessPlayerFallback: React.FC = () => {
   const {
+    currentTrack,
     activeEngine,
     audioStreamUrl,
     isPlaying,
@@ -32,6 +35,20 @@ export const HeadlessPlayerFallback: React.FC = () => {
   const latest = useRef({ playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady });
   latest.current = { playNext, updatePlaybackTime, setDuration, handleFallbackError, engineStarted, engineReady };
 
+  // The length the player reports, when it is believable next to the catalog's (see `playerLength.ts`)
+  const catalogRef = useRef({ id: '', seconds: 0 });
+  catalogRef.current = { id: currentTrack?.id ?? '', seconds: currentTrack?.duration ?? 0 };
+  const loggedBogus = useRef('');
+  const believe = (seconds: number): boolean => {
+    const { id, seconds: catalog } = catalogRef.current;
+    if (plausiblePlayerLength(catalog, seconds)) return true;
+    if (loggedBogus.current !== id) {
+      loggedBogus.current = id;
+      logPlayback(`duração do player ignorada: ${Math.round(seconds)} s contra ${Math.round(catalog)} s do catálogo`);
+    }
+    return false;
+  };
+
   useEffect(() => {
     youtubeEngine.setEvents({
       started: () => latest.current.engineStarted(),
@@ -44,11 +61,11 @@ export const HeadlessPlayerFallback: React.FC = () => {
         latest.current.updatePlaybackTime(seconds);
       },
       loaded: (seconds) => {
-        latest.current.setDuration(Math.round(seconds));
+        if (believe(seconds)) latest.current.setDuration(Math.round(seconds));
         latest.current.engineReady(seconds);
       },
       length: (seconds) => {
-        latest.current.setDuration(Math.round(seconds));
+        if (believe(seconds)) latest.current.setDuration(Math.round(seconds));
       }
     });
     return () => youtubeEngine.setEvents(null);
