@@ -641,11 +641,43 @@ test.describe('player expandido', () => {
     const queue = page.getByRole('region', { name: 'Fila de reprodução' });
     await expect(queue.getByText('Continue tocando')).toBeVisible();
     await expect(queue.getByText('Segunda Faixa')).toBeVisible();
-    await queue.getByRole('button', { name: /Segunda Faixa/ }).click();
+    await queue.getByRole('button', { name: /^Segunda Faixa/ }).click();
     // It plays now, so the list moves on: it no longer lists it among the next ones
-    await expect(queue.getByRole('button', { name: /Segunda Faixa/ })).toHaveCount(0);
-    await expect(queue.getByRole('button', { name: /Terceira Faixa/ })).toBeVisible();
+    await expect(queue.getByRole('button', { name: /^Segunda Faixa/ })).toHaveCount(0);
+    await expect(queue.getByRole('button', { name: /^Terceira Faixa/ })).toBeVisible();
     await toggle.click();
+    await expect(queue).toBeHidden();
+  });
+
+  test('INV-UI-12: a fila se reordena pelas setas na alça e arrastando a alça; a faixa que toca não muda', async ({ page }) => {
+    await openExpanded(page);
+    await page.getByRole('button', { name: 'Fila de reprodução', exact: true }).click();
+    const queue = page.getByRole('region', { name: 'Fila de reprodução' });
+    const titles = () => queue.locator('li').evaluateAll((rows) => rows.map((row) => row.querySelector('button span span')?.textContent ?? ''));
+    expect((await titles()).slice(0, 3)).toEqual(['Segunda Faixa', 'Terceira Faixa', 'Quarta Faixa']);
+
+    // Keyboard: the handle takes ArrowDown / ArrowUp
+    const handle = queue.getByRole('button', { name: 'Reordenar Segunda Faixa' });
+    await handle.focus();
+    await page.keyboard.press('ArrowDown');
+    expect((await titles()).slice(0, 3)).toEqual(['Terceira Faixa', 'Segunda Faixa', 'Quarta Faixa']);
+    await queue.getByRole('button', { name: 'Reordenar Segunda Faixa' }).focus();
+    await page.keyboard.press('ArrowUp');
+    expect((await titles()).slice(0, 3)).toEqual(['Segunda Faixa', 'Terceira Faixa', 'Quarta Faixa']);
+
+    // Drag: the first row's handle two rows down
+    const box = await queue.getByRole('button', { name: 'Reordenar Segunda Faixa' }).boundingBox();
+    const rowHeight = (await queue.locator('li').first().boundingBox())!.height;
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + rowHeight * 1.2, { steps: 6 });
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + rowHeight * 2.1, { steps: 6 });
+    await page.mouse.up();
+    expect((await titles()).slice(0, 3)).toEqual(['Terceira Faixa', 'Quarta Faixa', 'Segunda Faixa']);
+
+    // The playing track is still the first one: closing the queue shows it
+    await page.getByRole('button', { name: 'Fila de reprodução', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Primeira Faixa', level: 2 }).last()).toBeVisible();
     await expect(queue).toBeHidden();
   });
 
