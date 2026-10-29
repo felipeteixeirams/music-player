@@ -6,6 +6,7 @@ import {
   resolveAudioDetails,
   resolveFullTrack,
   reportBrokenVideo,
+  searchOtherVersion,
   prefetchResolved,
   warmResolve,
   knownVideoIds
@@ -93,6 +94,8 @@ interface AudioContextType {
   versionCount: number;
   /** Plays the next version of the playing track (wrapping around) and remembers the choice. */
   switchVersion: () => void;
+  /** "Não é esta música": drops the video that plays (for everybody) and plays another one, searching again if there is none. */
+  markWrongVersion: () => void;
   toggleExpanded: (open?: boolean) => void;
   /** The station playing as a radio: the queue renews itself and never runs out. Null for ordinary lists. */
   radioStation: RadioStation | null;
@@ -1047,6 +1050,34 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPlaybackStatus((prev) => ({ ...prev, notice: `Tocando outra versão (${index + 1} de ${versions.ids.length}).` }));
   }, [triggerFallbackEngine, storage]);
 
+  const markWrongVersion = useCallback(async () => {
+    const track = currentTrackRef.current;
+    const versions = versionsRef.current;
+    if (!track || isLiveTrack(track) || versions.trackId !== track.id) return;
+    const wrong = versions.ids[versions.index];
+    if (!wrong) return;
+    logPlayback(`"não é esta música" em "${track.title}" (vídeo ${wrong})`);
+    // Out of the shared cache and this device's, so neither plays it again
+    reportBrokenVideo(track, wrong);
+    let others = versions.ids.filter((id) => id !== wrong);
+    if (others.length === 0) {
+      setIsBuffering(true);
+      others = await searchOtherVersion(track, wrong);
+      if (currentTrackRef.current?.id !== track.id) return;
+    }
+    if (others.length === 0) {
+      setIsBuffering(false);
+      setPlaybackStatus((prev) => ({ ...prev, notice: 'Não encontrei outra versão desta faixa.' }));
+      logPlayback('nenhuma outra versão encontrada');
+      return;
+    }
+    versionsRef.current = { trackId: track.id, ids: others, index: 0 };
+    setVersionCount(others.length);
+    triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: others[0] } }, true);
+    rememberChoice(storage, track.id, others[0]);
+    emitUserDataChanged();
+  }, [triggerFallbackEngine, storage]);
+
   const clearUserSeekRequest = useCallback(() => {
     setUserSeekRequest(null);
   }, []);
@@ -1160,6 +1191,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setPreferredEngine,
       versionCount,
       switchVersion,
+      markWrongVersion,
       toggleExpanded,
       radioStation,
       startRadio,
@@ -1207,6 +1239,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setPreferredEngine,
       versionCount,
       switchVersion,
+      markWrongVersion,
       toggleExpanded,
       radioStation,
       startRadio,

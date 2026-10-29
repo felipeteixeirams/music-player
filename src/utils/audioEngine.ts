@@ -276,6 +276,27 @@ export function warmResolve(tracks: Track[], first = false): void {
  * Tells the server that a video it handed out would not play (blocked, removed), so the shared cache drops it and
  * the next play searches again. Fire and forget: a failed report only means the bad id lives a little longer.
  */
+/**
+ * "Não é esta música": the server searches again without that video (and without reading the cache) and keeps the answer
+ * for everybody. Resolves with the other videos found, best first; empty when there are none or the call failed.
+ */
+export async function searchOtherVersion(track: Track, wrongVideoId: string, timeoutMs = 12000): Promise<string[]> {
+  resolved.delete(track.id);
+  try {
+    const params = new URLSearchParams({ id: track.id, artist: track.artist, title: track.title, duration: String(track.duration), avoid: wrongVideoId });
+    const response = await apiFetch(`/api/resolve?${params}`, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!response.ok) return [];
+    const data = (await response.json()) as { videoIds?: unknown } | null;
+    const ids = Array.isArray(data?.videoIds)
+      ? data.videoIds.filter((id): id is string => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id) && id !== wrongVideoId)
+      : [];
+    if (ids.length > 0) resolved.set(track.id, ids);
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
 export function reportBrokenVideo(track: Track, videoId: string): void {
   resolved.delete(track.id);
   void apiFetch('/api/resolve', {

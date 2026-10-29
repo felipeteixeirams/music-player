@@ -114,7 +114,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; otherVideoIds?: string[]; avoids?: string[]; reports?: string[]; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -214,13 +214,19 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     if (url.pathname === '/api/resolve') {
       if (route.request().method() === 'POST') {
         // The app asks which tracks the shared cache already has a video for (no search, no quota)
-        const body = route.request().postDataJSON() as { lookup?: { id: string }[] } | null;
+        const body = route.request().postDataJSON() as { lookup?: { id: string }[]; videoId?: string } | null;
         if (body?.lookup) {
           options.lookups?.push(body.lookup.map((item) => item.id));
           const found = Object.fromEntries(body.lookup.filter((item) => options.cachedVideos?.[item.id]).map((item) => [item.id, options.cachedVideos![item.id]]));
           return json(route, { found });
         }
+        // "Não é esta música" / a video that would not play: the video is reported
+        if ((body as { videoId?: string } | null)?.videoId) options.reports?.push((body as { videoId: string }).videoId);
         return json(route, { ok: true });
+      }
+      if (url.searchParams.has('avoid')) {
+        options.avoids?.push(url.searchParams.get('avoid') ?? '');
+        return json(route, { videoIds: options.otherVideoIds ?? [] });
       }
       if (url.searchParams.has('usage')) return json(route, { enabled: true, used: options.usedToday ?? 4, limit: 30 });
       if (url.searchParams.get('warm') === '1') {

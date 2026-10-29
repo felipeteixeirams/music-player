@@ -32,6 +32,7 @@ export const ExpandedPlayer: React.FC = () => {
     toggleExpanded,
     versionCount,
     switchVersion,
+    markWrongVersion,
     togglePlayPause,
     playNext,
     playPrevious,
@@ -179,6 +180,11 @@ export const ExpandedPlayer: React.FC = () => {
               {currentTrack.title}
             </h2>
             <p className="text-[20px] text-label-secondary truncate">{currentTrack.artist}</p>
+            {!isLive && versionCount > 0 && (
+              <button onClick={markWrongVersion} className="mt-1 text-[13px] text-label-secondary underline underline-offset-2 active:text-label">
+                Não é esta música
+              </button>
+            )}
           </div>
 
           {!isLive && versionCount > 1 && (
