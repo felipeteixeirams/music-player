@@ -66,12 +66,14 @@ function fakeAdmin(limitFails = false) {
 function setup(options: { via?: ResolvedVideos['via']; videoIds?: string[]; searchFails?: boolean; limit?: number; noAdmin?: boolean; suspended?: boolean } = {}) {
   const fake = fakeAdmin();
   let searches = 0;
+  let webOnlySearches = 0;
   let now = MATCHER_EPOCH_MS + 1_000_000;
   const deps: ResolveDeps = {
     admin: options.noAdmin ? null : fake.admin,
     breaker: { check: async () => (options.suspended ? { until: 2_000_000, reason: 'quota' as const } : null) },
-    search: async () => {
+    search: async (_query, searchOptions) => {
       searches++;
+      if (searchOptions?.webOnly) webOnlySearches++;
       if (options.searchFails) throw new Error('youtube down');
       return { videoIds: options.videoIds ?? [VIDEO], via: options.via ?? 'official', picks: [], considered: 1 };
     },
@@ -80,7 +82,7 @@ function setup(options: { via?: ResolvedVideos['via']; videoIds?: string[]; sear
     now: () => now,
     log: () => undefined
   };
-  return { ...fake, deps, searches: () => searches, advance: (ms: number) => (now += ms) };
+  return { ...fake, deps, searches: () => searches, webOnlySearches: () => webOnlySearches, advance: (ms: number) => (now += ms) };
 }
 
 test('cacheKeyFor usa o id do catálogo e, sem ele, um hash estável da faixa', () => {
@@ -137,14 +139,15 @@ test('"não achei" da busca web não vai para o cache (ela falha em silêncio)',
   assert.equal(t.cache.size, 0);
 });
 
-test('INV-PLAY-03: acima do limite diário não busca nem grava: avisa que a cota acabou; o cache continua valendo', async () => {
+test('INV-PLAY-19: acima do limite diário a faixa ainda é procurada, só pela busca web (sem cota do YouTube), sem aviso de limite; o cache continua valendo', async () => {
   const t = setup({ limit: 2 });
   await resolveEndpoint({ ...QUERY, id: 'deezer-1', title: 'Um' }, USER, t.deps);
   await resolveEndpoint({ ...QUERY, id: 'deezer-2', title: 'Dois' }, USER, t.deps);
+  assert.equal(t.webOnlySearches(), 0);
   const third = await resolveEndpoint({ ...QUERY, id: 'deezer-3', title: 'Três' }, USER, t.deps);
-  assert.deepEqual(third.body, { videoIds: [], quota: { used: 2, limit: 2, exceeded: true } });
-  assert.equal(t.searches(), 2);
-  assert.equal(t.cache.has('deezer-3'), false);
+  assert.deepEqual(third.body, { videoIds: [VIDEO], quota: { used: 2, limit: 2, exceeded: false } });
+  assert.equal(t.webOnlySearches(), 1);
+  assert.equal(t.used.get('user-1'), 2, 'a busca web não gasta a cota');
   const cached = await resolveEndpoint({ ...QUERY, id: 'deezer-1', title: 'Um' }, USER, t.deps);
   assert.deepEqual(cached.body, { videoIds: [VIDEO] });
 });

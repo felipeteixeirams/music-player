@@ -21,6 +21,8 @@ export interface ResolveOptions {
   fetchImpl?: FetchLike;
   /** Stops asking the official API while its quota is spent (see `_youtubeBreaker.ts`). */
   breaker?: YoutubeBreaker;
+  /** Never ask the official API (the person's daily allowance of official searches is spent): the web search costs no quota. */
+  webOnly?: boolean;
 }
 
 /** A song longer than this is not a catalog track: refuse before spending a YouTube search on it. */
@@ -309,6 +311,7 @@ async function searchCandidates(
   fetchImpl: FetchLike
 ): Promise<{ candidates: VideoCandidate[]; via: ResolveVia }> {
   if (!options.apiKey) return { candidates: await searchWeb(searchText, fetchImpl), via: 'web' };
+  if (options.webOnly) return { candidates: await searchWeb(searchText, fetchImpl), via: 'web' };
 
   // The breaker is open (the quota is spent, or the key was refused a moment ago): do not even ask the official API
   if (await options.breaker?.check()) return { candidates: await searchWeb(searchText, fetchImpl), via: 'web-api-suspended' };
