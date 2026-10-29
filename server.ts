@@ -7,6 +7,7 @@ import { resolveRoute } from './api/_resolveEndpoint';
 import { healthBody } from './api/_healthEndpoint';
 import { reportStartupOnce } from './api/_config';
 import { authorizeReport, authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
+import { adminEndpoint } from './api/_adminEndpoint';
 import { reportEndpoint } from './api/_reportEndpoint';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -104,6 +105,13 @@ app.get('/api/audio', async (req, res) => {
 app.all('/api/resolve', async (req, res) => {
   const { status, body, cacheControl } = await resolveRoute(req, res.locals.user ?? null);
   if (cacheControl && status === 200) res.setHeader('Cache-Control', cacheControl);
+  return res.status(status).json(body);
+});
+
+// Endpoint: GET /api/admin (?me=1: is the caller an administrator): the administrator panel's data
+app.get('/api/admin', async (req, res) => {
+  const { status, body } = await adminEndpoint(req.query, res.locals.user ?? null);
+  res.setHeader('Cache-Control', 'private, no-store');
   return res.status(status).json(body);
 });
 

@@ -55,6 +55,15 @@ function fakeAdmin(limitFails = false) {
       return null;
     },
     async setServiceState() {},
+    async usageByDay() {
+      return Object.fromEntries(used);
+    },
+    async cacheCount() {
+      return cache.size;
+    },
+    async listUsers() {
+      return {};
+    },
     async usedToday(userId) {
       return used.get(userId) ?? 0;
     }

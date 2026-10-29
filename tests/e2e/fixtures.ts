@@ -114,7 +114,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -142,6 +142,19 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     requests.push(`${url.pathname}${url.search}`);
 
     if (url.pathname === '/api/report') return route.fulfill({ status: 204 });
+    if (url.pathname === '/api/admin') {
+      if (url.searchParams.has('me')) return json(route, { admin: options.admin === true });
+      if (!options.admin) return route.fulfill({ status: 403, contentType: 'application/json', body: '{"error":"Acesso restrito"}' });
+      return json(route, {
+        day: '2026-10-29',
+        youtube: { search: 'suspended', reason: 'quota', until: Date.parse('2026-10-29T07:00:00Z'), searchesToday: 12, unitsUpperBound: 1200 },
+        limits: { dailyNewTracks: 30 },
+        people: { counted: 2, accounts: 3, perPerson: [{ email: 'ana@example.com', used: 9 }, { email: 'felipe@example.com', used: 3 }] },
+        cache: { tracks: 120 },
+        config: [{ id: 'service-key', level: 'warn', message: 'chave de serviço ausente' }],
+        database: 'ok'
+      });
+    }
     if (url.pathname === '/api/feed') {
       const categories = Object.fromEntries(Object.keys(COLLECTIONS).map((id) => [id, collectionPage(id, 0)]));
       return reply(route, { categories, featured: TOP_HITS[0] });

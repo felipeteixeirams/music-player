@@ -66,3 +66,8 @@ test('version.json existe, para o aviso de nova versão funcionar', async ({ req
   expect(response.status()).toBe(200);
   expect(typeof (await response.json()).version).toBe('string');
 });
+
+test('INV-ADMIN-01: a rota do painel recusa quem não é administrador (sem login 401, de fora do site 403)', async ({ request }) => {
+  expect((await request.get('/api/admin')).status()).toBe(403);
+  expect((await request.get('/api/admin', { headers: { 'Sec-Fetch-Site': 'same-origin' } })).status()).toBe(401);
+});

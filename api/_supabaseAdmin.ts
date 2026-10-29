@@ -31,6 +31,12 @@ export interface Admin {
   /** The shared state of a third-party service (the YouTube search breaker): null when none or already over. */
   getServiceState(key: string): Promise<{ until: number; reason: string } | null>;
   setServiceState(key: string, until: number, reason: string): Promise<void>;
+  /** For the administrator panel: every person's count of new tracks on a São Paulo day (user id -> count). */
+  usageByDay(day: string): Promise<Record<string, number>>;
+  /** How many tracks the shared video cache holds. */
+  cacheCount(): Promise<number>;
+  /** The accounts (id -> e-mail), from the auth admin API. */
+  listUsers(): Promise<Record<string, string>>;
 }
 
 /** Today's date in São Paulo, the day the quota counts in (same as the SQL function). */
@@ -103,6 +109,23 @@ export function createAdmin(config: AdminConfig, fetchImpl: typeof fetch = fetch
         body: JSON.stringify({ key, until: new Date(until).toISOString(), reason, updated_at: new Date().toISOString() }),
         prefer: 'resolution=merge-duplicates,return=minimal'
       });
+    },
+    async usageByDay(day) {
+      const rows = (await (await call(`/usage_daily?select=user_id,resolves&day=${eq(day)}`)).json()) as { user_id: string; resolves: number }[];
+      return Object.fromEntries(rows.map((row) => [row.user_id, row.resolves]));
+    },
+    async cacheCount() {
+      const response = await call('/video_cache?select=track_id&limit=1', { prefer: 'count=exact' });
+      return Number(/\/(\d+)$/.exec(response.headers.get('content-range') ?? '')?.[1] ?? 0);
+    },
+    async listUsers() {
+      const response = await fetchImpl(`${config.url}/auth/v1/admin/users?per_page=200`, {
+        headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}` },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!response.ok) throw new Error(`Supabase HTTP ${response.status} em /auth/v1/admin/users`);
+      const data = (await response.json()) as { users?: { id: string; email?: string | null }[] };
+      return Object.fromEntries((data.users ?? []).map((user) => [user.id, user.email ?? '']));
     },
     async usedToday(userId, now) {
       const rows = (await (
