@@ -47,7 +47,11 @@ const COLLECTIONS: Record<string, FakeTrack[]> = {
   'classic-rock': [track(11, 'Rock Um', 'Banda A'), track(12, 'Rock Dois', 'Banda A'), track(13, 'Rock Três', 'Banda B')],
   'alternative-pop': [track(21, 'Indie Um', 'Banda C'), track(22, 'Indie Dois', 'Banda C'), track(23, 'Indie Três', 'Banda D')],
   'lofi-chill': [track(31, 'Lofi Um', 'Produtor X'), track(32, 'Lofi Dois', 'Produtor X'), track(33, 'Lofi Três', 'Produtor Y')],
-  synthwave: [track(41, 'Synth Um', 'Duo Z'), track(42, 'Synth Dois', 'Duo Z'), track(43, 'Synth Três', 'Duo W')]
+  synthwave: [track(41, 'Synth Um', 'Duo Z'), track(42, 'Synth Dois', 'Duo Z'), track(43, 'Synth Três', 'Duo W')],
+  // The "Humor para você" card takes its collection from the hour of the day (mpb in the morning, pop-internacional in the
+  // afternoon, top-hits at night, lofi-chill at dawn): all four must exist here or the home test fails at some hours
+  mpb: [track(51, 'MPB Um', 'Cantor M'), track(52, 'MPB Dois', 'Cantor M'), track(53, 'MPB Três', 'Cantora N')],
+  'pop-internacional': [track(61, 'Pop Um', 'Star P'), track(62, 'Pop Dois', 'Star P'), track(63, 'Pop Três', 'Star Q')]
 };
 
 const PAGE_SIZE = 3;
