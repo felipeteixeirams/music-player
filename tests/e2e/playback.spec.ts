@@ -357,3 +357,23 @@ test('INV-PLAY-05: sair do app e voltar com a prévia tocando não pausa a faixa
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
   await expect(page.getByTestId('playback-log')).toContainText('app em segundo plano (tocando');
 });
+
+test('INV-PLAY-21: uma duração do player muito menor que a do catálogo não vai para a barra: ela segue a do catálogo e o diagnóstico registra', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as any).__ytBogusLength = true;
+  });
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await topHit(page).click();
+  await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+  // After a couple of seconds the player starts answering "the time played so far" as the length
+  await page.waitForTimeout(3500);
+  await expect(page.getByText('-00:00')).toHaveCount(0);
+  await expect(page.getByText(/^-0[23]:\d\d$/)).toBeVisible();
+  await page.getByRole('button', { name: 'Minimizar player expandido' }).click();
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  await expect(page.getByTestId('playback-log')).toContainText('duração do player ignorada');
+});
