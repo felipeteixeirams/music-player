@@ -9,7 +9,9 @@ import {
   Radio,
   Replace,
   Plus,
-  Check
+  Check,
+  MessageSquareQuote,
+  ListMusic
 } from 'lucide-react';
 import { useAudio, usePlaybackTime } from '../context/AudioContext';
 import { usePlaylists } from '../context/PlaylistsContext';
@@ -20,6 +22,7 @@ import { useCoverColor } from '../hooks/useCoverColor';
 import { isLiveTrack } from '../utils/liveRadio';
 import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { LyricsView } from './LyricsView';
+import { QueueList } from './QueueList';
 
 export const ExpandedPlayer: React.FC = () => {
   const playback = usePlaybackState();
@@ -47,7 +50,8 @@ export const ExpandedPlayer: React.FC = () => {
   const { currentTime, duration } = usePlaybackTime();
   const { openAddToPlaylist, playlists } = usePlaylists();
 
-  const [lyricsOpen, setLyricsOpen] = useState(false);
+  // What fills the middle of the screen: the cover, the lyrics or the list of what plays next (the bottom buttons toggle them)
+  const [view, setView] = useState<'cover' | 'lyrics' | 'queue'>('cover');
   // Lines with real timestamps follow the song; plain lyrics only have the order
   const [lyricsSynced, setLyricsSynced] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -64,7 +68,6 @@ export const ExpandedPlayer: React.FC = () => {
     let isMounted = true;
     setSyncedLyrics([]);
     setLyricsSynced(false);
-    setLyricsOpen(false);
 
     fetchSyncedLyrics(currentTrack.artist, currentTrack.title).then((res) => {
       if (isMounted) {
@@ -95,8 +98,26 @@ export const ExpandedPlayer: React.FC = () => {
   const isRadio = isLive || Boolean(radioStation);
   // One button for "keep this song": it is a favorite and/or in some playlist
   const saved = liked || playlists.some((playlist) => playlist.tracks.some((track) => track.id === currentTrack.id));
-  const activeLine = lyricsSynced ? syncedLyrics.reduce((found, line, idx) => (currentTime >= line.time ? idx : found), -1) : -1;
-  const previewLines = syncedLyrics.slice(Math.max(activeLine, 0), Math.max(activeLine, 0) + 3);
+  const hasLyrics = !isLive && syncedLyrics.length > 0;
+  // A track without lyrics falls back to the cover; a live station has no queue to show
+  const activeView = view === 'lyrics' && !hasLyrics ? 'cover' : view === 'queue' && isLive ? 'cover' : view;
+  const saveButton = isLive ? (
+    <div className="w-11 h-11 shrink-0" aria-hidden="true" />
+  ) : (
+    <button
+      onClick={() => {
+        // The first tap keeps the song in the favorites; the sheet that opens shows it and offers the playlists
+        if (!liked) toggleLike(currentTrack);
+        openAddToPlaylist(currentTrack);
+      }}
+      aria-label={saved ? 'Salvo: gerenciar favoritos e playlists' : 'Salvar nos favoritos e em playlists'}
+      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-75 transition-all ${
+        saved ? 'bg-accent text-white' : 'material-ultrathin text-label'
+      }`}
+    >
+      {saved ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+    </button>
+  );
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -149,7 +170,8 @@ export const ExpandedPlayer: React.FC = () => {
           <div className="w-10 h-10 shrink-0" aria-hidden="true" />
         </div>
 
-        {/* 2. Cover (the lyrics open from the card below the controls) */}
+        {/* 2. Cover */}
+        {activeView === 'cover' && (
         <div className="flex-1 flex items-center justify-center my-3 max-h-[420px]">
           <div className="relative w-full max-w-[320px] aspect-square mx-auto">
             {/* The cover shrinks when paused and grows back on play, as in Apple Music */}
@@ -170,10 +192,41 @@ export const ExpandedPlayer: React.FC = () => {
             </div>
           </div>
         </div>
+        )}
+
+        {/* 2b. Lyrics or the queue: the cover shrinks to a header with the song and the save button */}
+        {activeView !== 'cover' && (
+          <>
+            <div className="flex items-center gap-3 my-3">
+              <img
+                src={currentTrack.coverUrl}
+                alt={`Capa do álbum ${currentTrack.album}`}
+                referrerPolicy="no-referrer"
+                className="h-14 w-14 shrink-0 rounded-lg object-cover bg-elevated-2"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.visibility = 'hidden';
+                }}
+              />
+              <div className="min-w-0 flex-1 text-left">
+                <h2 className="truncate text-[17px] font-semibold text-label">{currentTrack.title}</h2>
+                <p className="truncate text-[15px] text-label-secondary">{currentTrack.artist}</p>
+              </div>
+              {saveButton}
+            </div>
+            <div className="relative min-h-0 flex-1">
+              {activeView === 'lyrics' ? (
+                <LyricsView lines={syncedLyrics} synced={lyricsSynced} currentTime={currentTime} onSeek={seekTo} />
+              ) : (
+                <QueueList />
+              )}
+            </div>
+          </>
+        )}
 
         <PlaybackNotice className="mb-2" />
 
-        {/* 3. Metadata Row with Favorite Heart Button */}
+        {/* 3. Metadata row with the save button */}
+        {activeView === 'cover' && (
         <div className="flex items-center justify-between my-2">
           <div className="min-w-0 pr-3 text-left">
             <h2 className="text-[22px] font-bold text-label truncate tracking-tight">
@@ -198,24 +251,9 @@ export const ExpandedPlayer: React.FC = () => {
             </button>
           )}
 
-          {isLive ? (
-            <div className="w-11 h-11 shrink-0" aria-hidden="true" />
-          ) : (
-            <button
-              onClick={() => {
-                // The first tap keeps the song in the favorites; the sheet that opens shows it and offers the playlists
-                if (!liked) toggleLike(currentTrack);
-                openAddToPlaylist(currentTrack);
-              }}
-              aria-label={saved ? 'Salvo: gerenciar favoritos e playlists' : 'Salvar nos favoritos e em playlists'}
-              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-75 transition-all ${
-                saved ? 'bg-accent text-white' : 'material-ultrathin text-label'
-              }`}
-            >
-              {saved ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-            </button>
-          )}
+          {saveButton}
         </div>
+        )}
 
         {/* 4. Timeline Progress Slider (a radio shows what it is instead) */}
         {isRadio ? (
@@ -334,36 +372,39 @@ export const ExpandedPlayer: React.FC = () => {
           )}
         </div>
 
-        {/* 6. Lyrics preview: the current line and the next ones; a tap opens the lyrics full screen */}
-        {!isLive && syncedLyrics.length > 0 && (
-          <button
-            onClick={() => setLyricsOpen(true)}
-            aria-label="Abrir a letra"
-            className="mt-2 w-full rounded-card bg-accent/90 px-4 py-3 text-left text-white active:scale-[0.99] transition-transform"
-          >
-            <span className="block text-[13px] font-bold">Prévia da letra</span>
-            <span data-testid="lyrics-preview" className="block pt-1 text-[17px] font-bold leading-snug">
-              {previewLines.map((line, idx) => (
-                <span key={`${line.time}-${idx}`} className={`block truncate ${idx === 0 && lyricsSynced ? '' : 'opacity-70'}`}>
-                  {line.text}
-                </span>
-              ))}
-            </span>
-          </button>
-        )}
+        {/* 6. Bottom buttons, as in Apple Music: lyrics on the left (only when there are some), the queue on the right */}
+        <div className="mt-3 flex h-11 items-center justify-between px-2">
+          {hasLyrics ? (
+            <button
+              onClick={() => setView(activeView === 'lyrics' ? 'cover' : 'lyrics')}
+              aria-label="Letra"
+              aria-pressed={activeView === 'lyrics'}
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors active:scale-90 ${
+                activeView === 'lyrics' ? 'bg-white/25 text-label' : 'text-label-secondary'
+              }`}
+            >
+              <MessageSquareQuote className="h-5 w-5" />
+            </button>
+          ) : (
+            <div className="h-11 w-11" aria-hidden="true" />
+          )}
+          {!isLive ? (
+            <button
+              onClick={() => setView(activeView === 'queue' ? 'cover' : 'queue')}
+              aria-label="Fila de reprodução"
+              aria-pressed={activeView === 'queue'}
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors active:scale-90 ${
+                activeView === 'queue' ? 'bg-white/25 text-label' : 'text-label-secondary'
+              }`}
+            >
+              <ListMusic className="h-5 w-5" />
+            </button>
+          ) : (
+            <div className="h-11 w-11" aria-hidden="true" />
+          )}
+        </div>
       </div>
 
-      {lyricsOpen && (
-        <LyricsView
-          title={currentTrack.title}
-          artist={currentTrack.artist}
-          lines={syncedLyrics}
-          synced={lyricsSynced}
-          currentTime={currentTime}
-          onSeek={seekTo}
-          onClose={() => setLyricsOpen(false)}
-        />
-      )}
     </div>
   );
 };

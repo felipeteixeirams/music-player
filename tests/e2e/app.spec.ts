@@ -603,20 +603,40 @@ test.describe('player expandido', () => {
     await expect(sheet.getByRole('button', { name: /Músicas curtidas/ })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('INV-UI-09: a letra aparece numa prévia sob os controles e abre em tela cheia; tocar numa linha pula para ela', async ({ page }) => {
+  test('INV-UI-10: o botão Letra (embaixo, à esquerda) põe a letra no lugar da capa; tocar numa linha pula para ela; tocar de novo volta à capa', async ({ page }) => {
     await openExpanded(page, { lyrics: true, previewUrl: silentClip(20) });
-    const preview = page.getByTestId('lyrics-preview');
-    await expect(preview).toContainText('Primeira linha');
-    await page.getByRole('button', { name: 'Abrir a letra' }).click();
-    const lyrics = page.getByRole('dialog', { name: 'Letra' });
+    await expect(page.getByAltText(/Capa do álbum/).first()).toBeVisible();
+    const toggle = page.getByRole('button', { name: 'Letra', exact: true });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    const lyrics = page.getByRole('region', { name: 'Letra da música' });
     await expect(lyrics.getByText('Terceira linha')).toBeVisible();
+    // The cover shrinks to the header with the song and the save button; the controls stay
+    await expect(page.getByRole('button', { name: 'Salvar nos favoritos e em playlists' })).toBeVisible();
+    await expect(page.getByLabel('Linha do tempo da música')).toBeVisible();
     await lyrics.getByText('Terceira linha').click();
     await expect(lyrics.locator('[data-active]')).toHaveText('Terceira linha');
-    await page.getByRole('button', { name: 'Fechar a letra' }).click();
+    await toggle.click();
     await expect(lyrics).toBeHidden();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('INV-UI-09: enquanto a letra é buscada não aparece nada (nem "Buscando a letra"); a prévia surge só quando ela é encontrada', async ({ page }) => {
+  test('INV-UI-10: o botão Fila (embaixo, à direita) mostra "Continue tocando" com as próximas faixas; tocar numa toca; tocar de novo volta à capa', async ({ page }) => {
+    await openExpanded(page);
+    const toggle = page.getByRole('button', { name: 'Fila de reprodução', exact: true });
+    await toggle.click();
+    const queue = page.getByRole('region', { name: 'Fila de reprodução' });
+    await expect(queue.getByText('Continue tocando')).toBeVisible();
+    await expect(queue.getByText('Segunda Faixa')).toBeVisible();
+    await queue.getByRole('button', { name: /Segunda Faixa/ }).click();
+    // It plays now, so the list moves on: it no longer lists it among the next ones
+    await expect(queue.getByRole('button', { name: /Segunda Faixa/ })).toHaveCount(0);
+    await expect(queue.getByRole('button', { name: /Terceira Faixa/ })).toBeVisible();
+    await toggle.click();
+    await expect(queue).toBeHidden();
+  });
+
+  test('INV-UI-10: enquanto a letra é buscada nada aparece; o botão Letra surge só quando ela é encontrada', async ({ page }) => {
     await stubApi(page, { previewUrl: silentClip(20) });
     await page.route('https://lrclib.net/**', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -627,13 +647,13 @@ test.describe('player expandido', () => {
     await page.getByRole('button', { name: /Abrir player expandido/ }).click();
     await page.waitForTimeout(600);
     await expect(page.getByText(/Buscando a letra/)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Abrir a letra' })).toHaveCount(0);
-    await expect(page.getByTestId('lyrics-preview')).toContainText(/(Primeira|Segunda) linha/, { timeout: 6000 });
+    await expect(page.getByRole('button', { name: 'Letra', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Letra', exact: true })).toBeVisible({ timeout: 6000 });
   });
 
-  test('sem letra disponível não aparece a prévia', async ({ page }) => {
+  test('sem letra disponível o botão Letra não aparece', async ({ page }) => {
     await openExpanded(page);
     await page.waitForTimeout(500);
-    await expect(page.getByRole('button', { name: 'Abrir a letra' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Letra', exact: true })).toHaveCount(0);
   });
 });
