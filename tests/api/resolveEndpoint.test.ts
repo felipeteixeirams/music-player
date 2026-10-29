@@ -6,6 +6,7 @@ import {
   cacheKeysFor,
   lookupEndpoint,
   FOUND_TTL_MS,
+  MATCHER_EPOCH_MS,
   MISS_TTL_MS,
   reportBadVideoEndpoint,
   resolveEndpoint,
@@ -65,7 +66,7 @@ function fakeAdmin(limitFails = false) {
 function setup(options: { via?: ResolvedVideos['via']; videoIds?: string[]; searchFails?: boolean; limit?: number; noAdmin?: boolean; suspended?: boolean } = {}) {
   const fake = fakeAdmin();
   let searches = 0;
-  let now = 1_000_000;
+  let now = MATCHER_EPOCH_MS + 1_000_000;
   const deps: ResolveDeps = {
     admin: options.noAdmin ? null : fake.admin,
     breaker: { check: async () => (options.suspended ? { until: 2_000_000, reason: 'quota' as const } : null) },
@@ -403,4 +404,15 @@ test('INV-PLAY-15: com a busca oficial suspensa a pré-resolução não busca ne
   assert.deepEqual((tap.body as { videoIds: string[]; youtube?: string }).youtube, 'suspended');
   assert.equal((tap.body as { videoIds: string[] }).videoIds.length, 1);
   assert.equal(t.used.get(USER.id), 1);
+});
+
+test('INV-PLAY-18: um vídeo guardado antes da porta de identidade não vale como achado (pode ser de outro artista); "não achei" antigo segue valendo', async () => {
+  const t = setup();
+  await t.admin.putCached('deezer-1', [VIDEO], MATCHER_EPOCH_MS - 1);
+  await t.admin.putCached('deezer-2', [], t.deps.now());
+  const body = { lookup: [
+    { id: 'deezer-1', artist: 'A', title: 'Uma', duration: 100 },
+    { id: 'deezer-2', artist: 'B', title: 'Outra', duration: 100 }
+  ] };
+  assert.deepEqual(Object.keys(((await lookupEndpoint(body, t.deps)).body as { found: object }).found), []);
 });
