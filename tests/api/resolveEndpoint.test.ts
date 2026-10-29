@@ -447,3 +447,18 @@ test('INV-PLAY-22: avoid=<vídeo> não lê o cache, busca de novo, nunca devolve
   await resolveEndpoint({ ...QUERY, id: 'deezer-7', avoid: 'curto' }, USER, ignored.deps);
   assert.equal(ignored.searches(), 1);
 });
+
+test('INV-PLAY-23: uma busca que não achou vídeo nenhum devolve a unidade da cota (e o contador mostrado), menos no "Não é esta música"', async () => {
+  const t = setup({ videoIds: [] });
+  const nothing = await resolveEndpoint({ ...QUERY, id: 'deezer-1' }, USER, t.deps);
+  assert.deepEqual((nothing.body as { videoIds: string[]; quota: { used: number } }).quota.used, 0);
+  assert.equal(t.used.get('user-1'), 0, 'devolveu');
+
+  const found = setup({ videoIds: [VIDEO] });
+  await resolveEndpoint({ ...QUERY, id: 'deezer-2' }, USER, found.deps);
+  assert.equal(found.used.get('user-1'), 1, 'achou: a unidade fica gasta');
+
+  const avoided = setup({ videoIds: [] });
+  await resolveEndpoint({ ...QUERY, id: 'deezer-3', avoid: 'WRONGWRONG1' }, USER, avoided.deps);
+  assert.equal(avoided.used.get('user-1'), 1, 'com avoid a unidade não volta');
+});
