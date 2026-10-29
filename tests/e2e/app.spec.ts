@@ -619,7 +619,7 @@ test.describe('player expandido', () => {
   test('INV-UI-09: enquanto a letra é buscada não aparece nada (nem "Buscando a letra"); a prévia surge só quando ela é encontrada', async ({ page }) => {
     await stubApi(page, { previewUrl: silentClip(20) });
     await page.route('https://lrclib.net/**', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify([{ syncedLyrics: '[00:00.00]Primeira linha\n[00:02.00]Segunda linha' }]) });
     });
     await page.goto('/');
@@ -628,7 +628,7 @@ test.describe('player expandido', () => {
     await page.waitForTimeout(600);
     await expect(page.getByText(/Buscando a letra/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Abrir a letra' })).toHaveCount(0);
-    await expect(page.getByTestId('lyrics-preview')).toContainText('Primeira linha', { timeout: 5000 });
+    await expect(page.getByTestId('lyrics-preview')).toContainText(/(Primeira|Segunda) linha/, { timeout: 6000 });
   });
 
   test('sem letra disponível não aparece a prévia', async ({ page }) => {

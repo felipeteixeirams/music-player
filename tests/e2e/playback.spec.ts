@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fakeYouTube, silentClip, stubApi, TOP_HITS } from './fixtures';
+import { fakeYouTube, loadedVideo, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const FIRST = 'AAAAAAAAAAA';
 const topHit = (page: Page) => page.locator('section[aria-label="Top Hits"] [role=button]').first();
@@ -376,4 +376,49 @@ test('INV-PLAY-21: uma duração do player muito menor que a do catálogo não v
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
   await expect(page.getByTestId('playback-log')).toContainText(/duração do player ignorada|barra com a duração do catálogo/);
+});
+
+test.describe('"Não é esta música"', () => {
+  const SECOND = 'BBBBBBBBBBB';
+  const OTHER = 'CCCCCCCCCCC';
+
+  async function playAndExpand(page: Page, options: Parameters<typeof stubApi>[1]) {
+    await fakeYouTube(page);
+    await stubApi(page, options);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+    await topHit(page).click();
+    await expect.poll(() => loadedVideo(page)).toBe(options?.videoIds?.[0]);
+    await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+  }
+
+  test('INV-PLAY-22: com uma só versão, o app denuncia o vídeo, procura de novo sem ele e toca o novo', async ({ page }) => {
+    const reports: string[] = [];
+    const avoids: string[] = [];
+    await playAndExpand(page, { videoIds: [FIRST], otherVideoIds: [OTHER], reports, avoids });
+    await page.getByRole('button', { name: 'Não é esta música' }).click();
+    await expect.poll(() => loadedVideo(page)).toBe(OTHER);
+    expect(reports).toEqual([FIRST]);
+    expect(avoids).toEqual([FIRST]);
+  });
+
+  test('INV-PLAY-22: havendo outra versão já conhecida, toca a seguinte sem nova busca', async ({ page }) => {
+    const reports: string[] = [];
+    const avoids: string[] = [];
+    await playAndExpand(page, { videoIds: [FIRST, SECOND], reports, avoids });
+    await page.getByRole('button', { name: 'Não é esta música' }).click();
+    await expect.poll(() => loadedVideo(page)).toBe(SECOND);
+    expect(reports).toEqual([FIRST]);
+    expect(avoids).toEqual([]);
+  });
+
+  test('INV-PLAY-22: sem outra versão a faixa segue tocando e o app avisa', async ({ page }) => {
+    const loads = () => page.evaluate(() => (window as any).__yt.loads.length);
+    await playAndExpand(page, { videoIds: [FIRST], otherVideoIds: [], reports: [], avoids: [] });
+    const before = await loads();
+    await page.getByRole('button', { name: 'Não é esta música' }).click();
+    await expect(page.getByText('Não encontrei outra versão desta faixa.').first()).toBeVisible();
+    expect(await loads()).toBe(before);
+  });
 });

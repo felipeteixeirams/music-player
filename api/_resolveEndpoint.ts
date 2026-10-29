@@ -148,8 +148,12 @@ export async function resolveEndpoint(
   // `warm=1`: the app resolves ahead of the tap a track the person is likely to play. Same cache, same search, but it may
   // only use the part of the daily allowance that is not kept for taps, and it never reports "limit reached"
   const warm = (Array.isArray(query.warm) ? query.warm[0] : query.warm) === '1';
+  // `avoid=<videoId>`: the person said this video is not the song ("Não é esta música"): the cache is not read (it is what
+  // was wrong), the search runs again and the answer never holds that video
+  const avoidRaw = Array.isArray(query.avoid) ? query.avoid[0] : query.avoid;
+  const avoid = typeof avoidRaw === 'string' && VIDEO_ID.test(avoidRaw) ? avoidRaw : null;
 
-  if (admin) {
+  if (admin && !avoid) {
     try {
       const hit = freshEntry(await admin.getCachedMany(keys), keys, now());
       if (hit) return { status: 200, body: { videoIds: hit.videoIds, ...(warm ? { warm: 'cached' } : {}) }, cacheControl: noStore };
@@ -192,6 +196,7 @@ export async function resolveEndpoint(
   let result: ResolvedVideos;
   try {
     result = await deps.search(track, webOnly ? { webOnly } : undefined);
+    if (avoid) result = { ...result, videoIds: result.videoIds.filter((id) => id !== avoid) };
   } catch (err) {
     // A search that failed gave the user nothing: the unit goes back
     if (consumed && admin && user) await admin.refund(user.id).catch(() => undefined);
@@ -202,7 +207,7 @@ export async function resolveEndpoint(
 
   // Found videos are always kept. An empty answer is kept only when the official API gave it: the unofficial web
   // search comes back empty when it is merely blocked or changed, and that must not stick to a good track.
-  if (admin && (result.videoIds.length > 0 || result.via === 'official')) {
+  if (admin && (result.videoIds.length > 0 || (result.via === 'official' && !avoid))) {
     // Under the catalog id and under the song's own key, so the same song with another id is found next time
     await Promise.all(keys.map((key) => admin.putCached(key, result.videoIds, now()))).catch((err: Error) =>
       deps.log(`[Resolve] cache não gravado: ${err.message}`)

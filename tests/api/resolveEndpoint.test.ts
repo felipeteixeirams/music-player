@@ -428,3 +428,22 @@ test('INV-PLAY-18: um vídeo guardado antes da porta de identidade não vale com
   ] };
   assert.deepEqual(Object.keys(((await lookupEndpoint(body, t.deps)).body as { found: object }).found), []);
 });
+
+test('INV-PLAY-22: avoid=<vídeo> não lê o cache, busca de novo, nunca devolve esse vídeo e não grava "não achei" quando só sobrava ele', async () => {
+  const WRONG = 'WRONGWRONG1';
+  const t = setup({ videoIds: [WRONG, VIDEO] });
+  await t.admin.putCached('deezer-9', [WRONG], t.deps.now());
+  const first = await resolveEndpoint({ ...QUERY, id: 'deezer-9', avoid: WRONG }, USER, t.deps);
+  assert.deepEqual((first.body as { videoIds: string[] }).videoIds, [VIDEO]);
+  assert.equal(t.searches(), 1, 'o cache não foi lido: buscou');
+  assert.deepEqual(t.cache.get('deezer-9')?.videoIds, [VIDEO], 'a nova resposta substitui a errada para todos');
+
+  const only = setup({ videoIds: [WRONG], via: 'official' });
+  const empty = await resolveEndpoint({ ...QUERY, id: 'deezer-8', avoid: WRONG }, USER, only.deps);
+  assert.deepEqual((empty.body as { videoIds: string[] }).videoIds, []);
+  assert.equal(only.cache.has('deezer-8'), false, 'não grava "não achei" por causa de um vídeo recusado');
+
+  const ignored = setup({ videoIds: [VIDEO] });
+  await resolveEndpoint({ ...QUERY, id: 'deezer-7', avoid: 'curto' }, USER, ignored.deps);
+  assert.equal(ignored.searches(), 1);
+});
