@@ -11,7 +11,9 @@ import {
   Plus,
   Check,
   MessageSquareQuote,
-  ListMusic
+  ListMusic,
+  MoreHorizontal,
+  SearchX
 } from 'lucide-react';
 import { useAudio, usePlaybackTime } from '../context/AudioContext';
 import { usePlaylists } from '../context/PlaylistsContext';
@@ -54,6 +56,7 @@ export const ExpandedPlayer: React.FC = () => {
   const [view, setView] = useState<'cover' | 'lyrics' | 'queue'>('cover');
   // Lines with real timestamps follow the song; plain lyrics only have the order
   const [lyricsSynced, setLyricsSynced] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
   const [syncedLyrics, setSyncedLyrics] = useState<LrcLine[]>([]);
@@ -99,6 +102,8 @@ export const ExpandedPlayer: React.FC = () => {
   // One button for "keep this song": it is a favorite and/or in some playlist
   const saved = liked || playlists.some((playlist) => playlist.tracks.some((track) => track.id === currentTrack.id));
   const hasLyrics = !isLive && syncedLyrics.length > 0;
+  // The menu holds what only matters now and then: the versions of the track (they come from the YouTube video that plays)
+  const hasMenu = !isLive && versionCount > 0;
   // A track without lyrics falls back to the cover; a live station has no queue to show
   const activeView = view === 'lyrics' && !hasLyrics ? 'cover' : view === 'queue' && isLive ? 'cover' : view;
   const saveButton = isLive ? (
@@ -167,7 +172,54 @@ export const ExpandedPlayer: React.FC = () => {
             </p>
           </div>
 
-          <div className="w-10 h-10 shrink-0" aria-hidden="true" />
+          {hasMenu ? (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-label="Mais opções"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="w-10 h-10 rounded-full material-ultrathin flex items-center justify-center text-label active:scale-90 transition-all"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+                  <div role="menu" aria-label="Mais opções" className="absolute right-0 top-12 z-30 w-60 overflow-hidden rounded-sheet material-thick py-1 shadow-2xl animate-in fade-in">
+                    {versionCount > 1 && (
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          switchVersion();
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label active:bg-fill-tertiary"
+                      >
+                        <Replace className="h-4 w-4 text-label-secondary" aria-hidden="true" />
+                        Tocar outra versão
+                      </button>
+                    )}
+                    {versionCount > 0 && (
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          markWrongVersion();
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label active:bg-fill-tertiary"
+                      >
+                        <SearchX className="h-4 w-4 text-label-secondary" aria-hidden="true" />
+                        Não é esta música
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="w-10 h-10 shrink-0" aria-hidden="true" />
+          )}
         </div>
 
         {/* 2. Cover */}
@@ -233,23 +285,8 @@ export const ExpandedPlayer: React.FC = () => {
               {currentTrack.title}
             </h2>
             <p className="text-[20px] text-label-secondary truncate">{currentTrack.artist}</p>
-            {!isLive && versionCount > 0 && (
-              <button onClick={markWrongVersion} className="mt-1 text-[13px] text-label-secondary underline underline-offset-2 active:text-label">
-                Não é esta música
-              </button>
-            )}
           </div>
 
-          {!isLive && versionCount > 1 && (
-            <button
-              onClick={switchVersion}
-              aria-label="Tocar outra versão desta faixa"
-              title="Outra versão"
-              className="w-11 h-11 mr-2 rounded-full material-ultrathin flex items-center justify-center shrink-0 active:scale-75 transition-all"
-            >
-              <Replace className="w-5 h-5 text-label" />
-            </button>
-          )}
 
           {saveButton}
         </div>
