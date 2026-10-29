@@ -87,7 +87,7 @@ Objetivo: ligar um problema relatado a uma pessoa e a um fluxo, nos logs da Verc
 ## Cota e cache (etapa 3)
 
 - Cada pessoa traz até 30 faixas novas por dia (`DAILY_NEW_TRACKS` na Vercel muda o número): uma "faixa nova" é uma que ninguém tocou antes no app, porque só ela gasta uma busca da YouTube Data API (≈100 por dia no app inteiro). Faixa já resolvida por qualquer pessoa vem do cache compartilhado e não conta. Tocar não passa pelo servidor e não tem limite de horas.
-- Com a cota acabada o app toca a prévia de 30 s e avisa; o contador aparece em Ajustes. O dia vira à meia-noite de São Paulo.
+- Com a cota acabada o servidor procura a faixa pela busca web, que não gasta cota (INV-PLAY-19), e o app só toca a prévia de 30 s e avisa quando essa busca também não acha; o contador aparece em Ajustes. O dia vira à meia-noite de São Paulo.
 - O servidor usa `DATABASE_SUPABASE_SERVICE_ROLE_KEY` (segredo, só na Vercel) para o cache e a cota; o navegador nunca a recebe.
 - Ajuste fino: com 3 pessoas, 3 x 30 = 90 cabe nas ≈100 buscas diárias; ao convidar mais gente, baixe `DAILY_NEW_TRACKS` ou peça aumento de cota ao Google.
 

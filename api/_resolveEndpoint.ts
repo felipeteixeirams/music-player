@@ -41,7 +41,7 @@ export interface ResolveDeps {
   admin: Admin | null;
   /** Whether the official YouTube search is suspended (its quota is spent); the search itself consults it too. */
   breaker: Pick<YoutubeBreaker, 'check'>;
-  search: (query: TrackQuery) => Promise<ResolvedVideos>;
+  search: (query: TrackQuery, options?: { webOnly?: boolean }) => Promise<ResolvedVideos>;
   dailyLimit: number;
   /** The daily count at which warming stops (taps may go on to `dailyLimit`). */
   warmLimit: number;
@@ -77,7 +77,7 @@ export function defaultDeps(): ResolveDeps {
   return {
     admin,
     breaker,
-    search: (query) => resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY, breaker }),
+    search: (query, options) => resolveYouTubeVideos(query, { apiKey: process.env.YOUTUBE_API_KEY, breaker, ...options }),
     dailyLimit,
     warmLimit: Math.max(0, dailyLimit - WARM_RESERVE),
     now: Date.now,
@@ -166,6 +166,7 @@ export async function resolveEndpoint(
 
   let quota: ResolveQuota | undefined;
   let consumed = false;
+  let webOnly = false;
   if (admin && user) {
     try {
       const used = await admin.consume(user.id, warm ? deps.warmLimit : deps.dailyLimit);
@@ -174,11 +175,14 @@ export async function resolveEndpoint(
         return { status: 200, body: { videoIds: [], warm: 'skipped' }, cacheControl: noStore };
       }
       if (used < 0) {
-        quota = { used: deps.dailyLimit, limit: deps.dailyLimit, exceeded: true };
-        return { status: 200, body: { videoIds: [], quota }, cacheControl: noStore };
+        // Allowance of official searches spent: the web search costs no quota, so the track is still looked up that way
+        // (INV-PLAY-19). `exceeded` stays false: the app has no reason to skip tracks or warn.
+        webOnly = true;
+        quota = { used: deps.dailyLimit, limit: deps.dailyLimit, exceeded: false };
+      } else {
+        consumed = true;
+        quota = { used, limit: deps.dailyLimit, exceeded: false };
       }
-      consumed = true;
-      quota = { used, limit: deps.dailyLimit, exceeded: false };
     } catch (err) {
       deps.log(`[Resolve] cota indisponível (${(err as Error).message}); buscando sem limite`);
     }
@@ -187,7 +191,7 @@ export async function resolveEndpoint(
   const startTime = now();
   let result: ResolvedVideos;
   try {
-    result = await deps.search(track);
+    result = await deps.search(track, webOnly ? { webOnly } : undefined);
   } catch (err) {
     // A search that failed gave the user nothing: the unit goes back
     if (consumed && admin && user) await admin.refund(user.id).catch(() => undefined);
