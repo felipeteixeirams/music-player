@@ -52,18 +52,15 @@ export const ExpandedPlayer: React.FC = () => {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
   const [syncedLyrics, setSyncedLyrics] = useState<LrcLine[]>([]);
-  const [isFetchingLyrics, setIsFetchingLyrics] = useState(false);
 
   React.useEffect(() => {
     if (!currentTrack) return;
     if (isLiveTrack(currentTrack)) {
       setSyncedLyrics([]);
       setLyricsSynced(false);
-      setIsFetchingLyrics(false);
       return;
     }
     let isMounted = true;
-    setIsFetchingLyrics(true);
     setSyncedLyrics([]);
     setLyricsSynced(false);
     setLyricsOpen(false);
@@ -78,7 +75,6 @@ export const ExpandedPlayer: React.FC = () => {
         } else if (currentTrack.lyrics && currentTrack.lyrics.length > 0) {
           setSyncedLyrics(currentTrack.lyrics.map((text, idx) => ({ time: idx * 5, text })));
         }
-        setIsFetchingLyrics(false);
       }
     });
 
@@ -333,24 +329,20 @@ export const ExpandedPlayer: React.FC = () => {
         </div>
 
         {/* 6. Lyrics preview: the current line and the next ones; a tap opens the lyrics full screen */}
-        {!isLive && (syncedLyrics.length > 0 || isFetchingLyrics) && (
+        {!isLive && syncedLyrics.length > 0 && (
           <button
-            onClick={() => syncedLyrics.length > 0 && setLyricsOpen(true)}
+            onClick={() => setLyricsOpen(true)}
             aria-label="Abrir a letra"
             className="mt-2 w-full rounded-card bg-accent/90 px-4 py-3 text-left text-white active:scale-[0.99] transition-transform"
           >
             <span className="block text-[13px] font-bold">Prévia da letra</span>
-            {syncedLyrics.length === 0 ? (
-              <span className="block pt-1 text-[15px] opacity-80">Buscando a letra…</span>
-            ) : (
-              <span data-testid="lyrics-preview" className="block pt-1 text-[17px] font-bold leading-snug">
-                {previewLines.map((line, idx) => (
-                  <span key={`${line.time}-${idx}`} className={`block truncate ${idx === 0 && lyricsSynced ? '' : 'opacity-70'}`}>
-                    {line.text}
-                  </span>
-                ))}
-              </span>
-            )}
+            <span data-testid="lyrics-preview" className="block pt-1 text-[17px] font-bold leading-snug">
+              {previewLines.map((line, idx) => (
+                <span key={`${line.time}-${idx}`} className={`block truncate ${idx === 0 && lyricsSynced ? '' : 'opacity-70'}`}>
+                  {line.text}
+                </span>
+              ))}
+            </span>
           </button>
         )}
       </div>
