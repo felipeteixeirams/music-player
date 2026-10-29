@@ -5,6 +5,9 @@ import type { KeyValueStorage } from '../utils/scopedStorage';
 import { emitHistoryApplied, emitUserDataApplied, onHistoryChanged, onUserDataChanged } from '../utils/userDataEvents';
 import { createHistoryRemote } from '../utils/playHistoryRemote';
 import { PlayHistorySync } from '../utils/playHistorySync';
+import { createProgressRemote } from '../utils/podcastProgressRemote';
+import { PodcastProgressSync } from '../utils/podcastProgressSync';
+import { subscribeProgress } from '../utils/podcastProgress';
 import { createRemote } from '../utils/userDataRemote';
 import { UserDataSync } from '../utils/userDataSync';
 
@@ -20,9 +23,11 @@ export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> =
     };
     const sync = new UserDataSync({ storage, remote: createRemote(config, getUser), onApplied: emitUserDataApplied });
     const history = new PlayHistorySync({ storage, remote: createHistoryRemote(config, getUser), onApplied: emitHistoryApplied });
+    const progress = new PodcastProgressSync({ storage, remote: createProgressRemote(config, getUser) });
 
     const stopListening = onUserDataChanged(() => sync.notifyChanged());
     const stopHistory = onHistoryChanged(() => history.notifyChanged());
+    const stopProgress = subscribeProgress(() => progress.notifyChanged());
     let lastRefresh = Date.now();
     const refresh = () => {
       // Waking the app up several times in a row is one refresh
@@ -30,9 +35,12 @@ export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> =
       lastRefresh = Date.now();
       sync.refresh();
       history.refresh();
+      progress.refresh();
     };
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh();
+      // Leaving the app: what was listened to goes to the account now, not after the wait
+      else progress.flush();
     };
     const onOnline = () => {
       lastRefresh = 0;
@@ -42,12 +50,15 @@ export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> =
     window.addEventListener('online', onOnline);
     sync.start();
     history.start();
+    progress.start();
 
     return () => {
       sync.dispose();
       history.dispose();
+      progress.dispose();
       stopListening();
       stopHistory();
+      stopProgress();
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', onOnline);
     };

@@ -1,4 +1,4 @@
-import type { Track } from '../types/music';
+import type { PodcastShowSummary, Track } from '../types/music';
 import type { Playlist } from './playlists';
 import type { SnapshotDiff, UserDataSnapshot } from './userData';
 
@@ -7,8 +7,11 @@ import { createRestCaller, RemoteError, type RestConfig } from './supabaseRest';
 export { RemoteError };
 export type RemoteConfig = RestConfig;
 
+/** What the account holds. `podcastsMissing`: its podcast tables are not there (the migration was not applied yet), so `podcasts` says nothing. */
+export type RemoteSnapshot = UserDataSnapshot & { podcastsMissing?: true };
+
 export interface Remote {
-  fetchAll(): Promise<UserDataSnapshot>;
+  fetchAll(): Promise<RemoteSnapshot>;
   push(diff: SnapshotDiff): Promise<void>;
 }
 
@@ -56,6 +59,18 @@ export function createRemote(
     await call(path, { method: 'DELETE', prefer: 'return=minimal' });
   };
 
+  // The podcast tables come with a migration the owner applies by hand: until it is there, everything else keeps syncing
+  let podcastsMissing = false;
+  const ifPodcastsExist = async (job: () => Promise<void>) => {
+    if (podcastsMissing) return;
+    try {
+      await job();
+    } catch (error) {
+      if (error instanceof RemoteError && error.status === 404) podcastsMissing = true;
+      else throw error;
+    }
+  };
+
   return {
     async fetchAll() {
       const [favorites, playlists, playlistTracks, choices] = await Promise.all([
@@ -67,6 +82,10 @@ export function createRemote(
         ),
         selectAll<{ track_id: string; video_id: string }>('video_choices', 'select=track_id,video_id')
       ]);
+      let follows: { show: PodcastShowSummary }[] = [];
+      await ifPodcastsExist(async () => {
+        follows = await selectAll<{ show: PodcastShowSummary }>('podcast_follows', 'select=show&order=created_at.asc,show_id.asc');
+      });
 
       const byPlaylist = new Map<string, Track[]>();
       for (const row of playlistTracks) byPlaylist.set(row.playlist_id, [...(byPlaylist.get(row.playlist_id) ?? []), row.track]);
@@ -78,7 +97,9 @@ export function createRemote(
           createdAt: Date.parse(p.created_at) || 0,
           tracks: byPlaylist.get(p.id) ?? []
         })),
-        choices: Object.fromEntries(choices.map((row) => [row.track_id, row.video_id]))
+        choices: Object.fromEntries(choices.map((row) => [row.track_id, row.video_id])),
+        podcasts: follows.map((row) => row.show),
+        ...(podcastsMissing ? { podcastsMissing: true as const } : {})
       };
     },
 
@@ -115,11 +136,22 @@ export function createRemote(
         diff.choiceUpserts.map((c) => ({ user_id: userId, track_id: c.trackId, video_id: c.videoId }))
       );
 
+      await ifPodcastsExist(() =>
+        upsert(
+          'podcast_follows',
+          'user_id,show_id',
+          diff.podcastUpserts.map((show, index) => ({ user_id: userId, show_id: show.id, show, created_at: new Date(now + index).toISOString() }))
+        )
+      );
+
       for (const { playlistId, trackIds } of diff.playlistTrackRemovals) {
         for (const part of chunks(trackIds)) await remove(`/playlist_tracks?playlist_id=eq.${playlistId}&track_id=in.${inList(part)}`);
       }
       for (const part of chunks(diff.favoriteRemovals)) await remove(`/favorites?track_id=in.${inList(part)}`);
       for (const part of chunks(diff.choiceRemovals)) await remove(`/video_choices?track_id=in.${inList(part)}`);
+      await ifPodcastsExist(async () => {
+        for (const part of chunks(diff.podcastRemovals)) await remove(`/podcast_follows?show_id=in.${inList(part)}`);
+      });
       for (const part of chunks(diff.playlistRemovals)) await remove(`/playlists?id=in.${inList(part)}`);
     }
   };

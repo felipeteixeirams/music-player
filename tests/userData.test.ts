@@ -18,7 +18,7 @@ const track = (n: number): Track => ({
   id: `deezer-${n}`, title: `T${n}`, artist: 'A', album: 'B', duration: 100, coverUrl: '', style: 'x', categoryId: 'c', sources: { localUrl: '' }
 });
 const playlist = (id: string, name: string, tracks: Track[]) => ({ id, name, createdAt: 1, tracks });
-const snap = (partial: Partial<UserDataSnapshot> = {}): UserDataSnapshot => ({ favorites: [], playlists: [], choices: {}, ...partial });
+const snap = (partial: Partial<UserDataSnapshot> = {}): UserDataSnapshot => ({ favorites: [], playlists: [], choices: {}, podcasts: [], ...partial });
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -126,3 +126,24 @@ test('adoptLegacyData não faz nada sem dados antigos', () => {
   assert.equal(readSyncFlag(scopedStorage('u1', backing)), null);
 });
 
+
+test('INV-POD-06: os programas seguidos entram no snapshot: chave, diferença e junção de dois aparelhos', () => {
+  const show = (id: string) => ({ id, title: `P${id}`, author: 'A', coverUrl: 'https://x.example/c.jpg' });
+  const a = snap({ podcasts: [show('1')] });
+  const b = snap({ podcasts: [show('1'), show('2')] });
+  assert.notEqual(snapshotKey(a), snapshotKey(b));
+
+  const diff = diffSnapshots(b, a);
+  assert.deepEqual(diff.podcastRemovals, ['2']);
+  assert.deepEqual(diff.podcastUpserts, []);
+  assert.deepEqual(diffSnapshots(a, b).podcastUpserts.map((s) => s.id), ['2']);
+
+  const merged = mergeSnapshots(snap({ podcasts: [show('3'), show('1')] }), snap({ podcasts: [show('1'), show('2')] }));
+  assert.deepEqual(merged.podcasts.map((s) => s.id), ['1', '2', '3'], 'o que a conta tem primeiro, sem repetir');
+
+  // Written and read back from storage
+  const store = new Map<string, string>();
+  const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) };
+  writeSnapshot(storage, b);
+  assert.deepEqual(readSnapshot(storage).podcasts.map((s) => s.id), ['1', '2']);
+});

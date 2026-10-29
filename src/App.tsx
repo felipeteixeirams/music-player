@@ -95,7 +95,7 @@ const MusicAppContent: React.FC = () => {
   // Where the user is inside the Library tab (null: its menu of sections)
   const [libraryView, setLibraryView] = useState<LibraryView | null>(null);
   // Podcasts open from the Search tab: their search, or a show (reached from there or from the search results)
-  const [podcastView, setPodcastView] = useState<{ kind: 'home' } | { kind: 'show'; show: PodcastShowSummary; from: 'home' | 'search' } | null>(null);
+  const [podcastView, setPodcastView] = useState<{ kind: 'home' } | { kind: 'show'; show: PodcastShowSummary; from: 'home' | 'search' | 'library' } | null>(null);
 
   // Register service worker on mount
   useEffect(() => {
@@ -294,6 +294,8 @@ const MusicAppContent: React.FC = () => {
             podcastView
               ? podcastView.kind === 'show' && podcastView.from === 'home'
                 ? 'Podcasts'
+                : podcastView.kind === 'show' && podcastView.from === 'library'
+                ? 'Podcasts'
                 : 'Buscar'
               : selectedAlbum
               ? selectedArtist?.name ?? 'Voltar'
@@ -398,6 +400,7 @@ const MusicAppContent: React.FC = () => {
               recent={recentTracks}
               onClearHistory={clearHistory}
               onPlay={(track, queue) => playTrack(track, queue)}
+              onOpenShow={(show) => setPodcastView({ kind: 'show', show, from: 'library' })}
             />
           ) : isSearchTab ? (
             searchScope === 'online' ? (

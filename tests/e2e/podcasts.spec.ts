@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { nav, stubApi } from './fixtures';
+import { MOCK_URL, testUser } from './supabaseMock';
 
 async function openShow(page: Page, options: Parameters<typeof stubApi>[1] = {}) {
   await stubApi(page, options);
@@ -132,4 +133,99 @@ test('INV-POD-04: na busca online os programas aparecem numa seção Podcasts e 
   await expect(page.getByTestId('podcast-page')).toBeVisible();
   await page.getByRole('button', { name: /Buscar/ }).first().click();
   await expect(page.getByRole('region', { name: 'Podcasts' })).toBeVisible();
+});
+
+async function accountOf(request: APIRequestContext, userId: string) {
+  return (await request.get(`${MOCK_URL}/__state/${userId}`)).json() as Promise<{
+    podcast_follows: { show_id: string; show: { title: string } }[];
+    podcast_progress: { episode_id: string; position: number; episode: { title: string } }[];
+  }>;
+}
+
+async function openAs(page: Page, user: ReturnType<typeof testUser>) {
+  await stubApi(page, { user });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+}
+
+test('INV-POD-06: seguir um programa o põe na Biblioteca, na conta e em outro aparelho; deixar de seguir tira dos dois', async ({ page, browser, request }) => {
+  const user = testUser();
+  await openAs(page, user);
+  await nav(page, 'Buscar').click();
+  await page.getByRole('button', { name: 'Podcasts' }).click();
+  await page.getByLabel('Buscar podcasts').fill('zen');
+  await page.getByRole('button', { name: /Despertar Zen/ }).click();
+  const follow = page.getByRole('button', { name: /^Seguir$|^Seguindo$/ });
+  await expect(follow).toHaveText('Seguir');
+  await follow.click();
+  await expect(follow).toHaveText('Seguindo');
+  await expect.poll(async () => (await accountOf(request, user.id)).podcast_follows.map((row) => row.show_id)).toEqual(['4242']);
+
+  // Library: the row counts it, the list shows it, and tapping it opens the show; back returns to the list
+  await nav(page, 'Biblioteca').click();
+  await expect(page.getByRole('button', { name: /^Podcasts/ })).toContainText('1');
+  await page.getByRole('button', { name: /^Podcasts/ }).click();
+  await page.getByRole('button', { name: /Despertar Zen/ }).click();
+  await expect(page.getByTestId('podcast-page')).toBeVisible();
+  await page.getByRole('button', { name: /Podcasts/ }).first().click();
+  await expect(page.getByRole('list', { name: 'Podcasts seguidos' })).toBeVisible();
+
+  // Another device of the same account sees it
+  const other = await browser.newContext({ viewport: { width: 414, height: 896 }, serviceWorkers: 'block', colorScheme: 'dark' });
+  const otherPage = await other.newPage();
+  await openAs(otherPage, user);
+  await nav(otherPage, 'Biblioteca').click();
+  await expect(otherPage.getByRole('button', { name: /^Podcasts/ })).toContainText('1');
+
+  // Unfollowing here takes it out of the account
+  await page.getByRole('button', { name: /Despertar Zen/ }).click();
+  await page.getByRole('button', { name: 'Seguindo' }).click();
+  await expect(page.getByRole('button', { name: 'Seguir', exact: true })).toBeVisible();
+  await expect.poll(async () => (await accountOf(request, user.id)).podcast_follows).toEqual([]);
+  await other.close();
+});
+
+test('INV-POD-06: o botão do player de um episódio segue o programa', async ({ page }) => {
+  await openShow(page);
+  await page.getByRole('button', { name: /^Tocar Palestra Três/ }).click();
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+  await page.getByRole('button', { name: 'Seguir o programa' }).click();
+  await expect(page.getByRole('button', { name: /Seguindo o programa/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Minimizar player expandido' }).click();
+  await expect(page.getByRole('button', { name: 'Seguindo', exact: true })).toBeVisible();
+});
+
+test('INV-POD-07: a posição do episódio vai para a conta ao sair do app e chega a outro aparelho, que retoma dali', async ({ page, browser, request }) => {
+  const user = testUser();
+  await openAs(page, user);
+  await nav(page, 'Buscar').click();
+  await page.getByRole('button', { name: 'Podcasts' }).click();
+  await page.getByLabel('Buscar podcasts').fill('zen');
+  await page.getByRole('button', { name: /Despertar Zen/ }).click();
+  await page.getByRole('button', { name: /^Tocar Palestra Três/ }).click();
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(12_500);
+  await page.getByRole('button', { name: 'Pausar música' }).click();
+  // The app going to the background sends what was listened to at once
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(async () => (await accountOf(request, user.id)).podcast_progress.map((row) => row.episode_id), { timeout: 10_000 }).toEqual(['pod-4242-aaaaaaaaaa']);
+  const stored = (await accountOf(request, user.id)).podcast_progress[0];
+  expect(stored.position).toBeGreaterThanOrEqual(12);
+  expect(stored.episode.title).toBe('Palestra Três');
+
+  // A second device shows it as in progress
+  const other = await browser.newContext({ viewport: { width: 414, height: 896 }, serviceWorkers: 'block', colorScheme: 'dark' });
+  const otherPage = await other.newPage();
+  await openAs(otherPage, user);
+  await nav(otherPage, 'Buscar').click();
+  await otherPage.getByRole('button', { name: 'Podcasts' }).click();
+  await otherPage.getByLabel('Buscar podcasts').fill('zen');
+  await otherPage.getByRole('button', { name: /Despertar Zen/ }).click();
+  await expect(otherPage.getByRole('progressbar', { name: 'Progresso do episódio' })).toBeVisible({ timeout: 8000 });
+  await expect(otherPage.getByRole('button', { name: /^Continuar: Palestra Três/ })).toBeVisible();
+  await other.close();
 });

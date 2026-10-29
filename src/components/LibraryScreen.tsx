@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Podcast, Trash2 } from 'lucide-react';
 import type { Track } from '../types/music';
 import { groupByAlbum, groupByArtist, tracksOf, type LibraryGroup, type LibraryView } from '../utils/library';
 import { TrackList } from './TrackList';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { ConfirmDialog, NameDialog } from './Dialogs';
 import { RemoteImage } from './RemoteImage';
+import { usePodcastFollows } from '../hooks/usePodcastFollows';
+import { ShowRow } from './PodcastsHome';
+import type { PodcastShowSummary } from '../types/music';
 
 interface LibraryScreenProps {
   view: LibraryView | null;
@@ -15,6 +18,8 @@ interface LibraryScreenProps {
   recent: Track[];
   onClearHistory: () => void;
   onPlay: (track: Track, queue: Track[]) => void;
+  /** A followed show was tapped: its page opens. */
+  onOpenShow: (show: PodcastShowSummary) => void;
 }
 
 const EMPTY_MESSAGES: Record<string, string> = {
@@ -58,8 +63,9 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; placeholder?: Reac
 );
 
 /** The Library tab: a menu of sections, as in Apple Music, and the screen of each one. */
-export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, recent, onClearHistory, onPlay }) => {
+export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, recent, onClearHistory, onPlay, onOpenShow }) => {
   const { playlists, createNew, rename, remove, removeTrack } = usePlaylists();
+  const follows = usePodcastFollows();
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'clear' | null>(null);
 
   if (view === null) {
@@ -70,6 +76,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
         <Row icon={<Music2 className="w-6 h-6" />} title="Músicas favoritas" count={liked.length} onClick={() => onNavigate({ kind: 'songs' })} />
         <Row icon={<Mic2 className="w-6 h-6" />} title="Artistas" count={groupByArtist(liked).length} onClick={() => onNavigate({ kind: 'artists' })} />
         <Row icon={<Disc3 className="w-6 h-6" />} title="Álbuns" count={groupByAlbum(liked).length} onClick={() => onNavigate({ kind: 'albums' })} />
+        <Row icon={<Podcast className="w-6 h-6" />} title="Podcasts" count={follows.shows.length} onClick={() => onNavigate({ kind: 'podcasts' })} />
       </nav>
     );
   }
@@ -186,6 +193,25 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
           />
         )}
       </div>
+    );
+  }
+
+  if (view.kind === 'podcasts') {
+    if (follows.shows.length === 0) {
+      return (
+        <p className="px-4 py-12 text-center text-[13px] text-label-secondary">
+          Os programas que você segue aparecem aqui. Abra Buscar, toque em Podcasts e use Seguir na página de um programa.
+        </p>
+      );
+    }
+    return (
+      <ul className="px-4 py-2" aria-label="Podcasts seguidos">
+        {follows.shows.map((show) => (
+          <li key={show.id}>
+            <ShowRow show={show} onOpen={onOpenShow} />
+          </li>
+        ))}
+      </ul>
     );
   }
 

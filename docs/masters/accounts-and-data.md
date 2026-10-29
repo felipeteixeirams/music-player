@@ -55,6 +55,7 @@ Tudo que o app precisa do ambiente é verificado em quatro momentos, pelo mesmo 
 | `signup-open` | erro | O cadastro aberto está ligado: desligue em Authentication > Sign In / Providers. |
 | `email-login` | erro | O login por e-mail está desligado no Supabase. |
 | `service-key-valid` | erro/aviso | O Supabase recusou a chave de serviço ou o banco não respondeu. |
+| `migrations-podcasts` | aviso | Faltam `podcast_follows` ou `podcast_progress`: rode `supabase/migrations/0004_podcasts.sql` no SQL Editor; sem ela seguir podcasts e a posição dos episódios não sincronizam (o resto do app não é afetado). |
 | `migrations` | erro | Faltam tabelas ou funções: rode as migrações de `supabase/migrations/` no SQL Editor (a mensagem do log diz quais). |
 
 Variável nova no código: declare-a em `.env.example` e em `DOCUMENTED_VARS` de `tests/config.test.ts`; se ela for exigida para algo funcionar, acrescente a verificação em `api/_config.ts` com um id novo e uma linha nesta tabela.
