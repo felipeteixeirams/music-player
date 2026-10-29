@@ -149,6 +149,35 @@ export interface RankedCandidate {
   topic: boolean;
 }
 
+function significantTokens(text: string): string[] {
+  return text.split(' ').filter((token) => token.length >= 2);
+}
+
+/** Share of the wanted words found as substrings of the haystack (so "karolgvevo" still shows "karol"). */
+function tokenCoverage(wanted: string, haystack: string): number {
+  const tokens = significantTokens(wanted);
+  if (tokens.length === 0) return 1;
+  return tokens.filter((token) => haystack.includes(token)).length / tokens.length;
+}
+
+/**
+ * Whether the video is about the requested song at all: the artist (any credited one) and the title must show
+ * up in the video's title or channel. Without this a Topic upload of another artist's song with a similar
+ * length scored enough on duration and Topic alone ("Heaven's Call" by Akashic played "Calling From Heaven").
+ */
+function matchesIdentity(title: string, channel: string, wantedTitle: string, rawArtist: string): boolean {
+  const wantedArtist = normalize(rawArtist);
+  const haystack = `${title} ${channel}`;
+  const titleOk = !wantedTitle || title.includes(wantedTitle) || tokenCoverage(wantedTitle, title) >= 0.6;
+  if (!titleOk) return false;
+  if (!wantedArtist || wantedArtist.includes('various artists')) return true;
+  const squashed = haystack.replace(/ /g, '');
+  return rawArtist
+    .split(/\s*(?:,|&|;|\/|\bfeat\.?|\bft\.?)\s*/i)
+    .map(normalize)
+    .some((credited) => credited && (squashed.includes(credited.replace(/ /g, '')) || tokenCoverage(credited, haystack) >= 0.5));
+}
+
 /**
  * The app plays audio only, so the best video is the cleanest source of the studio recording: a Topic channel
  * (audio supplied by the label, with the catalog's exact duration, no intro or scenes) beats an official audio
@@ -165,6 +194,7 @@ function evaluateCandidate(candidate: VideoCandidate, query: TrackQuery): Ranked
   let score = 0;
   let durationDiff: number | null = null;
 
+  if (!matchesIdentity(title, channel, wantedTitle, query.artist)) return { candidate, score: -1, durationDiff, topic };
   if (candidate.durationSeconds !== null) {
     durationDiff = Math.abs(candidate.durationSeconds - query.duration);
     if (durationDiff > MAX_DURATION_DIFF_SECONDS) return { candidate, score: -1, durationDiff, topic };
