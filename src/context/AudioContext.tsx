@@ -19,6 +19,7 @@ import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../u
 import { PlayedCounter } from '../utils/playedCounter';
 import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
+import { plausiblePlayerLength } from '../utils/playerLength';
 import { youtubeEngine } from '../utils/youtubeEngine';
 import { fetchFreshPreviewUrl } from '../utils/catalogClient';
 import { isPreviewStale } from '../utils/previewUrl';
@@ -147,7 +148,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
   currentTimeRef.current = currentTime;
-  durationRef.current = duration;
   const isPlayingRef = useRef(false);
   const activeEngineRef = useRef<AudioEngineType>('fallback');
   const mediaActionsRef = useRef<{ togglePlayPause: () => void; playNext: () => void; playPrevious: () => void; seekTo: (seconds: number) => void } | null>(null);
@@ -157,6 +157,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('all');
   
   const [activeEngine, setActiveEngine] = useState<AudioEngineType>('fallback');
+  // The YouTube player's length is believed only when it is close to the catalog's (INV-PLAY-21); the preview's own (30 s) always is
+  const catalogSeconds = currentTrack?.duration ?? 0;
+  const shownDuration = activeEngine === 'fallback' && duration > 0 && !plausiblePlayerLength(catalogSeconds, duration) ? catalogSeconds : duration;
+  durationRef.current = shownDuration;
   const [preferredEngine, setPreferredEngineState] = useState<AudioEngineType>('fallback');
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -549,7 +553,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (shouldPlay) {
       // The track playing until now stops with the tap, not after the search for the next video
       youtubeEngine.pause();
-      logPlayback(`toque em "${track.title}"`);
+      logPlayback(`toque em "${track.title}" (catálogo: ${Math.round(track.duration)} s)`);
       expectPlayback('o toque', isLiveTrack(track) ? LIVE_WATCH_MS : START_WATCH_MS);
     }
     setPlaybackStatus((prev) => (prev.error || prev.notice ? { ...prev, error: undefined, notice: undefined } : prev));
@@ -720,15 +724,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession) || !currentTrack) return;
 
     try {
-      if (duration > 0 && currentTime >= 0) {
+      if (shownDuration > 0 && currentTime >= 0) {
         navigator.mediaSession.setPositionState({
-          duration: duration,
+          duration: shownDuration,
           playbackRate: isPlaying ? 1.0 : 0.0,
-          position: Math.min(currentTime, duration)
+          position: Math.min(currentTime, shownDuration)
         });
       }
     } catch {}
-  }, [currentTime, duration, isPlaying, currentTrack]);
+  }, [currentTime, shownDuration, isPlaying, currentTrack]);
+
+  // What the player answered when its length was not believed (one line per track), for the report
+  const loggedLengthRef = useRef('');
+  useEffect(() => {
+    if (shownDuration === duration || !currentTrack || loggedLengthRef.current === currentTrack.id) return;
+    loggedLengthRef.current = currentTrack.id;
+    logPlayback(`barra com a duração do catálogo (${Math.round(catalogSeconds)} s): o player respondeu ${Math.round(duration)} s`);
+  }, [shownDuration, duration, catalogSeconds, currentTrack]);
 
   /**
    * What every tap that starts music must do before waiting for anything: let the audio element play (a silent clip),
@@ -1106,7 +1118,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // The playback clock ticks several times a second: it lives in its own context so that only the components
   // showing it (the full-screen player) render on every tick, and not every list that reads `useAudio()`.
-  const playbackTime = useMemo(() => ({ currentTime, duration }), [currentTime, duration]);
+  const playbackTime = useMemo(() => ({ currentTime, duration: shownDuration }), [currentTime, shownDuration]);
 
   const engineStarted = useCallback(() => playbackStarted('player do YouTube'), [playbackStarted]);
 

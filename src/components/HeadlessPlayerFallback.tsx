@@ -41,7 +41,13 @@ export const HeadlessPlayerFallback: React.FC = () => {
   const loggedBogus = useRef('');
   const believe = (seconds: number): boolean => {
     const { id, seconds: catalog } = catalogRef.current;
-    if (plausiblePlayerLength(catalog, seconds)) return true;
+    if (plausiblePlayerLength(catalog, seconds)) {
+      if (Math.abs(seconds - catalog) > 5 && loggedBogus.current !== `seen-${id}`) {
+        loggedBogus.current = `seen-${id}`;
+        logPlayback(`duração do player: ${Math.round(seconds)} s (catálogo ${Math.round(catalog)} s)`);
+      }
+      return true;
+    }
     if (loggedBogus.current !== id) {
       loggedBogus.current = id;
       logPlayback(`duração do player ignorada: ${Math.round(seconds)} s contra ${Math.round(catalog)} s do catálogo`);

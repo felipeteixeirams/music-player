@@ -375,5 +375,5 @@ test('INV-PLAY-21: uma duração do player muito menor que a do catálogo não v
   await page.getByRole('button', { name: 'Minimizar player expandido' }).click();
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
-  await expect(page.getByTestId('playback-log')).toContainText('duração do player ignorada');
+  await expect(page.getByTestId('playback-log')).toContainText(/duração do player ignorada|barra com a duração do catálogo/);
 });
