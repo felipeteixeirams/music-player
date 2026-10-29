@@ -1,21 +1,15 @@
 import React, { useState, useRef } from 'react';
 import {
   ChevronDown,
-  Heart,
   Shuffle,
   SkipBack,
   SkipForward,
   Repeat,
   Repeat1,
-  Volume2,
-  VolumeX,
-  Layers,
   Radio,
-  FileText,
-  Activity,
-  Sliders,
   Replace,
-  ListPlus
+  Plus,
+  Check
 } from 'lucide-react';
 import { useAudio, usePlaybackTime } from '../context/AudioContext';
 import { usePlaylists } from '../context/PlaylistsContext';
@@ -25,14 +19,13 @@ import { PlaybackNotice } from './PlaybackNotice';
 import { useCoverColor } from '../hooks/useCoverColor';
 import { isLiveTrack } from '../utils/liveRadio';
 import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
+import { LyricsView } from './LyricsView';
 
 export const ExpandedPlayer: React.FC = () => {
   const playback = usePlaybackState();
   const {
     currentTrack,
     isPlaying,
-    volume,
-    isMuted,
     isShuffle,
     repeatMode,
     isExpanded,
@@ -43,20 +36,19 @@ export const ExpandedPlayer: React.FC = () => {
     playNext,
     playPrevious,
     seekTo,
-    setVolume,
-    toggleMute,
     toggleShuffle,
     toggleRepeat,
     toggleLike,
     isLiked,
-    audioFrequencyData,
     radioStation,
     isLive
   } = useAudio();
   const { currentTime, duration } = usePlaybackTime();
-  const { openAddToPlaylist } = usePlaylists();
+  const { openAddToPlaylist, playlists } = usePlaylists();
 
-  const [activeTab, setActiveTab] = useState<'artwork' | 'lyrics' | 'visualizer'>('artwork');
+  const [lyricsOpen, setLyricsOpen] = useState(false);
+  // Lines with real timestamps follow the song; plain lyrics only have the order
+  const [lyricsSynced, setLyricsSynced] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
   const [syncedLyrics, setSyncedLyrics] = useState<LrcLine[]>([]);
@@ -66,17 +58,21 @@ export const ExpandedPlayer: React.FC = () => {
     if (!currentTrack) return;
     if (isLiveTrack(currentTrack)) {
       setSyncedLyrics([]);
+      setLyricsSynced(false);
       setIsFetchingLyrics(false);
       return;
     }
     let isMounted = true;
     setIsFetchingLyrics(true);
     setSyncedLyrics([]);
+    setLyricsSynced(false);
+    setLyricsOpen(false);
 
     fetchSyncedLyrics(currentTrack.artist, currentTrack.title).then((res) => {
       if (isMounted) {
         if (res.syncedLines.length > 0) {
           setSyncedLyrics(res.syncedLines);
+          setLyricsSynced(true);
         } else if (res.plainLyrics.length > 0) {
           setSyncedLyrics(res.plainLyrics.map((text, idx) => ({ time: idx * 5, text })));
         } else if (currentTrack.lyrics && currentTrack.lyrics.length > 0) {
@@ -100,7 +96,10 @@ export const ExpandedPlayer: React.FC = () => {
   const liked = isLiked(currentTrack.id);
   // A radio (live broadcast or endless station mix) has no timeline, shuffle, repeat or way back
   const isRadio = isLive || Boolean(radioStation);
-  const shownTab = isLive && activeTab === 'lyrics' ? 'artwork' : activeTab;
+  // One button for "keep this song": it is a favorite and/or in some playlist
+  const saved = liked || playlists.some((playlist) => playlist.tracks.some((track) => track.id === currentTrack.id));
+  const activeLine = lyricsSynced ? syncedLyrics.reduce((found, line, idx) => (currentTime >= line.time ? idx : found), -1) : -1;
+  const previewLines = syncedLyrics.slice(Math.max(activeLine, 0), Math.max(activeLine, 0) + 3);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -153,133 +152,26 @@ export const ExpandedPlayer: React.FC = () => {
           <div className="w-10 h-10 shrink-0" aria-hidden="true" />
         </div>
 
-        {/* View Switcher Tabs (Artwork / Visualizer / Lyrics) */}
-        <div className="flex items-center justify-center gap-0.5 my-2 material-ultrathin p-0.5 rounded-lg w-fit mx-auto">
-          <button
-            onClick={() => setActiveTab('artwork')}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              activeTab === 'artwork'
-                ? 'bg-fill text-label shadow-sm font-semibold'
-                : 'text-label-secondary hover:text-label'
-            }`}
-          >
-            Capa
-          </button>
-          <button
-            onClick={() => setActiveTab('visualizer')}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
-              activeTab === 'visualizer'
-                ? 'bg-fill text-label shadow-sm font-semibold'
-                : 'text-label-secondary hover:text-label'
-            }`}
-          >
-            <Activity className="w-3 h-3" />
-            <span>Frequência</span>
-          </button>
-          {!isLive && (
-          <button
-            onClick={() => setActiveTab('lyrics')}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${
-              activeTab === 'lyrics'
-                ? 'bg-fill text-label shadow-sm font-semibold'
-                : 'text-label-secondary hover:text-label'
-            }`}
-          >
-            <FileText className="w-3 h-3" />
-            <span>Letra</span>
-          </button>
-          )}
-        </div>
-
-        {/* 2. Central Display (Artwork / Spectrum / Lyrics) */}
-        <div className="flex-1 flex items-center justify-center my-2 max-h-[360px]">
-          {shownTab === 'artwork' && (
-            <div className="relative w-full max-w-[290px] aspect-square mx-auto">
-              {/* The cover shrinks when paused and grows back on play, as in Apple Music */}
-              <div
-                className={`relative w-full h-full rounded-card overflow-hidden shadow-2xl shadow-black/60 transition-transform duration-500 bg-elevated-2 flex items-center justify-center ${
-                  isPlaying ? 'scale-100' : 'scale-[0.86]'
-                }`}
-              >
-                <img
-                  src={currentTrack.coverUrl}
-                  alt={`Capa do álbum ${currentTrack.album}`}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = 'none';
-                  }}
-                />
-              </div>
+        {/* 2. Cover (the lyrics open from the card below the controls) */}
+        <div className="flex-1 flex items-center justify-center my-3 max-h-[420px]">
+          <div className="relative w-full max-w-[320px] aspect-square mx-auto">
+            {/* The cover shrinks when paused and grows back on play, as in Apple Music */}
+            <div
+              className={`relative w-full h-full rounded-card overflow-hidden shadow-2xl shadow-black/60 transition-transform duration-500 bg-elevated-2 flex items-center justify-center ${
+                isPlaying ? 'scale-100' : 'scale-[0.86]'
+              }`}
+            >
+              <img
+                src={currentTrack.coverUrl}
+                alt={`Capa do álbum ${currentTrack.album}`}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
             </div>
-          )}
-
-          {shownTab === 'visualizer' && (
-            <div className="w-full max-w-sm h-64 rounded-card material-ultrathin p-5 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-xs text-label-secondary">
-                <span className="flex items-center gap-1.5">
-                  <Activity className="w-4 h-4 text-accent" />
-                  Visualizador
-                </span>
-                <span className="text-[11px] text-label-secondary">
-                  {isPlaying ? 'Animação' : 'Pausado'}
-                </span>
-              </div>
-
-              {/* Dynamic Waveform Spectrum Bars */}
-              <div className="flex items-end justify-between gap-1.5 h-36 px-2">
-                {audioFrequencyData.map((val, idx) => (
-                  <div
-                    key={idx}
-                    className="flex-1 rounded-full transition-all duration-75"
-                    style={{
-                      height: `${Math.max(6, val)}%`,
-                      background: 'rgb(255 255 255 / 0.85)'
-                    }}
-                  />
-                ))}
-              </div>
-
-              <div className="text-center text-[11px] text-label-secondary">
-                Animação decorativa: não mede o áudio que está tocando.
-              </div>
-            </div>
-          )}
-
-          {shownTab === 'lyrics' && (
-            <div className="w-full max-w-sm h-72 rounded-card material-ultrathin p-4 overflow-y-auto text-left no-scrollbar">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-[13px] font-semibold text-label-secondary">Letra</h4>
-                {isFetchingLyrics && <span className="text-[11px] text-label-secondary animate-pulse">Carregando...</span>}
-              </div>
-              {syncedLyrics.length > 0 ? (
-                <div className="space-y-3 text-[15px] text-label-secondary leading-relaxed font-sans pb-10">
-                  {syncedLyrics.map((line, idx) => {
-                    const nextLineTime = syncedLyrics[idx + 1]?.time || 9999;
-                    const isActive = currentTime >= line.time && currentTime < nextLineTime;
-                    return (
-                      <p
-                        key={idx}
-                        className={`transition-all duration-300 ${
-                          isActive
-                            ? 'text-label font-bold text-[17px] scale-[1.02] pl-2 border-l-2 border-accent'
-                            : 'hover:text-label'
-                        }`}
-                      >
-                        {line.text}
-                      </p>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="py-12 text-center">
-                  <p className="text-[13px] text-label-secondary">
-                    {isFetchingLyrics ? 'Buscando letra em tempo real...' : 'Letra instrumental ou não disponível para esta faixa.'}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          </div>
         </div>
 
         <PlaybackNotice className="mb-2" />
@@ -292,17 +184,6 @@ export const ExpandedPlayer: React.FC = () => {
             </h2>
             <p className="text-[20px] text-label-secondary truncate">{currentTrack.artist}</p>
           </div>
-
-          {!isLive && (
-            <button
-              onClick={() => openAddToPlaylist(currentTrack)}
-              aria-label="Adicionar esta faixa a uma playlist"
-              title="Adicionar à playlist"
-              className="w-11 h-11 mr-2 rounded-full material-ultrathin flex items-center justify-center shrink-0 active:scale-75 transition-all"
-            >
-              <ListPlus className="w-5 h-5 text-label" />
-            </button>
-          )}
 
           {!isLive && versionCount > 1 && (
             <button
@@ -318,17 +199,19 @@ export const ExpandedPlayer: React.FC = () => {
           {isLive ? (
             <div className="w-11 h-11 shrink-0" aria-hidden="true" />
           ) : (
-          <button
-            onClick={() => toggleLike(currentTrack)}
-            aria-label={liked ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-            className="w-11 h-11 rounded-full material-ultrathin flex items-center justify-center shrink-0 active:scale-75 transition-all"
-          >
-            <Heart
-              className={`w-5 h-5 transition-colors ${
-                liked ? 'fill-accent text-accent scale-110' : 'text-label'
+            <button
+              onClick={() => {
+                // The first tap keeps the song in the favorites; the sheet that opens shows it and offers the playlists
+                if (!liked) toggleLike(currentTrack);
+                openAddToPlaylist(currentTrack);
+              }}
+              aria-label={saved ? 'Salvo: gerenciar favoritos e playlists' : 'Salvar nos favoritos e em playlists'}
+              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-75 transition-all ${
+                saved ? 'bg-accent text-white' : 'material-ultrathin text-label'
               }`}
-            />
-          </button>
+            >
+              {saved ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+            </button>
           )}
         </div>
 
@@ -449,31 +332,40 @@ export const ExpandedPlayer: React.FC = () => {
           )}
         </div>
 
-        {/* 6. Volume Scrub Bar */}
-        <div className="flex items-center gap-3 px-2 pt-1 pb-1">
+        {/* 6. Lyrics preview: the current line and the next ones; a tap opens the lyrics full screen */}
+        {!isLive && (syncedLyrics.length > 0 || isFetchingLyrics) && (
           <button
-            onClick={toggleMute}
-            aria-label={isMuted ? 'Ativar som' : 'Silenciar'}
-            className="text-label-secondary hover:text-label p-1"
+            onClick={() => syncedLyrics.length > 0 && setLyricsOpen(true)}
+            aria-label="Abrir a letra"
+            className="mt-2 w-full rounded-card bg-accent/90 px-4 py-3 text-left text-white active:scale-[0.99] transition-transform"
           >
-            {isMuted || volume === 0 ? (
-              <VolumeX className="w-4 h-4 text-accent" />
+            <span className="block text-[13px] font-bold">Prévia da letra</span>
+            {syncedLyrics.length === 0 ? (
+              <span className="block pt-1 text-[15px] opacity-80">Buscando a letra…</span>
             ) : (
-              <Volume2 className="w-4 h-4" />
+              <span data-testid="lyrics-preview" className="block pt-1 text-[17px] font-bold leading-snug">
+                {previewLines.map((line, idx) => (
+                  <span key={`${line.time}-${idx}`} className={`block truncate ${idx === 0 && lyricsSynced ? '' : 'opacity-70'}`}>
+                    {line.text}
+                  </span>
+                ))}
+              </span>
             )}
           </button>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={isMuted ? 0 : volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            aria-label="Volume da reprodução"
-            className="w-full h-1 rounded-full appearance-none cursor-pointer bg-white/30 accent-white focus:outline-none"
-          />
-        </div>
+        )}
       </div>
+
+      {lyricsOpen && (
+        <LyricsView
+          title={currentTrack.title}
+          artist={currentTrack.artist}
+          lines={syncedLyrics}
+          synced={lyricsSynced}
+          currentTime={currentTime}
+          onSeek={seekTo}
+          onClose={() => setLyricsOpen(false)}
+        />
+      )}
     </div>
   );
 };

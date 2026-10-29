@@ -114,7 +114,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -246,7 +246,16 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
   );
 
   // Lyrics are looked up on a third-party service when the full-screen player opens
-  await target.route('https://lrclib.net/**', (route) => route.fulfill({ status: 404, body: '[]' }));
+  await target.route('https://lrclib.net/**', (route) =>
+    options.lyrics
+      ? route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify([{ syncedLyrics: '[00:00.00]Primeira linha\n[00:02.00]Segunda linha\n[00:08.00]Terceira linha\n[00:12.00]Quarta linha' }])
+        })
+      : route.fulfill({ status: 404, body: '[]' })
+  );
 
   return requests;
 }
