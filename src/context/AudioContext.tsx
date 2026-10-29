@@ -627,6 +627,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!audio) return;
 
     const onEnded = () => {
+      // The silent clip that unlocks the element on a tap (every resume with the YouTube player active plays it) is not a track ending
+      if (isUnlockClip(audio)) return;
       if (isLiveTrack(currentTrackRef.current)) {
         setIsPlaying(false);
         setPlaybackStatus({ error: 'A transmissão foi interrompida. Toque em reproduzir para sintonizar de novo.' });
@@ -763,7 +765,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [queue, preferredEngine, loadAndPlayTrack, primeInTap]);
 
   const togglePlayPause = useCallback(() => {
-    if (!currentTrack || !isPlaying) primeInTap();
+    // `null`: resuming (or starting the first queued track, which `playTrack` primes itself) must not release the frame with the
+    // reserve video: the loaded video is the one to resume, and a muted reserve start left it silent and never "started"
+    if (!currentTrack || !isPlaying) primeInTap(null);
     if (!currentTrack) {
       if (queue.length > 0) {
         playTrack(queue[0]);
