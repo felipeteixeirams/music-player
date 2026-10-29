@@ -13,6 +13,11 @@ export const DEFAULT_DAILY_NEW_TRACKS = 30;
  */
 export const WARM_RESERVE = 10;
 /** A found video is kept for this long; the player reporting it broken removes it sooner. */
+/**
+ * Videos found before the identity gate (INV-PLAY-18) may be another artist's song; the cache keeps ids only, so they
+ * cannot be checked again and count as not cached. Raise it only when ranking gets stricter in a way that needs a redo.
+ */
+export const MATCHER_EPOCH_MS = Date.parse('2026-10-29T00:30:00Z');
 export const FOUND_TTL_MS = 180 * 24 * 3600 * 1000;
 /** "The official search found nothing" is kept for a day: it costs quota to ask again, but videos do appear. */
 export const MISS_TTL_MS = 24 * 3600 * 1000;
@@ -112,7 +117,9 @@ function freshEntry(
 ): { videoIds: string[]; resolvedAt: number } | null {
   for (const key of keys) {
     const entry = found[key];
-    if (entry && now - entry.resolvedAt < (entry.videoIds.length > 0 ? FOUND_TTL_MS : MISS_TTL_MS)) return entry;
+    if (!entry) continue;
+    if (entry.videoIds.length > 0 && entry.resolvedAt < MATCHER_EPOCH_MS) continue;
+    if (now - entry.resolvedAt < (entry.videoIds.length > 0 ? FOUND_TTL_MS : MISS_TTL_MS)) return entry;
   }
   return null;
 }

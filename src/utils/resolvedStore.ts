@@ -1,5 +1,7 @@
 /** Which YouTube videos play a track, kept on the device so playing it again waits for no network at all. */
-export const RESOLVED_KEY = 'aurastream_resolved_videos';
+export const RESOLVED_KEY = 'aurastream_resolved_videos_v2';
+/** Before the identity gate (INV-PLAY-18) the list could hold another artist's song; it is dropped, not read. */
+const OLD_KEY = 'aurastream_resolved_videos';
 
 /** Short next to the server's (180 days): a video that goes bad is reported and dropped, and this only saves a round trip. */
 const TTL_MS = 30 * 24 * 3600 * 1000;
@@ -7,7 +9,7 @@ const MAX_ENTRIES = 500;
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 type Stored = { ids: string[]; at: number };
-type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>;
+type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'> & Partial<Pick<globalThis.Storage, 'removeItem'>>;
 
 /**
  * Track id -> videos, newest last, loaded from storage and written back on every change. It is public catalog data
@@ -22,6 +24,7 @@ export class ResolvedStore {
 
   private load(): void {
     try {
+      this.storage?.removeItem?.(OLD_KEY);
       const parsed: unknown = JSON.parse(this.storage?.getItem(RESOLVED_KEY) ?? '{}');
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
       for (const [id, value] of Object.entries(parsed as Record<string, Partial<Stored>>)) {

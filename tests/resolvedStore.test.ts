@@ -66,3 +66,10 @@ test('armazenamento ilegível, ausente ou que recusa gravar não derruba nada', 
   recusa.set('deezer-1', [A]);
   assert.deepEqual(recusa.get('deezer-1'), [A]);
 });
+
+test('INV-PLAY-18: a lista guardada antes da porta de identidade (chave antiga) é descartada, não lida', () => {
+  const data = new Map<string, string>([['aurastream_resolved_videos', JSON.stringify({ 'deezer-1': { ids: ['AAAAAAAAAAA'], at: Date.now() } })]]);
+  const store = new ResolvedStore({ getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v), removeItem: (k) => void data.delete(k) });
+  assert.equal(store.get('deezer-1'), undefined);
+  assert.equal(data.has('aurastream_resolved_videos'), false);
+});
