@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Cache covers and images (CacheFirst strategy)
-  if (url.pathname.match(/\.(jpg|jpeg|png|svg|webp|gif)$/) || url.hostname.includes('wikimedia')) {
+  if (url.pathname.match(/\.(jpg|jpeg|png|svg|webp|gif)$/) || url.hostname.includes('wikimedia') || (url.pathname === '/api/media' && url.searchParams.get('kind') === 'image')) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(event.request);

@@ -71,3 +71,11 @@ test('INV-ADMIN-01: a rota do painel recusa quem não é administrador (sem logi
   expect((await request.get('/api/admin')).status()).toBe(403);
   expect((await request.get('/api/admin', { headers: { 'Sec-Fetch-Site': 'same-origin' } })).status()).toBe(401);
 });
+
+test('INV-MEDIA-01: a rota de capas não pede login (um <img> não manda o cabeçalho), mas recusa host fora da lista e quem não é do site; a de áudio continua com login', async ({ request }) => {
+  const sameSite = { 'Sec-Fetch-Site': 'same-origin' };
+  expect((await request.get('/api/media?kind=image&url=https://evil.example/a.jpg', { headers: sameSite })).status()).toBe(400);
+  expect((await request.get('/api/media?kind=image&url=https://e-cdns-images.dzcdn.net/a.jpg')).status()).toBe(403);
+  expect((await request.get('/api/media?url=https://x.dzcdn.net/a.mp3', { headers: sameSite })).status()).toBe(401);
+  expect((await request.get('/api/audio?url=https://x.dzcdn.net/a.mp3', { headers: sameSite })).status()).toBe(401);
+});

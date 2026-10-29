@@ -3,6 +3,7 @@ import { SkipForward } from 'lucide-react';
 import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { useAudio } from '../context/AudioContext';
 import { swipeAction } from '../utils/scrollChrome';
+import { RemoteImage } from './RemoteImage';
 
 export const MiniPlayer: React.FC = () => {
   const playback = usePlaybackState();
@@ -83,7 +84,7 @@ export const MiniPlayer: React.FC = () => {
               <div
                 className="w-9 h-9 rounded-full overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative"
               >
-                <img
+                <RemoteImage
                   src={currentTrack.coverUrl}
                   alt=""
                   referrerPolicy="no-referrer"

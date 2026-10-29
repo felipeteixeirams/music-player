@@ -4,6 +4,7 @@ import { useAudio } from '../context/AudioContext';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { playlistHasTrack } from '../utils/playlists';
 import { NameDialog } from './Dialogs';
+import { RemoteImage } from './RemoteImage';
 
 /** Bottom sheet to put the track (opened with `openAddToPlaylist`) in a playlist, or take it out, or start a new one. */
 export const AddToPlaylistSheet: React.FC = () => {
@@ -71,7 +72,7 @@ export const AddToPlaylistSheet: React.FC = () => {
               >
                 <span className="w-11 h-11 rounded-cover bg-fill-tertiary text-label-secondary flex items-center justify-center shrink-0 overflow-hidden">
                   {playlist.tracks[0] ? (
-                    <img src={playlist.tracks[0].coverUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    <RemoteImage src={playlist.tracks[0].coverUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   ) : (
                     <ListMusic className="w-5 h-5" />
                   )}

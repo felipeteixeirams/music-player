@@ -85,6 +85,8 @@ export function isSameOriginRequest(headers: Headers): boolean {
 export interface GuardPolicy {
   limiter: RateLimiter;
   requireSameOrigin: boolean;
+  /** Default true. False for what an `<img>` fetches (it cannot send the login header): public catalog covers only. */
+  requireLogin?: boolean;
 }
 
 export type GuardDecision =
@@ -115,6 +117,7 @@ export async function authorizeRequest(
   const trace = startTrace(headers, request.url);
   const decision = evaluateRequest(headers, policy);
   if (!decision.ok) return { ...decision, requestId: trace.rid };
+  if (policy.requireLogin === false) return { ok: true, user: null, requestId: trace.rid };
   const auth = await authenticate(headers);
   if (auth.ok) {
     if (auth.user) setTraceUser(trace, auth.user.id);
@@ -150,6 +153,8 @@ export async function authorizeReport(
 export const POLICIES = {
   resolve: { limiter: new RateLimiter(40, 60_000), requireSameOrigin: true },
   audio: { limiter: new RateLimiter(30, 60_000), requireSameOrigin: true },
+  // A home screen shows dozens of covers; they are cached long, so most never reach the function
+  media: { limiter: new RateLimiter(400, 60_000), requireSameOrigin: true, requireLogin: false },
   catalog: { limiter: new RateLimiter(120, 60_000), requireSameOrigin: true },
   report: { limiter: new RateLimiter(20, 60_000), requireSameOrigin: true }
 } satisfies Record<string, GuardPolicy>;

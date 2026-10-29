@@ -9,6 +9,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/audio",
+      "destination": "/api/media"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },

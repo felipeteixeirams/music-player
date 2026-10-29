@@ -5,6 +5,7 @@ import { TrackList } from './TrackList';
 import { useAudio } from '../context/AudioContext';
 import { fetchArtistPage } from '../utils/catalogClient';
 import type { AlbumSummary, ArtistSummary, ArtistPage, Track } from '../types/music';
+import { RemoteImage } from './RemoteImage';
 
 const formatFans = (fans: number) => (fans > 0 ? `${new Intl.NumberFormat('pt-BR').format(fans)} ouvintes` : '');
 
@@ -56,7 +57,7 @@ export const ArtistScreen: React.FC<{ artistId: string; onOpenAlbum: (album: Alb
   return (
     <div className="space-y-4" data-testid="artist-page">
       <div className="flex flex-col items-center gap-2 px-4 pt-1">
-        <img src={page.artist.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-32 w-32 rounded-full object-cover bg-fill-tertiary" />
+        <RemoteImage src={page.artist.pictureUrl} alt="" referrerPolicy="no-referrer" className="h-32 w-32 rounded-full object-cover bg-fill-tertiary" />
         {formatFans(page.artist.fans) && <p className="text-[13px] text-label-secondary">{formatFans(page.artist.fans)}</p>}
       </div>
       <PlayShuffleButtons tracks={tracks} />
@@ -72,7 +73,7 @@ export const ArtistScreen: React.FC<{ artistId: string; onOpenAlbum: (album: Alb
           <div className="flex gap-3 overflow-x-auto pb-1">
             {albums.map((album) => (
               <button key={album.id} onClick={() => onOpenAlbum(album)} className="w-36 shrink-0 text-left active:opacity-60">
-                <img src={album.coverUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-36 w-36 rounded-cover object-cover bg-fill-tertiary" />
+                <RemoteImage src={album.coverUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-36 w-36 rounded-cover object-cover bg-fill-tertiary" />
                 <p className="mt-1.5 truncate text-[15px] text-label">{album.title}</p>
                 {album.year > 0 && <p className="text-[13px] text-label-secondary">{album.year}</p>}
               </button>
@@ -86,7 +87,7 @@ export const ArtistScreen: React.FC<{ artistId: string; onOpenAlbum: (album: Alb
           <div className="flex gap-4 overflow-x-auto pb-1">
             {related.map((artist) => (
               <button key={artist.id} onClick={() => onOpenArtist(artist)} className="flex w-24 shrink-0 flex-col items-center gap-1.5 active:opacity-60">
-                <img src={artist.pictureUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-24 w-24 rounded-full object-cover bg-fill-tertiary" />
+                <RemoteImage src={artist.pictureUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-24 w-24 rounded-full object-cover bg-fill-tertiary" />
                 <span className="w-full truncate text-center text-[13px] text-label">{artist.name}</span>
               </button>
             ))}

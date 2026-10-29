@@ -4,6 +4,7 @@ import { TrackPlaybackIcon } from './PlaybackIcon';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { formatTime, prefetchResolved } from '../utils/audioEngine';
+import { RemoteImage } from './RemoteImage';
 
 interface TrackCarouselProps {
   title: string;
@@ -90,7 +91,7 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                   isThisTrackActive ? 'ring-2 ring-accent' : ''
                 }`}
               >
-                <img
+                <RemoteImage
                   src={track.coverUrl}
                   alt=""
                   referrerPolicy="no-referrer"

@@ -5,6 +5,7 @@ import { groupByAlbum, groupByArtist, tracksOf, type LibraryGroup, type LibraryV
 import { TrackList } from './TrackList';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { ConfirmDialog, NameDialog } from './Dialogs';
+import { RemoteImage } from './RemoteImage';
 
 interface LibraryScreenProps {
   view: LibraryView | null;
@@ -41,7 +42,7 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; placeholder?: Reac
     ) : (
       <span className={`w-12 h-12 shrink-0 overflow-hidden bg-elevated-2 ${round ? 'rounded-full' : 'rounded-cover'}`}>
         {cover ? (
-          <img src={cover} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-full h-full object-cover" />
+          <RemoteImage src={cover} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-full h-full object-cover" />
         ) : (
           placeholder && <span className="w-full h-full flex items-center justify-center text-label-secondary">{placeholder}</span>
         )}

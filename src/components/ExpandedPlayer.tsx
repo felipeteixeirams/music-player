@@ -25,6 +25,7 @@ import { isLiveTrack } from '../utils/liveRadio';
 import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { LyricsView } from './LyricsView';
 import { QueueList } from './QueueList';
+import { RemoteImage } from './RemoteImage';
 
 export const ExpandedPlayer: React.FC = () => {
   const playback = usePlaybackState();
@@ -232,7 +233,7 @@ export const ExpandedPlayer: React.FC = () => {
                 isPlaying ? 'scale-100' : 'scale-[0.86]'
               }`}
             >
-              <img
+              <RemoteImage
                 src={currentTrack.coverUrl}
                 alt={`Capa do álbum ${currentTrack.album}`}
                 referrerPolicy="no-referrer"
@@ -250,7 +251,7 @@ export const ExpandedPlayer: React.FC = () => {
         {activeView !== 'cover' && (
           <>
             <div className="flex items-center gap-3 my-3">
-              <img
+              <RemoteImage
                 src={currentTrack.coverUrl}
                 alt={`Capa do álbum ${currentTrack.album}`}
                 referrerPolicy="no-referrer"

@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { categoryEndpoint, feedEndpoint, radioEndpoint, searchEndpoint } from './api/_endpoints';
-import { AudioProxyError, fetchAllowedAudio } from './api/_audioProxy';
+import { AudioProxyError, fetchAllowedAudio, fetchAllowedImage } from './api/_mediaProxy';
 import { resolveRoute } from './api/_resolveEndpoint';
 import { healthBody } from './api/_healthEndpoint';
 import { reportStartupOnce } from './api/_config';
@@ -19,13 +19,14 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // Same protection as the Vercel functions: same-origin pages only, a per-address rate limit and a signed-in user
-const policyFor = (path: string): GuardPolicy | null =>
+const policyFor = (path: string, query: Record<string, unknown>): GuardPolicy | null =>
   path.startsWith('/health') || path.startsWith('/report') ? null
   : path.startsWith('/resolve') ? POLICIES.resolve
-  : path.startsWith('/audio') ? POLICIES.audio
+  : path.startsWith('/media') && query.kind === 'image' ? POLICIES.media
+  : path.startsWith('/media') || path.startsWith('/audio') ? POLICIES.audio
   : POLICIES.catalog;
 app.use('/api', async (req, res, next) => {
-  const policy = policyFor(req.path);
+  const policy = policyFor(req.path, req.query);
   if (!policy) return next();
   const decision = await authorizeRequest(req.headers, policy, { method: req.method, url: req.originalUrl });
   if (decision.requestId) res.setHeader('X-Request-Id', decision.requestId);
@@ -87,16 +88,23 @@ app.get('/api/search', async (req, res) => {
   return res.status(status).json(body);
 });
 
-// Endpoint: GET /api/audio?url=
-// Same-origin copy of a catalog preview, so the browser can store it for offline playback
-app.get('/api/audio', async (req, res) => {
+// Endpoint: GET /api/media?url= (a preview) and GET /api/media?kind=image&url= (a cover); /api/audio is the old name of the first
+// Same-origin copies of catalog media, so the browser can store a preview for offline playback and show covers on a network that blocks the CDN
+app.get(['/api/media', '/api/audio'], async (req, res) => {
   try {
+    if (req.path === '/api/media' && req.query.kind === 'image') {
+      const { contentType, body } = await fetchAllowedImage(req.query.url);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.send(body);
+    }
     const { contentType, body } = await fetchAllowedAudio(req.query.url);
     res.setHeader('Content-Type', contentType);
     return res.send(body);
   } catch (err: any) {
     const status = err instanceof AudioProxyError ? err.status : 502;
-    return res.status(status).json({ error: err?.message || 'Falha ao obter o áudio' });
+    return res.status(status).json({ error: err?.message || 'Falha ao obter o arquivo' });
   }
 });
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import audioHandler from '../../api/audio';
+import audioHandler from '../../api/media';
 import { clientKey, evaluateRequest, guard, isSameOriginRequest, RateLimiter } from '../../api/_guard';
 import { readPageParams, MAX_PAGE_INDEX } from '../../api/_categories';
 import { searchEndpoint } from '../../api/_endpoints';

@@ -99,7 +99,7 @@ Atualizado em 2026-10-29, depois dos PRs #56 a #100 (e o branch `fix/refund-empt
 3. **Decidir sobre o app nativo (Capacitor)**: há Mac e conta de desenvolvedor Apple?
 4. **Decidir sobre arquivos de áudio próprios** (Supabase Storage): fazer a checagem de faixa de bytes, limites e custo. É também o único caminho para crossfade e para offline de verdade.
 5. **Crossfade** (pedido do usuário): registrado, não implementado. Com o player do YouTube no iPhone não é viável (um só iframe, e o iOS recusa começar um segundo vídeo fora do toque); só com `<audio>` e arquivos próprios.
-6. **Decidir sobre a rota `/api/audio`** (proxy de áudio): sem uso desde a retirada dos downloads. Removê-la baixa as funções da Vercel de 8 para 7 e exige atualizar o `AGENTS.md` e os testes.
+6. **Rota `/api/audio` (resolvido em 2026-10-29):** virou `api/media` (a rota de prévia continua com o nome antigo por um redirecionamento do `vercel.json`) e ganhou as capas pelo domínio do app, para redes que bloqueiam o CDN (INV-MEDIA-01 e 02). Continua 9 funções da Vercel.
 7. **Medir o uso da cota da YouTube Data API** a partir dos logs da Vercel (resoluções pela API oficial contra a busca web); agora os logs têm `uid`, `sid` e `route`, então dá para contar por pessoa.
 8. **Repetir no aparelho os itens T01 a T15** do roteiro que a matriz ainda marca como não testados.
 9. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
