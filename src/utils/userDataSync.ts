@@ -10,7 +10,7 @@ import {
   writeSyncFlag,
   type UserDataSnapshot
 } from './userData';
-import { RemoteError, type Remote } from './userDataRemote';
+import { RemoteError, type Remote, type RemoteSnapshot } from './userDataRemote';
 
 export interface SyncDeps {
   storage: KeyValueStorage;
@@ -85,6 +85,13 @@ export class UserDataSync {
     return readSnapshot(this.deps.storage);
   }
 
+  /** An account without the podcast tables says nothing about the podcasts: the device's list stands in, so it is neither wiped nor re-sent. */
+  private normalize(remoteData: RemoteSnapshot): UserDataSnapshot {
+    if (!remoteData.podcastsMissing) return remoteData;
+    const { podcastsMissing: _missing, ...rest } = remoteData;
+    return { ...rest, podcasts: this.read().podcasts };
+  }
+
   private apply(snapshot: UserDataSnapshot): void {
     writeSnapshot(this.deps.storage, snapshot);
     this.deps.onApplied();
@@ -97,7 +104,7 @@ export class UserDataSync {
 
     let remoteData: UserDataSnapshot;
     try {
-      remoteData = await remote.fetchAll();
+      remoteData = this.normalize(await remote.fetchAll());
     } catch (error) {
       if (error instanceof RemoteError) return; // offline or refused: stay as is, try again later
       throw error;
@@ -159,7 +166,7 @@ export class UserDataSync {
     if (!this.synced) return this.fullSync();
     let remoteData: UserDataSnapshot;
     try {
-      remoteData = await this.deps.remote.fetchAll();
+      remoteData = this.normalize(await this.deps.remote.fetchAll());
     } catch (error) {
       if (error instanceof RemoteError) return;
       throw error;

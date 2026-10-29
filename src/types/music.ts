@@ -25,6 +25,8 @@ export interface Track {
 export interface PodcastInfo {
   showId: string;
   showTitle: string;
+  showAuthor?: string;
+  showCoverUrl?: string;
   /** ISO date, "" when the feed gave none. */
   publishedAt: string;
 }

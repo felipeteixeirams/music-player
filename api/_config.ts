@@ -147,6 +147,9 @@ export function publicReport(findings: Finding[]): { ok: boolean; problems: { id
 /** The tables and functions the migrations create that the app depends on. */
 const EXPECTED_PATHS = ['/favorites', '/playlists', '/playlist_tracks', '/video_choices', '/play_history', '/video_cache', '/usage_daily', '/rpc/consume_resolve', '/rpc/refund_resolve'];
 
+/** The tables of the podcast migration (0004): the app works without them, so their absence is only a warning. */
+const PODCAST_PATHS = ['/podcast_follows', '/podcast_progress'];
+
 /**
  * What the services say: the public key is accepted, sign-up is closed (the app is by invitation), the e-mail
  * login is on, the service key works and the migrations were run. Nothing here writes or sends anything.
@@ -196,6 +199,14 @@ export async function checkDeepConfig(env: Env = process.env, fetchImpl: typeof 
               ? finding('migrations', 'error', `Faltam no banco: ${missing.join(', ')}. Rode as migrações de supabase/migrations/ no SQL Editor.`)
               : finding('migrations', 'ok', 'As tabelas e funções das migrações existem.')
           );
+          const missingPodcasts = PODCAST_PATHS.filter((path) => !(path in (spec.paths as object)));
+          if (missing.length === 0) {
+            out.push(
+              missingPodcasts.length > 0
+                ? finding('migrations-podcasts', 'warn', `Faltam no banco: ${missingPodcasts.join(', ')}. Rode supabase/migrations/0004_podcasts.sql no SQL Editor; sem ela, seguir podcasts e a posição dos episódios não sincronizam entre aparelhos.`)
+                : finding('migrations-podcasts', 'ok', 'As tabelas de podcast existem.')
+            );
+          }
         }
       } else out.push(finding('service-key-valid', 'warn', `O Supabase respondeu HTTP ${response.status} ao banco.`));
     } catch (err) {

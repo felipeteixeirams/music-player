@@ -245,3 +245,55 @@ test('INV-PLAY-15: service_state (o disjuntor da busca do YouTube) só o servido
     await assert.rejects(() => q.query('select * from public.service_state'), /permission denied/);
   });
 });
+
+const show = (id: string) => JSON.stringify({ id, title: `Programa ${id}`, author: 'Alguém', coverUrl: 'https://x.example/c.jpg' });
+
+test('INV-POD-06: os programas seguidos são de cada pessoa, o id é numérico e bate com o JSON, e o teto é de 200', async () => {
+  await db.exec(`insert into podcast_follows (user_id, show_id, show) values ('${USER_A}', '42', '${show('42')}')`);
+  try {
+    assert.equal((await as('authenticated', USER_A, (q) => q.query('select show_id from podcast_follows'))).rows.length, 1);
+    assert.equal((await as('authenticated', USER_B, (q) => q.query('select show_id from podcast_follows'))).rows.length, 0);
+    await as('authenticated', USER_B, async (q) => {
+      await rejects(q.query(`insert into podcast_follows (user_id, show_id, show) values ('${USER_A}', '7', '${show('7')}')`), /row-level security/);
+    });
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`insert into podcast_follows (user_id, show_id, show) values ('${USER_A}', 'abc', '${show('abc')}')`), /check/);
+    });
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`insert into podcast_follows (user_id, show_id, show) values ('${USER_A}', '8', '${show('9')}')`), /check/);
+    });
+    await as('anon', null, async (q) => {
+      await rejects(q.query('select * from podcast_follows'), /permission denied/);
+    });
+    // 199 more reach the ceiling of 200 for A; the next one is refused
+    await as('authenticated', USER_A, async (q) => {
+      for (let i = 1000; i < 1199; i += 1) await q.query(`insert into podcast_follows (user_id, show_id, show) values ('${USER_A}', '${i}', '${show(String(i))}')`);
+      await rejects(q.query(`insert into podcast_follows (user_id, show_id, show) values ('${USER_A}', '5000', '${show('5000')}')`), /limite de 200/);
+    });
+  } finally {
+    await db.exec(`delete from podcast_follows`);
+  }
+});
+
+test('INV-POD-07: o progresso de episódios é de cada pessoa, guarda só os 300 mais recentes e recusa posição negativa', async () => {
+  const episode = JSON.stringify({ title: 'Ep', audioUrl: 'https://x.example/a.mp3' });
+  try {
+    await as('authenticated', USER_A, async (q) => {
+      await q.query(`insert into podcast_progress (user_id, episode_id, show_id, position, duration, episode) values ('${USER_A}', 'pod-1-a', '1', 120, 3000, '${episode}')`);
+      await rejects(q.query(`insert into podcast_progress (user_id, episode_id, position, episode) values ('${USER_A}', 'pod-1-b', -5, '${episode}')`), /check/);
+    });
+    await db.exec(`insert into podcast_progress (user_id, episode_id, show_id, position, duration, episode) values ('${USER_A}', 'pod-1-a', '1', 120, 3000, '${episode}')`);
+    assert.equal((await as('authenticated', USER_A, (q) => q.query('select episode_id from podcast_progress'))).rows.length, 1);
+    assert.equal((await as('authenticated', USER_B, (q) => q.query('select episode_id from podcast_progress'))).rows.length, 0);
+
+    for (let i = 0; i < 305; i += 1) {
+      await db.exec(`insert into podcast_progress (user_id, episode_id, show_id, position, duration, episode, updated_at) values ('${USER_B}', 'e${i}', '1', 10, 100, '${episode}', now() + interval '${i} seconds')`);
+    }
+    const kept = await db.query(`select count(*)::int as n from podcast_progress where user_id = '${USER_B}'`);
+    assert.equal((kept.rows[0] as { n: number }).n, 300);
+    const newest = await db.query(`select 1 from podcast_progress where user_id = '${USER_B}' and episode_id = 'e304'`);
+    assert.equal(newest.rows.length, 1);
+  } finally {
+    await db.exec(`delete from podcast_progress`);
+  }
+});

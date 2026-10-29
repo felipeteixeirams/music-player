@@ -24,6 +24,7 @@ import { useCoverColor } from '../hooks/useCoverColor';
 import { isLiveTrack } from '../utils/liveRadio';
 import { isPodcastTrack } from '../utils/podcastTrack';
 import { speedLabel } from '../utils/podcastSpeed';
+import { usePodcastFollows } from '../hooks/usePodcastFollows';
 import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { LyricsView } from './LyricsView';
 import { QueueList } from './QueueList';
@@ -59,6 +60,7 @@ export const ExpandedPlayer: React.FC = () => {
   } = useAudio();
   const { currentTime, duration } = usePlaybackTime();
   const { openAddToPlaylist, playlists } = usePlaylists();
+  const follows = usePodcastFollows();
 
   // What fills the middle of the screen: the cover, the lyrics or the list of what plays next (the bottom buttons toggle them)
   const [view, setView] = useState<'cover' | 'lyrics' | 'queue'>('cover');
@@ -115,7 +117,21 @@ export const ExpandedPlayer: React.FC = () => {
   const hasMenu = !isLive && versionCount > 0;
   // A track without lyrics falls back to the cover; a live station has no queue to show
   const activeView = view === 'lyrics' && !hasLyrics ? 'cover' : view === 'queue' && isLive ? 'cover' : view;
-  const saveButton = isLive || isPodcast ? (
+  const show = currentTrack.podcast
+    ? { id: currentTrack.podcast.showId, title: currentTrack.podcast.showTitle, author: currentTrack.podcast.showAuthor ?? currentTrack.artist, coverUrl: currentTrack.podcast.showCoverUrl ?? currentTrack.coverUrl }
+    : null;
+  const followingShow = show ? follows.isFollowing(show.id) : false;
+  // For an episode the button follows the show; for a song it keeps the song
+  const saveButton = isPodcast && show ? (
+    <button
+      onClick={() => follows.toggle(show)}
+      aria-label={followingShow ? 'Seguindo o programa: deixar de seguir' : 'Seguir o programa'}
+      aria-pressed={followingShow}
+      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-75 transition-all ${followingShow ? 'bg-accent text-white' : 'material-ultrathin text-label'}`}
+    >
+      {followingShow ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+    </button>
+  ) : isLive ? (
     <div className="w-11 h-11 shrink-0" aria-hidden="true" />
   ) : (
     <button

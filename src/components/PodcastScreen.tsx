@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Check, Loader2, Pause, Play } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Pause, Play, Plus } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
 import { usePodcastProgress } from '../hooks/usePodcastProgress';
+import { usePodcastFollows } from '../hooks/usePodcastFollows';
 import { fetchPodcastShow } from '../utils/podcastClient';
 import { formatEpisodeDate, formatEpisodeLength, formatTimeLeft } from '../utils/podcastFormat';
 import { progressShare, type ProgressMap } from '../utils/podcastProgress';
@@ -27,6 +28,7 @@ export const PodcastScreen: React.FC<{ show: PodcastShowSummary }> = ({ show }) 
   const { storage } = useAuth();
   const { playTrack, togglePlayPause, currentTrack, isPlaying } = useAudio();
   const progress = usePodcastProgress(storage);
+  const follows = usePodcastFollows();
   const [data, setData] = useState<{ show: PodcastShowSummary; episodes: PodcastEpisodeItem[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -78,6 +80,14 @@ export const PodcastScreen: React.FC<{ show: PodcastShowSummary }> = ({ show }) 
         <h2 className="mt-3 text-[22px] font-bold tracking-tight text-label">{info.title}</h2>
         {info.author && <p className="text-[16px] text-accent">{info.author}</p>}
         {info.description && <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-label-secondary">{info.description}</p>}
+        <button
+          onClick={() => follows.toggle(info)}
+          aria-pressed={follows.isFollowing(info.id)}
+          className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[14px] font-semibold active:scale-95 transition-transform ${follows.isFollowing(info.id) ? 'bg-accent text-white' : 'bg-fill-tertiary text-label'}`}
+        >
+          {follows.isFollowing(info.id) ? <Check className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
+          {follows.isFollowing(info.id) ? 'Seguindo' : 'Seguir'}
+        </button>
       </div>
 
       {error && (

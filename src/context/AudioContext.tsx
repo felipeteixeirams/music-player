@@ -22,7 +22,7 @@ import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
-import { isPodcastTrack } from '../utils/podcastTrack';
+import { episodeRefOf, isPodcastTrack } from '../utils/podcastTrack';
 import { readProgress, resumePosition, saveProgress } from '../utils/podcastProgress';
 import { nextSpeed, readSpeed, saveSpeed } from '../utils/podcastSpeed';
 import { youtubeEngine } from '../utils/youtubeEngine';
@@ -457,7 +457,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const episode = currentTrackRef.current;
         if (episode && isPodcastTrack(episode) && performance.now() - lastProgressSaveRef.current > PROGRESS_SAVE_MS) {
           lastProgressSaveRef.current = performance.now();
-          saveProgress(storageRef.current, episode.id, audio.currentTime, Number.isFinite(audio.duration) ? audio.duration : episode.duration);
+          saveProgress(storageRef.current, episode.id, audio.currentTime, Number.isFinite(audio.duration) ? audio.duration : episode.duration, Date.now(), episodeRefOf(episode));
         }
       }
     };
@@ -485,7 +485,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       const episode = currentTrackRef.current;
       if (episode && isPodcastTrack(episode) && !audio.ended && audio.currentTime > 0) {
-        saveProgress(storageRef.current, episode.id, audio.currentTime, Number.isFinite(audio.duration) ? audio.duration : episode.duration);
+        saveProgress(storageRef.current, episode.id, audio.currentTime, Number.isFinite(audio.duration) ? audio.duration : episode.duration, Date.now(), episodeRefOf(episode));
       }
       setIsPlaying(false);
     };
@@ -708,7 +708,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const episode = currentTrackRef.current;
       if (episode && isPodcastTrack(episode)) {
         // Listened to the end: shown as played, and the next episode of the list follows
-        saveProgress(storageRef.current, episode.id, episode.duration || audio.duration || 0, episode.duration || audio.duration || 0);
+        saveProgress(storageRef.current, episode.id, episode.duration || audio.duration || 0, episode.duration || audio.duration || 0, Date.now(), episodeRefOf(episode));
         playNext();
         return;
       }

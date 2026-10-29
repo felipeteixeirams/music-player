@@ -318,6 +318,17 @@ Esperado: menos faixas caindo na prévia de 30 s por "nenhum aceito". A segunda 
 
 Esperado: tudo isso sem gastar cota (Ajustes > Faixas novas hoje não sobe) e sem entrar no histórico de músicas. Se o feed do programa estiver parado, a lista termina na data do último episódio publicado.
 
+### T29: podcasts, etapa 2 (seguir e sincronizar)
+
+1. **Antes de testar**, aplique `supabase/migrations/0004_podcasts.sql` no SQL Editor do Supabase. Confira em `/api/health?deep=1` (a verificação `migrations-podcasts` deve estar ok).
+2. Abra um programa (Buscar > Podcasts) e toque em **Seguir**. O botão vira "Seguindo". Abra Biblioteca: a linha **Podcasts** mostra 1; toque nela e depois no programa: a página abre, e voltar leva à lista.
+3. Com um episódio tocando, o botão + do player expandido também segue o programa.
+4. **Dois aparelhos** (ou o app instalado e o navegador, com a mesma conta): siga num e abra a Biblioteca no outro (traga o app ao primeiro plano): o programa aparece. Deixe de seguir num: some no outro.
+5. Ouça um episódio por 1 minuto e saia do app. No outro aparelho, abra o programa: o episódio aparece em andamento ("faltam N min") e "Continuar" retoma perto do ponto.
+6. Sem a migração (se quiser conferir): seguir funciona só no aparelho, nada trava, e o Diagnóstico não mostra erro.
+
+Esperado: tudo isso sem alterar favoritos, playlists nem o histórico.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:

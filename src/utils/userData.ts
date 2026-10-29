@@ -1,27 +1,30 @@
-import type { Track } from '../types/music';
+import type { PodcastShowSummary, Track } from '../types/music';
 import type { KeyValueStorage } from './scopedStorage';
 import { LIKED_IDS_KEY, LIKED_TRACKS_KEY, loadLikedLibrary } from './likedTracks';
 import { loadPlaylists, PLAYLISTS_KEY, savePlaylists, type Playlist } from './playlists';
 import { loadChoices, VIDEO_CHOICE_KEY } from './videoChoice';
+import { loadFollows, saveFollows } from './podcastFollows';
 
-/** What belongs to the account: the favorites, the playlists and the "Outra versão" picks. */
+/** What belongs to the account: the favorites, the playlists, the "Outra versão" picks and the podcasts followed. */
 export interface UserDataSnapshot {
   favorites: Track[];
   playlists: Playlist[];
   choices: Record<string, string>;
+  podcasts: PodcastShowSummary[];
 }
 
 /** Set while this device holds changes the account does not have yet: 'local' (send them) or 'merge' (first sign-in with old data). */
 export const SYNC_FLAG_KEY = 'aurastream_sync_pending';
 export type SyncFlag = 'local' | 'merge';
 
-export const EMPTY_SNAPSHOT: UserDataSnapshot = { favorites: [], playlists: [], choices: {} };
+export const EMPTY_SNAPSHOT: UserDataSnapshot = { favorites: [], playlists: [], choices: {}, podcasts: [] };
 
 export function readSnapshot(storage: Pick<KeyValueStorage, 'getItem'>): UserDataSnapshot {
   return {
     favorites: loadLikedLibrary(storage).tracks,
     playlists: loadPlaylists(storage),
-    choices: loadChoices(storage)
+    choices: loadChoices(storage),
+    podcasts: loadFollows(storage)
   };
 }
 
@@ -33,6 +36,7 @@ export function writeSnapshot(storage: Pick<KeyValueStorage, 'setItem'>, snapsho
     // storage that refuses (private mode, full): the account still has the data
   }
   savePlaylists(storage, snapshot.playlists);
+  saveFollows(storage, snapshot.podcasts);
 }
 
 /** Equal keys mean nothing for the account differs (track details apart: only ids, names, order and picks count). */
@@ -40,7 +44,8 @@ export function snapshotKey(snapshot: UserDataSnapshot): string {
   return JSON.stringify([
     snapshot.favorites.map((track) => track.id),
     snapshot.playlists.map((p) => [p.id, p.name, p.createdAt, p.tracks.map((t) => t.id)]),
-    Object.entries(snapshot.choices).sort(([a], [b]) => (a < b ? -1 : 1))
+    Object.entries(snapshot.choices).sort(([a], [b]) => (a < b ? -1 : 1)),
+    snapshot.podcasts.map((show) => show.id)
   ]);
 }
 
@@ -71,6 +76,8 @@ export interface SnapshotDiff {
   playlistTrackRemovals: { playlistId: string; trackIds: string[] }[];
   choiceUpserts: { trackId: string; videoId: string }[];
   choiceRemovals: string[];
+  podcastUpserts: PodcastShowSummary[];
+  podcastRemovals: string[];
 }
 
 /** What it takes to turn `from` (what the account holds) into `to` (what the device holds). */
@@ -83,7 +90,9 @@ export function diffSnapshots(from: UserDataSnapshot, to: UserDataSnapshot): Sna
     playlistTrackUpserts: [],
     playlistTrackRemovals: [],
     choiceUpserts: [],
-    choiceRemovals: []
+    choiceRemovals: [],
+    podcastUpserts: [],
+    podcastRemovals: []
   };
 
   const fromFavorites = new Set(from.favorites.map((t) => t.id));
@@ -114,6 +123,11 @@ export function diffSnapshots(from: UserDataSnapshot, to: UserDataSnapshot): Sna
     if (from.choices[trackId] !== videoId) diff.choiceUpserts.push({ trackId, videoId });
   }
   diff.choiceRemovals = Object.keys(from.choices).filter((trackId) => !(trackId in to.choices));
+
+  const fromShows = new Set(from.podcasts.map((show) => show.id));
+  const toShows = new Set(to.podcasts.map((show) => show.id));
+  diff.podcastUpserts = to.podcasts.filter((show) => !fromShows.has(show.id));
+  diff.podcastRemovals = from.podcasts.filter((show) => !toShows.has(show.id)).map((show) => show.id);
   return diff;
 }
 
@@ -135,7 +149,10 @@ export function mergeSnapshots(local: UserDataSnapshot, remote: UserDataSnapshot
   const remoteIds = new Set(remote.playlists.map((p) => p.id));
   playlists.push(...local.playlists.filter((p) => !remoteIds.has(p.id)));
 
-  return { favorites, playlists, choices: { ...remote.choices, ...local.choices } };
+  const showIds = new Set(remote.podcasts.map((show) => show.id));
+  const podcasts = [...remote.podcasts, ...local.podcasts.filter((show) => !showIds.has(show.id))];
+
+  return { favorites, playlists, choices: { ...remote.choices, ...local.choices }, podcasts };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -148,6 +165,7 @@ export function randomUuid(): string {
   });
 }
 
+// Podcast follows did not exist before the accounts: there is nothing legacy to adopt
 const LEGACY_KEYS = [LIKED_IDS_KEY, LIKED_TRACKS_KEY, PLAYLISTS_KEY, VIDEO_CHOICE_KEY];
 
 /**

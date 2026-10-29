@@ -102,7 +102,7 @@ function services(options: { settings?: object | number; rest?: object | number 
   return { fetchImpl, calls };
 }
 const PATHS = Object.fromEntries(
-  ['/favorites', '/playlists', '/playlist_tracks', '/video_choices', '/play_history', '/video_cache', '/usage_daily', '/rpc/consume_resolve', '/rpc/refund_resolve'].map((p) => [p, {}])
+  ['/favorites', '/playlists', '/playlist_tracks', '/video_choices', '/play_history', '/video_cache', '/usage_daily', '/rpc/consume_resolve', '/rpc/refund_resolve', '/podcast_follows', '/podcast_progress'].map((p) => [p, {}])
 );
 const ids = (findings: { id: string; level: string }[], levelName: string) => findings.filter((f) => f.level === levelName).map((f) => f.id);
 
@@ -268,4 +268,15 @@ test('check-deploy: a região das funções vem do x-vercel-id e fora de São Pa
   const base = { status: 'ok', config: { ok: true, problems: [] }, services: { ok: true, problems: [] } };
   assert.deepEqual(evaluate({ ...base, region: 'gru1' }).warnings, []);
   assert.match(evaluate({ ...base, region: 'iad1' }).warnings[0], /iad1/);
+});
+
+test('migração de podcasts ausente é só um aviso (o app funciona sem ela); presente fica ok', async () => {
+  const withoutPodcasts = Object.fromEntries(Object.entries(PATHS).filter(([path]) => !path.startsWith('/podcast_')));
+  const missing = await checkDeepConfig(GOOD, services({ settings: { disable_signup: true, external: { email: true } }, rest: { paths: withoutPodcasts } }).fetchImpl);
+  assert.deepEqual(ids(missing, 'error'), []);
+  assert.deepEqual(ids(missing, 'warn'), ['migrations-podcasts']);
+  assert.match(missing.find((f) => f.id === 'migrations-podcasts')!.message, /0004_podcasts\.sql/);
+
+  const present = await checkDeepConfig(GOOD, services({ settings: { disable_signup: true, external: { email: true } }, rest: { paths: PATHS } }).fetchImpl);
+  assert.equal(present.find((f) => f.id === 'migrations-podcasts')?.level, 'ok');
 });

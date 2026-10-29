@@ -4,11 +4,12 @@ import type { Track } from '../src/types/music';
 import { readSnapshot, readSyncFlag, writeSnapshot, writeSyncFlag, type SnapshotDiff, type UserDataSnapshot } from '../src/utils/userData';
 import { createRemote, RemoteError, type Remote } from '../src/utils/userDataRemote';
 import { UserDataSync } from '../src/utils/userDataSync';
+import { PODCAST_FOLLOWS_KEY } from '../src/utils/podcastFollows';
 
 const track = (n: number): Track => ({
   id: `deezer-${n}`, title: `T${n}`, artist: 'A', album: 'B', duration: 100, coverUrl: '', style: 'x', categoryId: 'c', sources: { localUrl: '' }
 });
-const snap = (partial: Partial<UserDataSnapshot> = {}): UserDataSnapshot => ({ favorites: [], playlists: [], choices: {}, ...partial });
+const snap = (partial: Partial<UserDataSnapshot> = {}): UserDataSnapshot => ({ favorites: [], playlists: [], choices: {}, podcasts: [], ...partial });
 
 function memoryStorage() {
   const data = new Map<string, string>();
@@ -163,11 +164,14 @@ function recordingFetch(respond: (url: string, init: RequestInit) => Response) {
   return { calls, fetchImpl };
 }
 const config = { url: 'https://p.supabase.co', key: 'anon' };
+const SHOW = { id: '42', title: 'Despertar Zen', author: 'Monja Coen', coverUrl: 'https://x.example/c.jpg' };
 const user = async () => ({ id: 'user-1', token: 'jwt' });
 
-test('fetchAll lê as quatro tabelas com o token do usuário e junta as faixas às playlists', async () => {
+test('fetchAll lê as cinco tabelas com o token do usuário e junta as faixas às playlists', async () => {
   const { calls, fetchImpl } = recordingFetch((url) => {
-    const body = url.includes('/favorites?')
+    const body = url.includes('/podcast_follows?')
+      ? [{ show: SHOW }]
+      : url.includes('/favorites?')
       ? [{ track: track(1) }]
       : url.includes('/playlists?')
       ? [{ id: 'p1', name: 'Estrada', created_at: '2026-01-01T00:00:00Z' }]
@@ -177,8 +181,9 @@ test('fetchAll lê as quatro tabelas com o token do usuário e junta as faixas �
     return new Response(JSON.stringify(body));
   });
   const data = await createRemote(config, user, fetchImpl).fetchAll();
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
   assert.ok(calls.every((c) => (c.init.headers as Record<string, string>).Authorization === 'Bearer jwt'));
+  assert.deepEqual(data.podcasts, [SHOW]);
   assert.deepEqual(ids(data), ['deezer-1']);
   assert.deepEqual(data.playlists.map((p) => [p.id, p.name, p.tracks.map((t) => t.id)]), [['p1', 'Estrada', ['deezer-2']]]);
   assert.equal(data.playlists[0].createdAt, Date.parse('2026-01-01T00:00:00Z'));
@@ -206,13 +211,16 @@ test('push envia upserts antes e remoções depois, com o dono preenchido', asyn
     playlistTrackUpserts: [{ playlistId: 'p', track: track(1), position: 0 }],
     playlistTrackRemovals: [],
     choiceUpserts: [],
-    choiceRemovals: []
+    choiceRemovals: [],
+    podcastUpserts: [SHOW],
+    podcastRemovals: ['9']
   });
   const summary = calls.map((c) => `${c.init.method} ${c.url.replace(config.url + '/rest/v1', '').split('?')[0]}`);
-  assert.deepEqual(summary, ['POST /playlists', 'POST /playlist_tracks', 'POST /favorites', 'DELETE /favorites', 'DELETE /playlists']);
+  assert.deepEqual(summary, ['POST /playlists', 'POST /playlist_tracks', 'POST /favorites', 'POST /podcast_follows', 'DELETE /favorites', 'DELETE /podcast_follows', 'DELETE /playlists']);
   const favoriteBody = JSON.parse(calls[2].init.body as string);
   assert.equal(favoriteBody[0].user_id, 'user-1');
-  assert.ok(calls[3].url.includes('track_id=in.'));
+  assert.equal(JSON.parse(calls[3].init.body as string)[0].show_id, '42');
+  assert.ok(calls[4].url.includes('track_id=in.'));
 });
 
 test('erros do servidor viram RemoteError, repetíveis ou não', async () => {
@@ -222,3 +230,29 @@ test('erros do servidor viram RemoteError, repetíveis ou não', async () => {
   const offline = createRemote(config, user, (async () => { throw new Error('offline'); }) as unknown as typeof fetch);
   await assert.rejects(offline.fetchAll(), (e: RemoteError) => e.retryable && e.status === 0);
 });
+
+test('INV-POD-06: sem as tabelas de podcast (migração ainda não aplicada) o resto continua sincronizando e a lista local não é apagada nem reenviada', async () => {
+  // The account answers 404 for the podcast tables only
+  const { calls, fetchImpl } = recordingFetch((url) => (url.includes('podcast_') ? new Response('{}', { status: 404 }) : new Response('[]')));
+  const remote = createRemote(config, user, fetchImpl);
+  const data = await remote.fetchAll();
+  assert.equal(data.podcastsMissing, true);
+  assert.deepEqual(data.podcasts, []);
+
+  // Pushing podcasts is skipped from now on, without failing what else is pushed
+  calls.length = 0;
+  await remote.push({ ...emptyDiff(), favoriteUpserts: [track(1)], podcastUpserts: [SHOW] });
+  assert.deepEqual(calls.map((c) => c.url.replace(config.url + '/rest/v1', '').split('?')[0]), ['/favorites']);
+
+  // The sync keeps the device's followed shows instead of taking the (missing) account's empty list
+  const storage = memoryStorage();
+  storage.setItem(PODCAST_FOLLOWS_KEY, JSON.stringify([SHOW]));
+  const sync = new UserDataSync({ storage, remote, onApplied: () => undefined, debounceMs: 0 });
+  sync.start();
+  await sync.idle();
+  assert.deepEqual(JSON.parse(storage.getItem(PODCAST_FOLLOWS_KEY) ?? '[]'), [SHOW]);
+});
+
+function emptyDiff() {
+  return { favoriteUpserts: [], favoriteRemovals: [], playlistUpserts: [], playlistRemovals: [], playlistTrackUpserts: [], playlistTrackRemovals: [], choiceUpserts: [], choiceRemovals: [], podcastUpserts: [], podcastRemovals: [] };
+}
