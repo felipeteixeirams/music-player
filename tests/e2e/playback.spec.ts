@@ -168,6 +168,31 @@ test('INV-PLAY-10: o player é liberado de novo em todo toque de faixa nova com 
   await expect.poll(() => page.evaluate(() => (window as any).__yt.loads.length)).toBe(2);
 });
 
+test('INV-PLAY-20: pausar e tocar de novo retoma a mesma faixa no mesmo vídeo, com som, sem vídeo-reserva e sem avançar para a próxima (o clipe mudo do toque não conta como fim de faixa)', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+  await topHit(page).click();
+  await expect(page.getByRole('button', { name: 'Pausar música' }).first()).toBeVisible({ timeout: 10_000 });
+  await expect.poll(() => page.evaluate(() => (window as any).__yt.loads.length)).toBe(1);
+  const title = await page.getByRole('button', { name: /Abrir player expandido/ }).textContent();
+
+  await miniPlay(page).click();
+  await expect(miniPlay(page)).toHaveAccessibleName('Reproduzir música');
+  const before = await page.evaluate(() => (window as any).__yt.log.length);
+  await miniPlay(page).click();
+  await expect(miniPlay(page)).toHaveAccessibleName('Pausar música');
+  await page.waitForTimeout(1500);
+
+  const after = await page.evaluate(() => (window as any).__yt.log.slice(0));
+  // Resuming asks the player to play, and nothing else: no mute, no new video
+  expect(after.slice(before)).toEqual(['play']);
+  expect(await page.evaluate(() => (window as any).__yt.loads.length)).toBe(1);
+  expect(await page.getByRole('button', { name: /Abrir player expandido/ }).textContent()).toBe(title);
+});
+
 test('o tempo da faixa não fica com a duração do vídeo-reserva: a barra segue a duração real do player', async ({ page }) => {
   await page.addInitScript(() => {
     (window as any).__ytStaleLength = true;
