@@ -28,7 +28,7 @@ export const PlaybackDiagnostics: React.FC = () => {
   };
 
   return (
-    <div className="rounded-card bg-fill-tertiary px-3 py-2.5 text-[15px] text-label">
+    <div className="px-4 py-3 text-[15px] text-label">
       <button onClick={() => setOpen((value) => !value)} className="flex w-full items-center gap-3 text-left" aria-expanded={open}>
         <Activity className="h-4 w-4 text-accent" aria-hidden="true" />
         <span>Diagnóstico de reprodução</span>

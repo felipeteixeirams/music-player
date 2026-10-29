@@ -526,3 +526,17 @@ test.describe('cartões personalizados da home', () => {
     await expect(cards.locator('[data-mix="mood"]')).toBeVisible();
   });
 });
+
+test('INV-UI-08: Ajustes é uma tela com seções (conta, aparência, armazenamento, ajuda, sobre) e o OK volta ao app', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ajustes' });
+  for (const name of ['Conta', 'Aparência', 'Armazenamento e dados', 'Ajuda', 'Sobre']) {
+    await expect(dialog.getByRole('region', { name })).toBeVisible();
+  }
+  await expect(page.getByTestId('app-version')).not.toBeEmpty();
+  await expect(page.getByTestId('session-code')).not.toBeEmpty();
+  await page.getByRole('button', { name: 'Fechar ajustes' }).click();
+  await expect(dialog).toBeHidden();
+});
