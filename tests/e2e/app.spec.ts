@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { fakeYouTube, loadedVideo, nav, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const COLLECTION_NAMES = ['Top Hits', 'Classic Rock', 'Alternative & Indie', 'Lofi Chill', 'Synthwave & Retrowave'];
@@ -276,7 +276,7 @@ test.describe('playlists', () => {
   test('uma faixa pode ir para uma playlist nova direto da folha, e o player completo também a abre', async ({ page }) => {
     await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
     await page.getByRole('button', { name: /Abrir player expandido/ }).click();
-    await page.getByLabel('Adicionar esta faixa a uma playlist').click();
+    await page.getByLabel('Salvar nos favoritos e em playlists').click();
 
     await page.getByRole('button', { name: 'Nova playlist' }).click();
     await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Treino');
@@ -564,5 +564,61 @@ test.describe('painel de administrador', () => {
     await expect(panel.getByText('Aviso: service-key')).toBeVisible();
     await page.getByRole('button', { name: 'Fechar administração' }).click();
     await expect(panel).toBeHidden();
+  });
+});
+
+test.describe('player expandido', () => {
+  const openExpanded = async (page: Page, options: Parameters<typeof stubApi>[1] = {}) => {
+    await stubApi(page, options);
+    await page.goto('/');
+    await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
+    await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+  };
+
+  test('INV-UI-09: o player expandido não tem abas Capa/Frequência/Letra nem controle de volume', async ({ page }) => {
+    await openExpanded(page);
+    await expect(page.getByRole('button', { name: 'Minimizar player expandido' })).toBeVisible();
+    for (const name of ['Capa', 'Frequência', 'Letra']) await expect(page.getByRole('button', { name: name, exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Volume da reprodução')).toHaveCount(0);
+    await expect(page.getByLabel('Silenciar')).toHaveCount(0);
+    await expect(page.getByAltText(/Capa do álbum/)).toBeVisible();
+  });
+
+  test('INV-UI-09: um botão só salva: o primeiro toque curte a faixa e abre a folha "Conteúdo salvo em:" com Músicas curtidas marcada e as playlists', async ({ page }) => {
+    await openExpanded(page);
+    await page.getByRole('button', { name: 'Salvar nos favoritos e em playlists' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Salvar em favoritos e playlists' });
+    await expect(sheet.getByText('Conteúdo salvo em:')).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /Músicas curtidas/ })).toHaveAttribute('aria-pressed', 'true');
+    // New playlist from the sheet puts the song in it right away
+    await sheet.getByRole('button', { name: 'Nova playlist' }).click();
+    await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Treino');
+    await page.getByRole('button', { name: 'Criar' }).click();
+    await expect(sheet.getByRole('button', { name: /Treino/ })).toHaveAttribute('aria-pressed', 'true');
+    await sheet.getByRole('button', { name: 'Pronto' }).click();
+    // Saved now: the button says so, and the next tap manages instead of toggling
+    await expect(page.getByRole('button', { name: 'Salvo: gerenciar favoritos e playlists' })).toBeVisible();
+    await page.getByRole('button', { name: 'Salvo: gerenciar favoritos e playlists' }).click();
+    await sheet.getByRole('button', { name: /Músicas curtidas/ }).click();
+    await expect(sheet.getByRole('button', { name: /Músicas curtidas/ })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('INV-UI-09: a letra aparece numa prévia sob os controles e abre em tela cheia; tocar numa linha pula para ela', async ({ page }) => {
+    await openExpanded(page, { lyrics: true, previewUrl: silentClip(20) });
+    const preview = page.getByTestId('lyrics-preview');
+    await expect(preview).toContainText('Primeira linha');
+    await page.getByRole('button', { name: 'Abrir a letra' }).click();
+    const lyrics = page.getByRole('dialog', { name: 'Letra' });
+    await expect(lyrics.getByText('Terceira linha')).toBeVisible();
+    await lyrics.getByText('Terceira linha').click();
+    await expect(lyrics.locator('[data-active]')).toHaveText('Terceira linha');
+    await page.getByRole('button', { name: 'Fechar a letra' }).click();
+    await expect(lyrics).toBeHidden();
+  });
+
+  test('sem letra disponível não aparece a prévia', async ({ page }) => {
+    await openExpanded(page);
+    await page.waitForTimeout(500);
+    await expect(page.getByRole('button', { name: 'Abrir a letra' })).toHaveCount(0);
   });
 });

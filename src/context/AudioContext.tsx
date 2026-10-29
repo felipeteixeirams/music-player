@@ -64,7 +64,6 @@ interface AudioContextType {
   audioStreamUrl: string;
   likedTrackIds: string[];
   likedTracks: Track[];
-  audioFrequencyData: number[];
   userSeekRequest: number | null;
   
   // Actions
@@ -179,11 +178,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Memoized: a new array on every render would make `isLiked` and the whole context value change on each clock tick
   const likedTrackIds = useMemo(() => likedIds(likedLibrary), [likedLibrary]);
 
-  const [audioFrequencyData, setAudioFrequencyData] = useState<number[]>(new Array(24).fill(12));
 
   // Native HTML5 Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
   // A track counts as played after enough listening (see playedCounter.ts): it goes to the play history
   const playedCounterRef = useRef<PlayedCounter | null>(null);
@@ -468,7 +465,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('playing', onPlaying);
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('error', onError);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, [triggerFallbackEngine, playbackStarted]);
 
@@ -541,39 +537,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // The account's favorites arrived (or changed on another device)
   useEffect(() => onUserDataApplied(() => setLikedLibrary(loadLikedLibrary(storage))), [storage]);
-
-  // Audio Visualizer data generator. Only the expanded player draws it, and each update re-renders every
-  // consumer of this context, so it runs only while that panel is open and playing, at about 20 frames/s.
-  useEffect(() => {
-    const flat = (prev: number[]) => (prev.every((v) => v === 0) ? prev : new Array(24).fill(0));
-    if (!isPlaying || !isExpanded) {
-      setAudioFrequencyData(flat);
-      return;
-    }
-
-    let phase = 0;
-    let lastFrame = 0;
-    const updateSpectrum = (now: number) => {
-      animationFrameRef.current = requestAnimationFrame(updateSpectrum);
-      if (now - lastFrame < 50) return;
-      lastFrame = now;
-
-      phase += 0.08;
-      const bands = 24;
-      setAudioFrequencyData(
-        new Array(bands).fill(0).map((_, i) => {
-          const base = Math.sin(phase + i * 0.4) * 0.35 + 0.55;
-          const noise = (Math.random() - 0.5) * 0.2;
-          return Math.round(Math.max(0.1, Math.min(1.0, base + noise)) * 100);
-        })
-      );
-    };
-
-    animationFrameRef.current = requestAnimationFrame(updateSpectrum);
-    return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    };
-  }, [isPlaying, isExpanded]);
 
   // Handle track source resolution (Hybrid Engine logic - with Offline Cache priority)
   /**
@@ -1161,7 +1124,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audioStreamUrl,
       likedTrackIds,
       likedTracks: likedLibrary.tracks,
-      audioFrequencyData,
       userSeekRequest,
       playTrack,
       togglePlayPause,
@@ -1209,7 +1171,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audioStreamUrl,
       likedTrackIds,
       likedLibrary.tracks,
-      audioFrequencyData,
       userSeekRequest,
       playTrack,
       togglePlayPause,
