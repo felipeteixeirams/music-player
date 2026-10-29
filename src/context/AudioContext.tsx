@@ -21,6 +21,7 @@ import { PlayedCounter } from '../utils/playedCounter';
 import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
+import { moveQueueItem } from '../utils/queueOrder';
 import { youtubeEngine } from '../utils/youtubeEngine';
 import { fetchFreshPreviewUrl } from '../utils/catalogClient';
 import { isPreviewStale } from '../utils/previewUrl';
@@ -96,6 +97,8 @@ interface AudioContextType {
   switchVersion: () => void;
   /** "Não é esta música": drops the video that plays (for everybody) and plays another one, searching again if there is none. */
   markWrongVersion: () => void;
+  /** Moves a track of the queue (absolute positions, both after the playing one) to another place. */
+  moveQueueTrack: (from: number, to: number) => void;
   toggleExpanded: (open?: boolean) => void;
   /** The station playing as a radio: the queue renews itself and never runs out. Null for ordinary lists. */
   radioStation: RadioStation | null;
@@ -1065,6 +1068,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     flashNotice(`Tocando outra versão (${index + 1} de ${versions.ids.length}).`);
   }, [triggerFallbackEngine, storage, flashNotice]);
 
+  const moveQueueTrack = useCallback((from: number, to: number) => {
+    const next = moveQueueItem(queueRef.current, from, to, currentIndex + 1);
+    if (next === queueRef.current) return;
+    // The ref first: a radio refill reads it before the next render
+    queueRef.current = [...next];
+    setQueue(queueRef.current);
+  }, [currentIndex]);
+
   const markWrongVersion = useCallback(async () => {
     const track = currentTrackRef.current;
     const versions = versionsRef.current;
@@ -1207,6 +1218,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       versionCount,
       switchVersion,
       markWrongVersion,
+      moveQueueTrack,
       toggleExpanded,
       radioStation,
       startRadio,
@@ -1255,6 +1267,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       versionCount,
       switchVersion,
       markWrongVersion,
+      moveQueueTrack,
       toggleExpanded,
       radioStation,
       startRadio,
