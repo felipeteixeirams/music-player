@@ -362,3 +362,18 @@ test('INV-PLAY-17: quando a busca oficial acha a faixa, a busca web nem é consu
   assert.equal(result.via, 'official');
   assert.equal(calls.filter((url) => url.includes('youtubei')).length, 0);
 });
+
+test('INV-PLAY-18: um vídeo de outro artista e outro título, mesmo Topic e com duração parecida, não é aceito', () => {
+  const wanted = { artist: 'Akashic', title: "Heaven's Call", duration: 258 };
+  const other = candidate({ videoId: 'OTHER000001', title: 'Calling From Heaven', channel: 'Ebbot Lundberg - Topic', durationSeconds: 248 });
+  const right = candidate({ videoId: 'RIGHT000001', title: "Akashic - Heaven's Call", channel: 'Akashic', durationSeconds: 258 });
+  assert.equal(pickBestCandidate([other], wanted), null);
+  assert.equal(pickBestCandidate([other, right], wanted)?.videoId, 'RIGHT000001');
+});
+
+test('INV-PLAY-18: o artista aparece no canal ou com grafia diferente e a faixa continua sendo aceita', () => {
+  const vevo = candidate({ videoId: 'VEVO0000001', title: 'Tusa', channel: 'KarolGVEVO', durationSeconds: 200 });
+  assert.equal(pickBestCandidate([vevo], { artist: 'KAROL G, Nicki Minaj', title: 'Tusa', duration: 200 })?.videoId, 'VEVO0000001');
+  const dupla = candidate({ videoId: 'DUPLA000001', title: 'Zé Neto e Cristiano - Largado às Traças', channel: 'Zé Neto & Cristiano', durationSeconds: 180 });
+  assert.equal(pickBestCandidate([dupla], { artist: 'Zé Neto & Cristiano', title: 'Largado às Traças', duration: 180 })?.videoId, 'DUPLA000001');
+});
