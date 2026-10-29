@@ -44,7 +44,7 @@ O player do YouTube é `src/utils/youtubeEngine.ts` (API de iframe do próprio Y
 
 ## Funções da Vercel
 
-Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 8: `audio`, `category`, `feed`, `health`, `radio`, `report`, `resolve` e `search`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
+Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 9: `admin`, `audio`, `category`, `feed`, `health`, `radio`, `report`, `resolve` e `search`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
 
 ## Interface em PWA no iPhone
 
@@ -128,3 +128,7 @@ Antes de dizer que algo regrediu (ou que "não tem como resolver"), nesta ordem:
 3. **Roteiro e histórico:** o item do [roteiro de validação](docs/specs/current/validation-checklist.spec.md) tem resultado registrado? O que mudou nos arquivos da capacidade desde então (`git log -- <arquivos>`)?
 4. **Evidência antes de afirmar:** não escreva "o iPhone sempre faz X" ou "não há como evitar" sem uma linha da matriz ou um teste que o prove; diga "hipótese" quando for suposição. Ao confirmar ou desmentir algo no aparelho, atualize a matriz no mesmo dia.
 5. **Regra dos invariantes:** cada master lista invariantes (`INV-…`) e `tests/docs.test.ts` exige um teste que cite cada um. Ao criar ou mudar uma regra que não pode quebrar, dê-lhe um id no master e ponha o id no título do teste que a garante.
+
+## Painel de administrador
+
+Em Ajustes, a linha "Administração" só aparece para quem está em `ADMIN_EMAILS` (variável de servidor na Vercel, e-mails separados por vírgula, sem diferenciar maiúsculas); a decisão é do servidor (`isAdminUser` em `api/_adminEndpoint.ts`, rota `api/admin`): `?me=1` diz ao app se mostra a linha e os dados (disjuntor do YouTube, buscas do dia, uso por pessoa com e-mail, tamanho do cache, verificação da configuração) saem só para o admin (403 para os demais, sem corpo útil). Nunca ponha esses dados em log nem em resposta pública (INV-ADMIN-01 e 02, em [docs/masters/accounts-and-data.md](docs/masters/accounts-and-data.md)). Ao incluir uma informação nova no painel, ela entra no corpo de `adminEndpoint` e na tela `AdminPanel`; ao criar uma ação que altera algo, ela também passa por `isAdminUser`.

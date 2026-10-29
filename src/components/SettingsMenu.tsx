@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Database, Disc3, LogOut } from 'lucide-react';
+import { ChevronRight, Database, Disc3, LogOut, ShieldCheck } from 'lucide-react';
 import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
 import { PlaybackDiagnostics } from './PlaybackDiagnostics';
 import { APPEARANCES, readAppearance, saveAppearance, type Appearance } from '../utils/appearance';
 import { sessionId } from '../utils/trace';
+import { fetchIsAdmin } from '../utils/adminClient';
+import { AdminPanel } from './AdminPanel';
 
 const APPEARANCE_LABELS: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
 
@@ -27,12 +29,24 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
   const { enabled, email, signOut } = useAuth();
   const [usage, setUsage] = useState<DailyUsage | null>(null);
   const [appearance, setAppearance] = useState<Appearance>(readAppearance);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !enabled) return;
     const controller = new AbortController();
     void fetchDailyUsage(controller.signal).then((value) => {
       if (!controller.signal.aborted) setUsage(value);
+    });
+    return () => controller.abort();
+  }, [isOpen, enabled]);
+
+  // The server decides who is an administrator; this only shows the entry
+  useEffect(() => {
+    if (!isOpen || !enabled) return;
+    const controller = new AbortController();
+    void fetchIsAdmin(controller.signal).then((value) => {
+      if (!controller.signal.aborted) setIsAdmin(value);
     });
     return () => controller.abort();
   }, [isOpen, enabled]);
@@ -127,6 +141,16 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           </div>
         </Section>
 
+        {isAdmin && (
+          <Section title="Administração">
+            <button onClick={() => setAdminOpen(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label">
+              <ShieldCheck className="h-4 w-4 text-accent" aria-hidden="true" />
+              <span className="flex-1">Painel de administrador</span>
+              <ChevronRight className="h-4 w-4 text-label-tertiary" aria-hidden="true" />
+            </button>
+          </Section>
+        )}
+
         <Section title="Sobre">
           <div className="flex items-center justify-between px-4 py-3 text-[15px]">
             <span className="text-label">Versão</span>
@@ -138,6 +162,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           </div>
         </Section>
       </div>
+      {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
     </div>
   );
 };

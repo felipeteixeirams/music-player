@@ -540,3 +540,29 @@ test('INV-UI-08: Ajustes é uma tela com seções (conta, aparência, armazename
   await page.getByRole('button', { name: 'Fechar ajustes' }).click();
   await expect(dialog).toBeHidden();
 });
+
+test.describe('painel de administrador', () => {
+  test('INV-ADMIN-01: quem não é administrador não vê a linha "Administração" em Ajustes', async ({ page }) => {
+    await stubApi(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await expect(page.getByTestId('app-version')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Administração' })).toHaveCount(0);
+  });
+
+  test('INV-ADMIN-02: o administrador abre o painel com a busca do YouTube, o uso por pessoa, o cache e a configuração', async ({ page }) => {
+    await stubApi(page, { admin: true });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await page.getByRole('button', { name: 'Painel de administrador' }).click();
+    const panel = page.getByRole('dialog', { name: 'Administração' });
+    await expect(page.getByTestId('admin-youtube')).toContainText('Suspensa (quota)');
+    await expect(page.getByTestId('admin-searches')).toHaveText('12');
+    await expect(page.getByTestId('admin-cache')).toHaveText('120');
+    await expect(panel.getByText('ana@example.com')).toBeVisible();
+    await expect(panel.getByText('9 de 30')).toBeVisible();
+    await expect(panel.getByText('Aviso: service-key')).toBeVisible();
+    await page.getByRole('button', { name: 'Fechar administração' }).click();
+    await expect(panel).toBeHidden();
+  });
+});
