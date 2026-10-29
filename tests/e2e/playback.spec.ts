@@ -397,7 +397,8 @@ test.describe('"Não é esta música"', () => {
     const reports: string[] = [];
     const avoids: string[] = [];
     await playAndExpand(page, { videoIds: [FIRST], otherVideoIds: [OTHER], reports, avoids });
-    await page.getByRole('button', { name: 'Não é esta música' }).click();
+    await page.getByRole('button', { name: 'Mais opções' }).click();
+    await page.getByRole('menuitem', { name: 'Não é esta música' }).click();
     await expect.poll(() => loadedVideo(page)).toBe(OTHER);
     expect(reports).toEqual([FIRST]);
     expect(avoids).toEqual([FIRST]);
@@ -407,7 +408,8 @@ test.describe('"Não é esta música"', () => {
     const reports: string[] = [];
     const avoids: string[] = [];
     await playAndExpand(page, { videoIds: [FIRST, SECOND], reports, avoids });
-    await page.getByRole('button', { name: 'Não é esta música' }).click();
+    await page.getByRole('button', { name: 'Mais opções' }).click();
+    await page.getByRole('menuitem', { name: 'Não é esta música' }).click();
     await expect.poll(() => loadedVideo(page)).toBe(SECOND);
     expect(reports).toEqual([FIRST]);
     expect(avoids).toEqual([]);
@@ -417,7 +419,8 @@ test.describe('"Não é esta música"', () => {
     const loads = () => page.evaluate(() => (window as any).__yt.loads.length);
     await playAndExpand(page, { videoIds: [FIRST], otherVideoIds: [], reports: [], avoids: [] });
     const before = await loads();
-    await page.getByRole('button', { name: 'Não é esta música' }).click();
+    await page.getByRole('button', { name: 'Mais opções' }).click();
+    await page.getByRole('menuitem', { name: 'Não é esta música' }).click();
     await expect(page.getByText('Não encontrei outra versão desta faixa.').first()).toBeVisible();
     expect(await loads()).toBe(before);
   });

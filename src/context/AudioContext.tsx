@@ -126,6 +126,9 @@ const BACKGROUND_NOTICE = 'O iPhone pausou a faixa completa ao sair do app. Toqu
 
 const QUOTA_NOTICE = 'Você chegou ao limite de faixas novas de hoje. Tocando a prévia de 30s; as faixas que já ouviu seguem completas.';
 
+/** How long a one-off notice stays on screen. */
+const NOTICE_FLASH_MS = 6000;
+
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { storage } = useAuth();
   const [queue, setQueue] = useState<Track[]>([]);
@@ -264,6 +267,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [expectPlayback]);
 
+  // A notice that only reports something that happened ("playing another version", "skipped 3 tracks") goes away by itself;
+  // the ones that describe a lasting state (preview only, tap to play) stay until the state changes
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashNotice = useCallback((text: string) => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setPlaybackStatus((prev) => ({ ...prev, notice: text }));
+    noticeTimerRef.current = setTimeout(() => {
+      noticeTimerRef.current = null;
+      setPlaybackStatus((prev) => (prev.notice === text ? { ...prev, notice: undefined } : prev));
+    }, NOTICE_FLASH_MS);
+  }, []);
+
   /** Sound is really coming out: the wait is over, and a slow start that was already given up on is taken back. */
   const playbackStarted = useCallback((source: string) => {
     const waiting = startWatchRef.current !== null;
@@ -277,9 +292,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (skipped.count > 0) {
       const notice = skipNotice(skipped.count, skipped.quota);
       queueSkipsRef.current = { count: 0, quota: false };
-      setPlaybackStatus((prev) => (prev.error ? prev : { ...prev, notice }));
+      if (notice) flashNotice(notice);
     }
-  }, [clearStartWatch]);
+  }, [clearStartWatch, flashNotice]);
 
   const triggerFallbackEngine = useCallback((track: Track, shouldPlay = true) => {
     setEngineLoadId((id) => id + 1);
@@ -954,7 +969,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (queueSkipsRef.current.count > 0) {
           const notice = skipNotice(queueSkipsRef.current.count, queueSkipsRef.current.quota);
           queueSkipsRef.current = { count: 0, quota: false };
-          setPlaybackStatus((prev) => ({ ...prev, notice }));
+          if (notice) flashNotice(notice);
         }
       }
     };
@@ -1047,8 +1062,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: versions.ids[index] } }, true);
     rememberChoice(storage, track.id, versions.ids[index]);
     emitUserDataChanged();
-    setPlaybackStatus((prev) => ({ ...prev, notice: `Tocando outra versão (${index + 1} de ${versions.ids.length}).` }));
-  }, [triggerFallbackEngine, storage]);
+    flashNotice(`Tocando outra versão (${index + 1} de ${versions.ids.length}).`);
+  }, [triggerFallbackEngine, storage, flashNotice]);
 
   const markWrongVersion = useCallback(async () => {
     const track = currentTrackRef.current;
@@ -1067,7 +1082,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     if (others.length === 0) {
       setIsBuffering(false);
-      setPlaybackStatus((prev) => ({ ...prev, notice: 'Não encontrei outra versão desta faixa.' }));
+      flashNotice('Não encontrei outra versão desta faixa.');
       logPlayback('nenhuma outra versão encontrada');
       return;
     }
@@ -1076,7 +1091,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: others[0] } }, true);
     rememberChoice(storage, track.id, others[0]);
     emitUserDataChanged();
-  }, [triggerFallbackEngine, storage]);
+  }, [triggerFallbackEngine, storage, flashNotice]);
 
   const clearUserSeekRequest = useCallback(() => {
     setUserSeekRequest(null);

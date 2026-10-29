@@ -188,11 +188,11 @@ test('o menu de ajustes abre o gerenciador de cache', async ({ page }) => {
   await expect(page.getByText('Gerenciamento de Cache')).toBeVisible();
 });
 
-test('sem outras versões da faixa, o player completo não oferece "Outra versão"', async ({ page }) => {
+test('INV-UI-11: sem outras versões da faixa, o menu do player não oferece "Tocar outra versão"', async ({ page }) => {
   await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
   await page.getByRole('button', { name: /Abrir player expandido/ }).click();
   await expect(page.getByLabel('Minimizar player expandido')).toBeVisible();
-  await expect(page.getByLabel('Tocar outra versão desta faixa')).toBeHidden();
+  await expect(page.getByRole('menuitem', { name: 'Tocar outra versão' })).toHaveCount(0);
 });
 
 test.describe('com duas versões da faixa no YouTube', () => {
@@ -207,26 +207,39 @@ test.describe('com duas versões da faixa no YouTube', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
   });
 
-  test('"Outra versão" troca o vídeo, avisa qual e lembra a escolha depois de recarregar', async ({ page }) => {
+  test('INV-UI-11: "Tocar outra versão" (no menu ⋯) troca o vídeo, avisa qual e lembra a escolha depois de recarregar', async ({ page }) => {
     await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
     await expect.poll(() => loadedVideo(page)).toBe(FIRST);
 
     await page.getByRole('button', { name: /Abrir player expandido/ }).click();
-    await page.getByLabel('Tocar outra versão desta faixa').click();
+    await page.getByRole('button', { name: 'Mais opções' }).click();
+    await page.getByRole('menuitem', { name: 'Tocar outra versão' }).click();
     await expect.poll(() => loadedVideo(page)).toBe(SECOND);
     await expect(page.getByText('Tocando outra versão (2 de 2).').first()).toBeVisible();
 
     // Again: wraps around to the first
-    await page.getByLabel('Tocar outra versão desta faixa').click();
+    await page.getByRole('button', { name: 'Mais opções' }).click();
+    await page.getByRole('menuitem', { name: 'Tocar outra versão' }).click();
     await expect.poll(() => loadedVideo(page)).toBe(FIRST);
     await expect(page.getByText('Tocando outra versão (1 de 2).').first()).toBeVisible();
 
     // Leave it on the second and play the same track after a reload: the second plays first
-    await page.getByLabel('Tocar outra versão desta faixa').click();
+    await page.getByRole('button', { name: 'Mais opções' }).click();
+    await page.getByRole('menuitem', { name: 'Tocar outra versão' }).click();
     await expect.poll(() => loadedVideo(page)).toBe(SECOND);
     await page.reload();
     await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
     await expect.poll(() => loadedVideo(page)).toBe(SECOND);
+  });
+
+  test('INV-UI-11: o aviso "Tocando outra versão" some sozinho depois de alguns segundos', async ({ page }) => {
+    await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
+    await expect.poll(() => loadedVideo(page)).toBe(FIRST);
+    await page.getByRole('button', { name: /Abrir player expandido/ }).click();
+    await page.getByRole('button', { name: 'Mais opções' }).click();
+    await page.getByRole('menuitem', { name: 'Tocar outra versão' }).click();
+    await expect(page.getByText('Tocando outra versão (2 de 2).').first()).toBeVisible();
+    await expect(page.getByText('Tocando outra versão (2 de 2).')).toHaveCount(0, { timeout: 9000 });
   });
 });
 
