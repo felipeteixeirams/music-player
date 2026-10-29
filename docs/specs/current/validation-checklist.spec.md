@@ -351,5 +351,5 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T23 | | | ⬜ | |
 | T24 | | | ⬜ | |
 | T25 | | | ⬜ | |
-| T26 | | | ⬜ | |
-| T27 | | | ⬜ | |
+| T26 | 2026-10-28 | iPhone, app instalado `f2abfa7520bc` | ⚠️ | A primeira faixa nova ("Memories") começou completa com "player liberado no toque" (carregado 5,3 s depois do toque, dentro da janela de 6 s). A segunda faixa nova ("For Freedom") não tocou de primeira ("sem som 6 s depois") porque o vídeo-reserva só rodava uma vez por sessão; o ▶ iniciou em 454 ms. Corrigido (refeito em todo toque com o player parado); falta repetir. A barra da faixa ficou com a duração do vídeo-reserva (0:19): corrigido. |
+| T27 | 2026-10-28 | iPhone, app instalado `f2abfa7520bc` | ✅ | "Memories" e "For Freedom" voltaram a achar vídeo (2 versões, resolvido em 2,2 e 2,4 s). "Give Me Shelter" continua sem vídeo, e está certo: na busca só aparecem faixas dos Rolling Stones; o ranking recusa e toca a prévia. |
