@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { AlignJustify } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
+import { RemoteImage } from './RemoteImage';
 
 const MAX_ROWS = 50;
 
@@ -43,7 +44,7 @@ export const QueueList: React.FC = () => {
                 style={{ transform: `translateY(${dragging ? drag.dy : shiftOf(row)}px)` }}
               >
                 <button onClick={() => playTrack(track)} className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left active:opacity-60">
-                  <img
+                  <RemoteImage
                     src={track.coverUrl}
                     alt=""
                     referrerPolicy="no-referrer"

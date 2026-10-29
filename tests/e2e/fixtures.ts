@@ -118,7 +118,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; otherVideoIds?: string[]; avoids?: string[]; reports?: string[]; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; dzcdnCovers?: 'open' | 'blocked'; proxiedCovers?: string[]; otherVideoIds?: string[]; avoids?: string[]; reports?: string[]; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -142,10 +142,18 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       : options.previewUrl
       ? { previewUrl: options.previewUrl }
       : null;
-    const reply = (route: Route, body: unknown) => json(route, override ? withPreview(body, override) : body);
+    // With `dzcdnCovers` every track cover is an address on the Deezer image CDN (a different one each), reachable or blocked
+    let coverCount = 0;
+    const withCdnCovers = (body: unknown) =>
+      options.dzcdnCovers ? JSON.parse(JSON.stringify(body).split(JSON.stringify(COVER)).join('"@@COVER@@"').replace(/@@COVER@@/g, () => `https://e-cdns-images.dzcdn.net/images/cover/${(coverCount += 1)}/250x250.jpg`)) : body;
+    const reply = (route: Route, body: unknown) => json(route, withCdnCovers(override ? withPreview(body, override) : body));
     requests.push(`${url.pathname}${url.search}`);
 
     if (url.pathname === '/api/report') return route.fulfill({ status: 204 });
+    if (url.pathname === '/api/media' && url.searchParams.get('kind') === 'image') {
+      options.proxiedCovers?.push(url.searchParams.get('url') ?? '');
+      return route.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64') });
+    }
     if (url.pathname === '/api/admin') {
       if (url.searchParams.has('me')) return json(route, { admin: options.admin === true });
       if (!options.admin) return route.fulfill({ status: 403, contentType: 'application/json', body: '{"error":"Acesso restrito"}' });
@@ -248,6 +256,13 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     route.request().url().includes('fresh=1')
       ? route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(silentClip(20).split(',')[1], 'base64') })
       : route.fulfill({ status: 403, body: 'expired' })
+  );
+
+  // The Deezer image CDN, when a test gives covers addresses on it
+  await target.route('https://*.dzcdn.net/**', (route) =>
+    options.dzcdnCovers === 'blocked'
+      ? route.abort('blockedbyclient')
+      : route.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64') })
   );
 
   // The live stations the directory stub names: a silent stream, so playing one needs no network

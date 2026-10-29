@@ -7,6 +7,7 @@ import { prefetchResolved } from '../utils/audioEngine';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { formatTime } from '../utils/audioEngine';
 import { LoadMoreSentinel } from './LoadMoreSentinel';
+import { RemoteImage } from './RemoteImage';
 
 interface TrackListProps {
   tracks: Track[];
@@ -101,7 +102,7 @@ export const TrackList: React.FC<TrackListProps> = ({
               <div className="flex items-center gap-3 min-w-0">
                 <div className="relative w-14 h-14 rounded-cover overflow-hidden shrink-0 bg-elevated-2 flex items-center justify-center">
                   <Music className="w-5 h-5 text-label-tertiary" />
-                  <img
+                  <RemoteImage
                     src={track.coverUrl}
                     alt=""
                     referrerPolicy="no-referrer"

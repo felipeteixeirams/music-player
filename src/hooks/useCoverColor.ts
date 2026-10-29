@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { darkenForText, pickDominantColor } from '../utils/coverColor';
+import { coverSrc, isProxiableImageUrl, proxiedImageUrl } from '../utils/imageProxy';
 
 const SAMPLE_SIZE = 24;
 
@@ -32,7 +33,14 @@ export function useCoverColor(coverUrl: string | undefined): string | null {
         // Tainted canvas: keep the neutral background
       }
     };
-    image.src = coverUrl;
+    // Through this site when the CDN is blocked here (it also answers without the CORS header the canvas needs)
+    let retried = false;
+    image.onerror = () => {
+      if (retried || !isProxiableImageUrl(coverUrl)) return;
+      retried = true;
+      image.src = proxiedImageUrl(coverUrl);
+    };
+    image.src = coverSrc(coverUrl) ?? coverUrl;
     return () => {
       cancelled = true;
       image.onload = null;

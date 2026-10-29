@@ -2,6 +2,7 @@ import React from 'react';
 import { Radio } from 'lucide-react';
 import { CATEGORIES } from '../data/musicCatalog';
 import type { TrackPage } from '../types/music';
+import { RemoteImage } from './RemoteImage';
 
 /** Tile color of each collection; the collection's first cover is laid over it as a duotone. */
 const TILE_COLORS: Record<string, string> = {
@@ -52,7 +53,7 @@ export const CategoryTiles: React.FC<CategoryTilesProps> = ({ pages, onSelectCat
             style={{ backgroundColor: TILE_COLORS[category.id] ?? FALLBACK_COLOR }}
           >
             {cover && (
-              <img
+              <RemoteImage
                 src={cover}
                 alt=""
                 referrerPolicy="no-referrer"

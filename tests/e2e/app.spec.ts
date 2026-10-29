@@ -702,3 +702,34 @@ test.describe('player expandido', () => {
     await expect(page.getByRole('button', { name: 'Letra', exact: true })).toHaveCount(0);
   });
 });
+
+test.describe('capas num ambiente que bloqueia o domínio do CDN', () => {
+  test('INV-MEDIA-02: com o CDN acessível as capas carregam direto e o proxy não é usado', async ({ page }) => {
+    const proxied: string[] = [];
+    await stubApi(page, { dzcdnCovers: 'open', proxiedCovers: proxied });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await page.waitForTimeout(1200);
+    expect(proxied).toEqual([]);
+  });
+
+  test('INV-MEDIA-02: com o domínio do CDN bloqueado as capas vêm pelo /api/media, e o aparelho passa a usar o proxy direto', async ({ page }) => {
+    const proxied: string[] = [];
+    await stubApi(page, { dzcdnCovers: 'blocked', proxiedCovers: proxied });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    // The covers that failed directly are asked of this site's proxy, and each one loads
+    await expect.poll(() => proxied.length, { timeout: 8000 }).toBeGreaterThan(1);
+    expect(proxied.every((url) => /^https:\/\/e-cdns-images\.dzcdn\.net\//.test(url))).toBe(true);
+    await expect(page.locator('img[src^="/api/media?kind=image"]').first()).toBeVisible();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('aurastream_images_via_proxy'))).toBe('1');
+
+    // Next time the device goes straight to the proxy: no cover is requested from the blocked domain
+    const direct: string[] = [];
+    page.on('requestfailed', (request) => { if (request.url().includes('dzcdn.net')) direct.push(request.url()); });
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await page.waitForTimeout(1200);
+    expect(direct).toEqual([]);
+  });
+});

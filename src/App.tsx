@@ -43,6 +43,7 @@ import type { MixKind } from './utils/personalMixes';
 import { ArtistScreen } from './components/ArtistScreen';
 import { AlbumScreen } from './components/AlbumScreen';
 import type { AlbumSummary, ArtistSummary } from './types/music';
+import { RemoteImage } from './components/RemoteImage';
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
 const MIX_TRACKS_PER_CATEGORY = 2;
@@ -390,7 +391,7 @@ const MusicAppContent: React.FC = () => {
                             setSelectedAlbum(null);
                             setArtistStack([artist]);
                           }} className="flex w-24 shrink-0 flex-col items-center gap-1.5 active:opacity-60">
-                          <img src={artist.pictureUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-24 w-24 rounded-full object-cover bg-fill-tertiary" />
+                          <RemoteImage src={artist.pictureUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-24 w-24 rounded-full object-cover bg-fill-tertiary" />
                           <span className="w-full truncate text-center text-[13px] text-label">{artist.name}</span>
                         </button>
                       ))}

@@ -5,6 +5,7 @@ import { TrackList } from './TrackList';
 import { useAudio } from '../context/AudioContext';
 import { fetchAlbumPage } from '../utils/catalogClient';
 import type { AlbumPage, AlbumSummary } from '../types/music';
+import { RemoteImage } from './RemoteImage';
 
 /** Page of an album: cover, play and shuffle, and the tracks in album order. */
 export const AlbumScreen: React.FC<{ album: AlbumSummary }> = ({ album }) => {
@@ -42,7 +43,7 @@ export const AlbumScreen: React.FC<{ album: AlbumSummary }> = ({ album }) => {
   return (
     <div className="space-y-4" data-testid="album-page">
       <div className="flex flex-col items-center gap-2 px-4 pt-1">
-        <img src={album.coverUrl} alt="" referrerPolicy="no-referrer" className="h-48 w-48 rounded-cover object-cover bg-fill-tertiary shadow-xl" />
+        <RemoteImage src={album.coverUrl} alt="" referrerPolicy="no-referrer" className="h-48 w-48 rounded-cover object-cover bg-fill-tertiary shadow-xl" />
         <p className="text-[13px] text-label-secondary">{[album.artist, album.year > 0 ? String(album.year) : ''].filter(Boolean).join(' · ')}</p>
       </div>
       {!page ? (
