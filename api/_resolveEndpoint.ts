@@ -213,6 +213,12 @@ export async function resolveEndpoint(
       deps.log(`[Resolve] cache não gravado: ${err.message}`)
     );
   }
+  // A search that found no video gave the person nothing: the unit goes back, as with a failed search. Not for "Não é esta
+  // música" (`avoid`): that one is not remembered as "nothing found", so repeating it would be free official searches
+  if (result.videoIds.length === 0 && consumed && !avoid && admin && user) {
+    await admin.refund(user.id).catch(() => undefined);
+    if (quota) quota = { ...quota, used: Math.max(0, quota.used - 1) };
+  }
   // `youtube: 'suspended'` tells the app the official search is off (the day's quota is spent): what it found came from the web search
   const degraded = (await deps.breaker.check()) ? { youtube: 'suspended' } : {};
   return { status: 200, body: { videoIds: result.videoIds, ...(warm ? { warm: 'searched' } : {}), ...degraded, ...(quota ? { quota } : {}) }, cacheControl: noStore };
