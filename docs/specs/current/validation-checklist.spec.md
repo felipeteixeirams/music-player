@@ -329,6 +329,19 @@ Esperado: tudo isso sem gastar cota (Ajustes > Faixas novas hoje não sobe) e se
 
 Esperado: tudo isso sem alterar favoritos, playlists nem o histórico.
 
+### T30: trocar de aplicativo com a música tocando (app instalado e navegador)
+
+Mede o que ainda não foi medido (o T04 não fez a troca de aplicativo por 1 minuto). Faça duas vezes: uma no **app instalado** (PWA) e outra no **navegador** (Safari ou Edge), com a mesma conta, e depois copie o Diagnóstico de cada uma.
+
+1. Toque uma faixa completa (do YouTube) e deixe tocar uns 20 segundos.
+2. Volte para a tela inicial do iPhone (ou abra outro aplicativo) e fique fora **1 minuto**, sem bloquear a tela.
+3. Volte ao app. Anote se a música seguia tocando enquanto você estava fora (se você ouvia) e se ela está tocando agora.
+4. Repita bloqueando a tela com o botão lateral por 1 minuto.
+5. Repita com um **episódio de podcast** e com uma **rádio ao vivo** (áudio nativo), para comparar.
+6. Copie o Diagnóstico: as linhas `app em segundo plano (...)` e `voltou ao app depois de N s; a faixa avançou M s enquanto estava fora` mostram o que aconteceu; se M é próximo de N, tocou o tempo todo.
+
+Esperado (hipótese a confirmar): podcast e rádio seguem tocando nas duas situações; a faixa do YouTube segue no navegador e para no app instalado. Registre o resultado na matriz de compatibilidade no mesmo dia.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:
