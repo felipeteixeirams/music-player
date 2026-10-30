@@ -425,3 +425,32 @@ test.describe('"Não é esta música"', () => {
     expect(await loads()).toBe(before);
   });
 });
+
+test('INV-PLAY-24: ao sair do app e voltar, o Diagnóstico mostra o que o player do YouTube fazia e quando ele mudou de estado', async ({ page }) => {
+  await fakeYouTube(page);
+  await stubApi(page, { videoIds: [FIRST] });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+  await topHit(page).click();
+  await expect.poll(() => loadedVideo(page)).toBe(FIRST);
+  await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
+
+  const setVisibility = (state: 'hidden' | 'visible') =>
+    page.evaluate((value) => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, state);
+  await setVisibility('hidden');
+  // While the app is away the system pauses the video
+  await page.evaluate(() => (window as any).__ytPlayer.set(2));
+  await page.waitForTimeout(1100);
+  await setVisibility('visible');
+
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+  const log = page.getByTestId('playback-log');
+  await expect(log).toContainText(/player do YouTube ao sair do app: tocando em \d+ s/);
+  await expect(log).toContainText(/player do YouTube mudou para pausado \d+ s depois de o app sair/);
+  await expect(log).toContainText(/player do YouTube ao voltar \(fora \d+ s\): pausado em \d+ s/);
+});
