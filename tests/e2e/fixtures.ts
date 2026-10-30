@@ -326,6 +326,7 @@ export async function fakeYouTube(target: Page): Promise<void> {
           constructor(el, options) {
             this.events = options.events; this.state = -1; this.id = ''; this.startedAt = 0; this.base = 0;
             window.__yt.created += 1;
+            window.__ytPlayer = this;
             setTimeout(() => this.events.onReady(), 30);
           }
           set(state) {
