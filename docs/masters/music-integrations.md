@@ -99,6 +99,8 @@ Leia [Contratos, mappers e testes](../specs/current/music-integration-contracts.
 
 Leia [Fontes de áudio, descobertas e decisões](../specs/current/audio-sources-decisions.spec.md) para saber de onde vem o áudio, por que o iOS o pausa em segundo plano, o que foi medido no aparelho, as opções avaliadas (extração de stream, Spotify, Apple Music, Capacitor, arquivos próprios, rádios) com a decisão de cada uma, e as frentes em aberto.
 
+Leia a [descoberta de funcionalidades](../specs/current/feature-discovery.spec.md) para ver as ideias avaliadas (tocar a seguir, timer de soneca, sugestões na busca, rádio de artista, notificações, offline de podcasts e outras), com a evidência de cada uma e as restrições do iPhone e da Vercel.
+
 Leia a [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md) para saber o que funciona em cada ambiente (navegador do iPhone, app instalado, teste automático) e com que evidência, e o [roteiro de validação](../specs/current/validation-checklist.spec.md) para repetir os testes no aparelho.
 
 Com dependências instaladas, execute `npm test` para os testes determinísticos. Execute `npm run test:integrations:live` separadamente quando houver acesso à rede; esse comando consulta serviços públicos e pode falhar por indisponibilidade externa.
