@@ -342,6 +342,8 @@ Mede o que ainda não foi medido (o T04 não fez a troca de aplicativo por 1 min
 
 Esperado (hipótese a confirmar): podcast e rádio seguem tocando nas duas situações; a faixa do YouTube segue no navegador e para no app instalado. Registre o resultado na matriz de compatibilidade no mesmo dia.
 
+**Com o experimento do áudio mudo** (INV-PLAY-25, só no app instalado): repita os passos 1 a 4 em Ajustes > Administração com a chave **Experimento: áudio mudo em segundo plano** ligada (e confira no Diagnóstico a linha `áudio mudo de manutenção: ligado` logo depois do toque). Compare com a rodada sem a chave: a faixa do YouTube passou a seguir tocando fora do app? As linhas `player do YouTube mudou para pausado …` somem? Anote também se a tela de bloqueio mostra algo estranho (controles ou título).
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:

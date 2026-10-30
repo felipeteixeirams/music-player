@@ -23,6 +23,7 @@ import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
 import { episodeRefOf, isPodcastTrack } from '../utils/podcastTrack';
+import { keepAlive } from '../utils/keepAliveAudio';
 import { readProgress, resumePosition, saveProgress } from '../utils/podcastProgress';
 import { nextSpeed, readSpeed, saveSpeed } from '../utils/podcastSpeed';
 import { youtubeEngine } from '../utils/youtubeEngine';
@@ -524,6 +525,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   activeEngineRef.current = activeEngine;
   useEffect(() => clearStartWatch, [clearStartWatch]);
 
+  // The silent loop (experiment) only lives while a YouTube track plays; a short gap between tracks does not stop it
+  useEffect(() => {
+    if (isPlaying && activeEngine === 'fallback') {
+      keepAlive.start();
+      return;
+    }
+    const timer = setTimeout(() => keepAlive.stop(), 3000);
+    return () => clearTimeout(timer);
+  }, [isPlaying, activeEngine]);
+
   // Leaving the app: the iPhone stops the hidden YouTube player. Say so, instead of leaving a screen that "plays".
   useEffect(() => {
     let hiddenAt = 0;
@@ -828,6 +839,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // A track whose video is not known yet is found only after the tap: the frame is released now, while the tap counts
     // (`null`: a live station, which does not use the YouTube player; a known video loads inside the tap anyway)
     if (track === null) return;
+    // The experiment (off by default): the silent loop starts in this same tap, for a track that plays through YouTube
+    if (!track?.sources.localUrl) keepAlive.start();
     if (track && (track.sources.youtubeId || track.sources.localUrl || knownVideoIds(track.id)?.length)) return;
     youtubeEngine.unlockPlayback();
   }, []);
@@ -855,6 +868,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // `null`: resuming (or starting the first queued track, which `playTrack` primes itself) must not release the frame with the
     // reserve video: the loaded video is the one to resume, and a muted reserve start left it silent and never "started"
     if (!currentTrack || !isPlaying) primeInTap(null);
+    // Resuming a YouTube track: the silent loop (experiment) goes on with it, started inside this tap
+    if (activeEngineRef.current === 'fallback' && !isPlaying) keepAlive.start();
     if (!currentTrack) {
       if (queue.length > 0) {
         playTrack(queue[0]);

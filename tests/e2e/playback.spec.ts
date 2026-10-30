@@ -425,3 +425,48 @@ test.describe('"Não é esta música"', () => {
     expect(await loads()).toBe(before);
   });
 });
+
+test.describe('experimento: áudio mudo em segundo plano', () => {
+  async function playFirstTrack(page: Page, options: Parameters<typeof stubApi>[1]) {
+    await fakeYouTube(page);
+    await stubApi(page, { videoIds: [FIRST], ...options });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+    return page;
+  }
+  const diagnostics = async (page: Page) => {
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+    return page.getByTestId('playback-log');
+  };
+
+  test('INV-PLAY-25: por padrão não toca nada além da faixa; o administrador liga a chave e o áudio mudo começa no toque da faixa do YouTube', async ({ page }) => {
+    await playFirstTrack(page, { admin: true });
+    // Off: a track plays and no silent loop is mentioned
+    await topHit(page).click();
+    await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
+    await expect(await diagnostics(page)).not.toContainText('áudio mudo de manutenção');
+    await page.getByRole('button', { name: 'Fechar ajustes' }).click();
+    await page.getByRole('button', { name: 'Pausar música' }).first().click();
+
+    // On: the switch is in the administrator's section; the next tap starts the loop
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    const toggle = page.getByRole('switch', { name: /Experimento: áudio mudo em segundo plano/ });
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(await page.evaluate(() => localStorage.getItem('aurastream_keepalive_audio'))).toBe('1');
+    await page.getByRole('button', { name: 'Fechar ajustes' }).click();
+    await page.getByRole('button', { name: 'Reproduzir música' }).first().click();
+    await expect(page.getByRole('button', { name: 'Pausar música' }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(await diagnostics(page)).toContainText('áudio mudo de manutenção: ligado');
+  });
+
+  test('INV-PLAY-25: quem não é administrador não vê a chave', async ({ page }) => {
+    await playFirstTrack(page, {});
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await expect(page.getByTestId('app-version')).toBeVisible();
+    await expect(page.getByRole('switch', { name: /Experimento/ })).toHaveCount(0);
+  });
+});

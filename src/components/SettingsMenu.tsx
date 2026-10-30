@@ -8,6 +8,7 @@ import { APPEARANCES, readAppearance, saveAppearance, type Appearance } from '..
 import { sessionId } from '../utils/trace';
 import { fetchIsAdmin } from '../utils/adminClient';
 import { AdminPanel } from './AdminPanel';
+import { keepAliveEnabled, setKeepAliveEnabled } from '../utils/keepAliveAudio';
 
 const APPEARANCE_LABELS: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
 
@@ -31,6 +32,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
   const [appearance, setAppearance] = useState<Appearance>(readAppearance);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [keepAliveOn, setKeepAliveOn] = useState(() => keepAliveEnabled());
 
   useEffect(() => {
     if (!isOpen || !enabled) return;
@@ -147,6 +149,24 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
               <ShieldCheck className="h-4 w-4 text-accent" aria-hidden="true" />
               <span className="flex-1">Painel de administrador</span>
               <ChevronRight className="h-4 w-4 text-label-tertiary" aria-hidden="true" />
+            </button>
+            <button
+              role="switch"
+              aria-checked={keepAliveOn}
+              onClick={() => {
+                const next = !keepAliveOn;
+                setKeepAliveEnabled(next);
+                setKeepAliveOn(next);
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block">Experimento: áudio mudo em segundo plano</span>
+                <span className="block text-[12px] text-label-secondary">Toca um áudio mudo junto da faixa do YouTube, para ver se o iPhone deixa de pausá-la (hipótese). Vale só neste aparelho.</span>
+              </span>
+              <span aria-hidden="true" className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors ${keepAliveOn ? 'bg-accent' : 'bg-fill-secondary'}`}>
+                <span className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${keepAliveOn ? 'translate-x-4' : ''}`} />
+              </span>
             </button>
           </Section>
         )}
