@@ -18,7 +18,7 @@ import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '.
 import { useAuth } from './AuthContext';
 import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
 import { PlayedCounter } from '../utils/playedCounter';
-import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
+import { isUnlockClip, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
@@ -211,6 +211,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Native HTML5 Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Silent audio keep-alive element for iOS background and lock-screen playback
+  const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
   // A track counts as played after enough listening (see playedCounter.ts): it goes to the play history
   const playedCounterRef = useRef<PlayedCounter | null>(null);
@@ -448,6 +450,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.volume = 0.85;
     audioRef.current = audio;
 
+    const keepAlive = new Audio();
+    keepAlive.preload = 'auto';
+    keepAlive.volume = 0.001;
+    keepAliveAudioRef.current = keepAlive;
+
     const onTimeUpdate = () => {
       if (isUnlockClip(audio)) return;
       if (audio.currentTime !== undefined) {
@@ -510,6 +517,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.addEventListener('error', onError);
 
     return () => {
+      stopAudioKeepAlive(keepAlive);
+      keepAliveAudioRef.current = null;
       audio.pause();
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('durationchange', onDurationChange);
@@ -519,6 +528,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('error', onError);
     };
   }, [triggerFallbackEngine, playbackStarted]);
+
+  // Maintain background audio session on iOS (PWA standalone and mobile browsers)
+  // When playing via YouTube iframe fallback, the silent keep-alive loop keeps WebKit's AVAudioSession active
+  useEffect(() => {
+    const keepAlive = keepAliveAudioRef.current;
+    if (!keepAlive) return;
+
+    if (activeEngine === 'fallback' && isPlaying) {
+      startAudioKeepAlive(keepAlive);
+    } else {
+      stopAudioKeepAlive(keepAlive);
+    }
+  }, [activeEngine, isPlaying]);
 
   isPlayingRef.current = isPlaying;
   activeEngineRef.current = activeEngine;
@@ -745,14 +767,26 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!('mediaSession' in navigator) || !currentTrack) return;
 
     try {
+      const rawCover = currentTrack.coverUrl;
+      let cover = '';
+      if (rawCover) {
+        try {
+          cover = new URL(rawCover, window.location.href).href;
+        } catch {
+          cover = rawCover;
+        }
+      }
+
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
         album: currentTrack.album,
-        artwork: [
-          { src: currentTrack.coverUrl, sizes: '192x192', type: 'image/jpeg' },
-          { src: currentTrack.coverUrl, sizes: '512x512', type: 'image/jpeg' }
-        ]
+        artwork: cover
+          ? [
+              { src: cover, sizes: '192x192', type: 'image/jpeg' },
+              { src: cover, sizes: '512x512', type: 'image/jpeg' }
+            ]
+          : []
       });
 
       navigator.mediaSession.setActionHandler('play', () => {
@@ -794,6 +828,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [currentTrack]);
 
+  // Synchronize Media Session Playback State (playing / paused) for Lock Screen / Control Center
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    } catch {}
+  }, [isPlaying]);
+
   // Update Media Session Position State
   useEffect(() => {
     if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession) || !currentTrack) return;
@@ -802,7 +844,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (shownDuration > 0 && currentTime >= 0) {
         navigator.mediaSession.setPositionState({
           duration: shownDuration,
-          playbackRate: isPlaying ? 1.0 : 0.0,
+          playbackRate: isPlaying ? (playbackSpeedRef.current || 1.0) : 0.0,
           position: Math.min(currentTime, shownDuration)
         });
       }
@@ -824,6 +866,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    */
   const primeInTap = useCallback((track?: Track | null) => {
     unlockAudioElement(audioRef.current);
+    unlockAudioElement(keepAliveAudioRef.current);
     youtubeEngine.prime();
     // A track whose video is not known yet is found only after the tap: the frame is released now, while the tap counts
     // (`null`: a live station, which does not use the YouTube player; a known video loads inside the tap anyway)

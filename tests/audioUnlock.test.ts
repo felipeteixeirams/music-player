@@ -1,25 +1,53 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isUnlockClip, SILENT_CLIP, unlockAudioElement } from '../src/utils/audioUnlock';
+import { isUnlockClip, SILENT_CLIP, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../src/utils/audioUnlock';
 import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, logPlayback, subscribePlaybackLog } from '../src/utils/playbackDiagnostics';
 
 function fakeAudio(initialSrc = '', playResult: 'ok' | 'rejects' = 'ok') {
   let src = initialSrc;
   let plays = 0;
+  let pauses = 0;
+  let loop = false;
+  let volume = 1;
   const audio = {
     getAttribute: (name: string) => (name === 'src' && src ? src : null),
     removeAttribute: (name: string) => {
       if (name === 'src') src = '';
     },
+    get src() {
+      return src;
+    },
     set src(value: string) {
       src = value;
+    },
+    get loop() {
+      return loop;
+    },
+    set loop(value: boolean) {
+      loop = value;
+    },
+    get volume() {
+      return volume;
+    },
+    set volume(value: number) {
+      volume = value;
     },
     play: () => {
       plays++;
       return playResult === 'ok' ? Promise.resolve() : Promise.reject(new Error('NotAllowedError'));
+    },
+    pause: () => {
+      pauses++;
     }
   };
-  return { audio: audio as unknown as HTMLAudioElement, plays: () => plays, src: () => src };
+  return {
+    audio: audio as unknown as HTMLAudioElement,
+    plays: () => plays,
+    pauses: () => pauses,
+    src: () => src,
+    loop: () => loop,
+    volume: () => volume
+  };
 }
 
 test('o clipe de silêncio é um WAV curto e válido', () => {
@@ -49,6 +77,25 @@ test('sem permissão para tocar o clipe é retirado, para o próximo toque tenta
   const { audio, src } = fakeAudio('', 'rejects');
   unlockAudioElement(audio);
   await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(src(), '');
+});
+
+test('keep-alive: startAudioKeepAlive ativa loop contínuo e volume inaudível', () => {
+  const { audio, plays, loop, volume, src } = fakeAudio();
+  startAudioKeepAlive(audio);
+  assert.equal(plays(), 1);
+  assert.equal(loop(), true);
+  assert.equal(volume(), 0.001);
+  assert.ok(src().length > 0);
+  assert.equal(isUnlockClip(audio), true);
+});
+
+test('keep-alive: stopAudioKeepAlive pausa e limpa a fonte de silêncio', () => {
+  const { audio, pauses, loop, src } = fakeAudio();
+  startAudioKeepAlive(audio);
+  stopAudioKeepAlive(audio);
+  assert.equal(pauses(), 1);
+  assert.equal(loop(), false);
   assert.equal(src(), '');
 });
 

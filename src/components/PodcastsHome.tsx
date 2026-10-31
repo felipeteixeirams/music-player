@@ -98,23 +98,20 @@ export const PodcastsHome: React.FC<PodcastsHomeProps> = ({ onOpenShow }) => {
   const [showsLoading, setShowsLoading] = useState(false);
   const [showsVisibleCount, setShowsVisibleCount] = useState(6);
 
-  // Live search debounce
+  // Live search: switches instantly to search view when text is entered
   useEffect(() => {
-    const timer = setTimeout(() => setQuery(text.trim()), 400);
-    return () => clearTimeout(timer);
-  }, [text]);
-
-  // Execute free-text search
-  useEffect(() => {
-    if (!query) {
+    const q = text.trim();
+    setQuery(q);
+    if (!q) {
       setSearchResults(null);
       setSearchError(null);
+      setSearchLoading(false);
       return;
     }
     const controller = new AbortController();
     setSearchLoading(true);
     setSearchError(null);
-    fetchPodcastSearch(query, controller.signal)
+    fetchPodcastSearch(q, controller.signal)
       .then((res) => {
         setSearchResults(res);
         setSearchLoading(false);
@@ -126,7 +123,7 @@ export const PodcastsHome: React.FC<PodcastsHomeProps> = ({ onOpenShow }) => {
       });
 
     return () => controller.abort();
-  }, [query]);
+  }, [text]);
 
   // Load Section 1: "Não perca estes episódios"
   useEffect(() => {
@@ -446,16 +443,17 @@ export const PodcastsHome: React.FC<PodcastsHomeProps> = ({ onOpenShow }) => {
                           >
                             {entry.episode.title}
                           </p>
-                          <button
-                            type="button"
+                          <span
                             onClick={(e) => {
                               e.stopPropagation();
                               onOpenShow(entry.show);
                             }}
-                            className="text-[13px] text-label-secondary hover:text-label truncate block text-left transition-colors max-w-full"
+                            role="button"
+                            tabIndex={0}
+                            className="text-[13px] text-label-secondary hover:text-label truncate block text-left transition-colors max-w-full cursor-pointer hover:underline"
                           >
                             {entry.show.title}
-                          </button>
+                          </span>
                           <div className="flex items-center gap-1.5 text-[12px] text-label-tertiary mt-0.5 font-medium">
                             <span>{formatEpisodeDate(entry.episode.publishedAt)}</span>
                             <span aria-hidden="true">·</span>
