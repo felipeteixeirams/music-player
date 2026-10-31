@@ -188,6 +188,27 @@ const MusicAppContent: React.FC = () => {
   const selectedArtist = artistStack[artistStack.length - 1] ?? null;
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumSummary | null>(null);
   const [searchPodcasts, setSearchPodcasts] = useState<PodcastShowSummary[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('aurastream_recent_searches');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveRecentSearch = (q: string) => {
+    const term = q.trim();
+    if (!term) return;
+    setRecentSearches((prev) => {
+      const updated = [term, ...prev.filter((t) => t.toLowerCase() !== term.toLowerCase())].slice(0, 10);
+      try {
+        localStorage.setItem('aurastream_recent_searches', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
   useEffect(() => {
     setSearchArtists([]);
     setSearchPodcasts([]);
@@ -201,8 +222,63 @@ const MusicAppContent: React.FC = () => {
   const performOnlineSearch = useCallback(() => {
     const query = searchQuery.trim();
     if (!query) return;
+    saveRecentSearch(query);
     setSubmittedSearch((prev) => ({ query, id: (prev?.id ?? 0) + 1 }));
   }, [searchQuery]);
+
+  const handleOpenArtistByName = useCallback((artistName: string) => {
+    fetchArtistSearch(artistName).then((artists) => {
+      if (artists[0]) {
+        setSelectedAlbum(null);
+        setPodcastView(null);
+        setSelectedMixId(null);
+        setSelectedCategoryId(null);
+        setArtistStack([artists[0]]);
+      }
+    });
+  }, []);
+
+  const handleOpenAlbum = useCallback((albumTitle: string, artistName: string, coverUrl?: string) => {
+    fetchSearchPage(`${artistName} ${albumTitle}`, 0).then((res) => {
+      const q = albumTitle.toLowerCase().trim();
+      const matched = res.albums?.find(
+        (a) => a.title.toLowerCase().trim() === q ||
+               a.title.toLowerCase().includes(q) ||
+               q.includes(a.title.toLowerCase().trim())
+      ) || res.albums?.[0];
+
+      if (matched) {
+        setSelectedAlbum(matched);
+        setPodcastView(null);
+        setSelectedMixId(null);
+        setSelectedCategoryId(null);
+      } else if (coverUrl) {
+        setSelectedAlbum({
+          id: `custom-${Date.now()}`,
+          title: albumTitle,
+          artist: artistName,
+          coverUrl,
+          year: 0
+        });
+        setPodcastView(null);
+        setSelectedMixId(null);
+        setSelectedCategoryId(null);
+      }
+    }).catch(() => {
+      if (coverUrl) {
+        setSelectedAlbum({
+          id: `custom-${Date.now()}`,
+          title: albumTitle,
+          artist: artistName,
+          coverUrl,
+          year: 0
+        });
+        setPodcastView(null);
+        setSelectedMixId(null);
+        setSelectedCategoryId(null);
+      }
+    });
+  }, []);
 
   // Everything the home feed brought, without repeats
   const allLiveTracks = useMemo(() => {
@@ -243,7 +319,7 @@ const MusicAppContent: React.FC = () => {
     return allLiveTracks;
   }, [allLiveTracks, searchQuery, searchScope, likedTracks, activeTab]);
 
-  const inDetail = Boolean(activeCategory || selectedArtist || activeMix || podcastView);
+  const inDetail = Boolean(activeCategory || selectedArtist || activeMix || podcastView || selectedAlbum);
   const isSearchTab = activeTab === 'search' && !inDetail;
   const isRadioTab = activeTab === 'radio' && !inDetail;
   const isLibraryTab = activeTab === 'library' && !inDetail;
@@ -298,7 +374,7 @@ const MusicAppContent: React.FC = () => {
                 ? 'Podcasts'
                 : 'Buscar'
               : selectedAlbum
-              ? selectedArtist?.name ?? 'Voltar'
+              ? selectedArtist?.name ?? (activeTab === 'search' ? 'Buscar' : 'Voltar')
               : selectedArtist
               ? artistStack.length > 1
                 ? artistStack[artistStack.length - 2].name
@@ -319,6 +395,12 @@ const MusicAppContent: React.FC = () => {
           onSubmitOnlineSearch={performOnlineSearch}
           isSearchingOnline={onlineSearch.isLoading}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          recentSearches={recentSearches}
+          onSelectRecentSearch={(term) => {
+            setSearchQuery(term);
+            saveRecentSearch(term);
+            setSubmittedSearch({ query: term, id: Date.now() });
+          }}
         />
 
         <SettingsMenu
@@ -352,8 +434,18 @@ const MusicAppContent: React.FC = () => {
                   onOpenArtist={(artist) => setArtistStack((stack) => [...stack, artist])}
                 />
               </div>
-              {selectedAlbum && <AlbumScreen album={selectedAlbum} />}
+              {selectedAlbum && (
+                <AlbumScreen
+                  album={selectedAlbum}
+                  onOpenArtist={handleOpenArtistByName}
+                />
+              )}
             </>
+          ) : selectedAlbum ? (
+            <AlbumScreen
+              album={selectedAlbum}
+              onOpenArtist={handleOpenArtistByName}
+            />
           ) : activeCategory ? (
             /* One collection, loaded page by page */
             <div className="pt-1 space-y-3">
@@ -435,6 +527,27 @@ const MusicAppContent: React.FC = () => {
                         <button key={show.id} onClick={() => setPodcastView({ kind: 'show', show, from: 'search' })} className="flex w-28 shrink-0 flex-col gap-1.5 text-left active:opacity-60">
                           <RemoteImage src={show.coverUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-28 w-28 rounded-cover object-cover bg-fill-tertiary" />
                           <span className="w-full truncate text-[13px] text-label">{show.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {onlineSearch.albums && onlineSearch.albums.length > 0 && (
+                  <section aria-label="Álbuns" className="px-4 pb-2">
+                    <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">Álbuns</h2>
+                    <div className="flex gap-4 overflow-x-auto">
+                      {onlineSearch.albums.map((album) => (
+                        <button
+                          key={album.id}
+                          onClick={() => {
+                            setArtistStack([]);
+                            setSelectedAlbum(album);
+                          }}
+                          className="flex w-32 shrink-0 flex-col gap-1.5 text-left active:opacity-60"
+                        >
+                          <RemoteImage src={album.coverUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-32 w-32 rounded-cover object-cover bg-fill-tertiary shadow-md" />
+                          <span className="w-full truncate text-[13px] font-medium text-label">{album.title}</span>
+                          <span className="w-full truncate text-[11px] text-label-secondary">{album.artist}</span>
                         </button>
                       ))}
                     </div>
@@ -598,7 +711,10 @@ const MusicAppContent: React.FC = () => {
       </div>
 
       {/* Fullscreen Expanded Player (Modal / Bottom Sheet) */}
-      <ExpandedPlayer />
+      <ExpandedPlayer
+        onNavigateToArtist={handleOpenArtistByName}
+        onNavigateToAlbum={handleOpenAlbum}
+      />
       <AddToPlaylistSheet />
 
       {/* Floating capsule navigation with the mini player pill above it */}

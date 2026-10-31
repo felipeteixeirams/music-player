@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { TrackPage } from '../types/music';
+import type { AlbumSummary, TrackPage } from '../types/music';
 import { EMPTY_PAGED_LIST, appendPage, fromPage, type PagedListState } from '../utils/pagedList';
 
-type LoadPage = (index: number, signal: AbortSignal) => Promise<TrackPage>;
+type LoadPage = (index: number, signal: AbortSignal) => Promise<TrackPage & { albums?: AlbumSummary[] }>;
 
 interface PagedTracks extends PagedListState {
   hasMore: boolean;
@@ -13,6 +13,7 @@ interface PagedTracks extends PagedListState {
   error: string | null;
   loadMore: () => void;
   retry: () => void;
+  albums?: AlbumSummary[];
 }
 
 const messageOf = (err: unknown) => (err instanceof Error && err.message) || 'Não foi possível carregar agora.';
@@ -27,6 +28,8 @@ export function usePagedTracks(key: string | null, loadPage: LoadPage, initialPa
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [albums, setAlbums] = useState<AlbumSummary[]>([]);
 
   const loadPageRef = useRef(loadPage);
   loadPageRef.current = loadPage;
@@ -49,6 +52,9 @@ export function usePagedTracks(key: string | null, loadPage: LoadPage, initialPa
     try {
       const page = await loadPageRef.current(index, controller.signal);
       if (controller.signal.aborted) return;
+      if (index === 0 && page.albums) {
+        setAlbums(page.albums);
+      }
       setList((prev) => appendPage(index === 0 ? EMPTY_PAGED_LIST : prev, page));
     } catch (err) {
       if (controller.signal.aborted || (err as Error)?.name === 'AbortError') return;
@@ -72,6 +78,7 @@ export function usePagedTracks(key: string | null, loadPage: LoadPage, initialPa
     if (key === null) {
       controllerRef.current = null;
       setList(EMPTY_PAGED_LIST);
+      setAlbums([]);
       return;
     }
 
@@ -79,8 +86,10 @@ export function usePagedTracks(key: string | null, loadPage: LoadPage, initialPa
     const first = initialPageRef.current;
     if (first && first.tracks.length > 0) {
       setList(fromPage(first));
+      if ((first as any).albums) setAlbums((first as any).albums);
     } else {
       setList(EMPTY_PAGED_LIST);
+      setAlbums([]);
       void fetchPage(0);
     }
     return () => controllerRef.current?.abort();
@@ -95,5 +104,5 @@ export function usePagedTracks(key: string | null, loadPage: LoadPage, initialPa
     void fetchPage(listRef.current.nextIndex ?? 0);
   }, [fetchPage]);
 
-  return { ...list, hasMore: list.nextIndex !== null, isLoading, isLoadingMore, error, loadMore, retry };
+  return { ...list, hasMore: list.nextIndex !== null, isLoading, isLoadingMore, error, loadMore, retry, albums };
 }

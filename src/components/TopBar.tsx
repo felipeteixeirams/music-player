@@ -15,6 +15,8 @@ interface TopBarProps {
   onSubmitOnlineSearch: () => void;
   isSearchingOnline: boolean;
   onOpenSettings: () => void;
+  recentSearches?: string[];
+  onSelectRecentSearch?: (term: string) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -28,7 +30,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSearchScopeChange,
   onSubmitOnlineSearch,
   isSearchingOnline,
-  onOpenSettings
+  onOpenSettings,
+  recentSearches,
+  onSelectRecentSearch
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -95,6 +99,20 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
               )}
             </div>
+
+            {searchScope === 'online' && recentSearches && recentSearches.length > 0 && !searchQuery.trim() && (
+              <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                {recentSearches.map((term) => (
+                  <button
+                    key={term}
+                    onClick={() => onSelectRecentSearch?.(term)}
+                    className="px-3 py-1 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label text-xs shrink-0 active:scale-95 transition-all"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-center gap-0.5 p-0.5 bg-fill-tertiary rounded-lg w-fit">
               <button

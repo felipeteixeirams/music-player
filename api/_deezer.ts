@@ -148,6 +148,13 @@ export async function searchDeezerArtists(query: string, limit = 3, fetchImpl?: 
   return data.map(mapDeezerArtist).filter((artist): artist is ArtistSummary => artist !== null);
 }
 
+export async function searchDeezerAlbums(query: string, limit = 8, fetchImpl?: FetchLike): Promise<AlbumSummary[]> {
+  const payload = await requestDeezer(`/search/album?q=${encodeURIComponent(query)}&limit=${limit}`, fetchImpl);
+  const data = asRecord(payload)?.data;
+  if (!Array.isArray(data)) return [];
+  return data.map((entry) => mapDeezerAlbum(entry)).filter((album): album is AlbumSummary => album !== null);
+}
+
 export function mapDeezerAlbum(input: unknown, fallbackArtist = ''): AlbumSummary | null {
   const item = asRecord(input);
   if (!item) return null;

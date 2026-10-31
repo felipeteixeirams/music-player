@@ -77,8 +77,8 @@ test('searchCatalog answers from Deezer and never calls iTunes when Deezer has t
   const result = await searchCatalog('anything', { fetchImpl });
   assert.equal(result.source, 'deezer');
   assert.equal(result.tracks[0].id, 'deezer-1');
-  assert.equal(requested.length, 1);
-  assert.match(requested[0], /\/search\?q=anything&index=0&limit=20$/);
+  assert.ok(!requested.some((url) => url.includes('apple.com')), 'never calls iTunes when Deezer has tracks');
+  assert.ok(requested.some((u) => /\/search\?q=anything&index=0&limit=20$/.test(u)));
 });
 
 test('searchCatalog falls back to iTunes when Deezer fails or finds nothing', async () => {
@@ -102,7 +102,7 @@ test('searchCatalog returns an empty result when Deezer is empty and iTunes is d
   const fetchImpl = (async (url: string) =>
     String(url).includes('deezer.com') ? Response.json({ data: [] }) : new Response('', { status: 500 })
   ) as unknown as typeof fetch;
-  assert.deepEqual(await searchCatalog('anything', { fetchImpl }), { tracks: [], total: 0, nextIndex: null, source: 'deezer' });
+  assert.deepEqual(await searchCatalog('anything', { fetchImpl }), { tracks: [], total: 0, nextIndex: null, albums: [], source: 'deezer' });
 });
 
 test('searchCatalog asks Deezer for the requested page and never falls back to iTunes past the first page', async () => {
