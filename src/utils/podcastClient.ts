@@ -52,3 +52,35 @@ export async function fetchPodcastShow(id: string, signal?: AbortSignal): Promis
   if (!body || !isShow(body.show) || !Array.isArray(body.episodes)) throw new PodcastClientError('Resposta inesperada do servidor ao carregar o podcast.');
   return { show: body.show, episodes: body.episodes.filter(isEpisode) };
 }
+
+export interface FeaturedEpisodeEntry {
+  show: PodcastShowSummary;
+  episode: PodcastEpisodeItem;
+}
+
+let cachedFeaturedEpisodes: FeaturedEpisodeEntry[] | null = null;
+
+/** Loads top fresh episodes from curated or trending shows with in-memory caching */
+export async function fetchFeaturedEpisodes(seedIds: string[], signal?: AbortSignal): Promise<FeaturedEpisodeEntry[]> {
+  if (cachedFeaturedEpisodes && cachedFeaturedEpisodes.length > 0) {
+    return cachedFeaturedEpisodes;
+  }
+
+  const results = await Promise.allSettled(
+    seedIds.slice(0, 4).map((id) => fetchPodcastShow(id, signal))
+  );
+
+  const entries: FeaturedEpisodeEntry[] = [];
+  for (const res of results) {
+    if (res.status === 'fulfilled' && res.value.episodes.length > 0) {
+      for (const ep of res.value.episodes.slice(0, 2)) {
+        entries.push({ show: res.value.show, episode: ep });
+      }
+    }
+  }
+
+  if (entries.length > 0) {
+    cachedFeaturedEpisodes = entries;
+  }
+  return entries;
+}

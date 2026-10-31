@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for the Apple Music-styled artist & album context menu bottom sheet in ExpandedPlayer.",
-  "updatedAt":  "2026-10-31T03:08:15.460655294Z",
+  "summary":  "Plano de implementação para a reformulação da tela de Podcasts no menu Buscar com seções ricas ('Não perca estes episódios', 'Novidades de podcast' e 'Categorias' com cards interativos), paginação e carregamento sob demanda.",
+  "updatedAt":  "2026-10-31T16:47:59.043909666Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
