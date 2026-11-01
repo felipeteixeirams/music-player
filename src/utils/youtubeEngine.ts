@@ -18,7 +18,7 @@ const STATE_NAMES: Record<number, string> = { [-1]: 'não iniciado', 0: 'termino
 /** A state change this soon after the app came back may have happened while it was away (the page was asleep). */
 const JUST_BACK_MS = 2000;
 
-interface YouTubeApi {
+export interface YouTubeApi {
   loadVideoById(videoId: string): void;
   cueVideoById(videoId: string): void;
   playVideo(): void;
@@ -35,7 +35,7 @@ interface YouTubeApi {
   getPlayerState(): number;
 }
 
-interface YouTubeGlobal {
+export interface YouTubeGlobal {
   Player: new (
     element: HTMLIFrameElement,
     options: { events: { onReady: () => void; onStateChange: (event: { data: number }) => void; onError: (event: { data: number }) => void } }
@@ -65,7 +65,7 @@ export interface YouTubeEvents {
 let apiPromise: Promise<YouTubeGlobal> | null = null;
 
 /** Loads the player API script once. A failure is forgotten, so the next call tries again. */
-function loadApi(): Promise<YouTubeGlobal> {
+export function loadApi(): Promise<YouTubeGlobal> {
   if (typeof window === 'undefined') return new Promise(() => undefined);
   if (window.YT?.Player) return Promise.resolve(window.YT);
   if (apiPromise) return apiPromise;

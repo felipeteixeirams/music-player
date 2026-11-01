@@ -603,6 +603,38 @@ test.describe('painel de administrador', () => {
     await page.getByRole('button', { name: 'Fechar administração' }).click();
     await expect(panel).toBeHidden();
   });
+
+  test('INV-PLAY-26: o laboratório de segundo plano roda um caso, registra a saída e a volta do app e fecha parando tudo', async ({ page }) => {
+    await stubApi(page, { admin: true });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await page.getByRole('button', { name: 'Laboratório de segundo plano' }).click();
+    const lab = page.getByRole('dialog', { name: 'Laboratório de segundo plano' });
+    await expect(lab.getByRole('button', { name: /^A · Rádio/ })).toBeVisible();
+
+    await lab.getByRole('button', { name: /^B · Só silêncio/ }).click();
+    await lab.getByRole('switch', { name: /audioSession/ }).check();
+    await lab.getByRole('button', { name: 'Iniciar caso B' }).click();
+    const report = lab.getByTestId('lab-report');
+    await expect(report).toContainText('caso B: Só silêncio em loop');
+    await expect(report).toContainText('opções: audioSession playback sim; mediaSession não');
+    await expect(report).toContainText('caso B iniciado no toque');
+    await expect(report).toContainText(/áudio: (play\(\) aceito|evento playing)/);
+
+    const setVisibility = (state: 'hidden' | 'visible') =>
+      page.evaluate((value) => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value });
+        document.dispatchEvent(new Event('visibilitychange'));
+      }, state);
+    await setVisibility('hidden');
+    await expect(report).toContainText('SAIU DO APP');
+    await setVisibility('visible');
+    await expect(report).toContainText(/VOLTOU depois de \d+ s — áudio avançou/);
+
+    await lab.getByRole('button', { name: 'Parar' }).click();
+    await page.getByRole('button', { name: 'Fechar laboratório' }).click();
+    await expect(lab).toBeHidden();
+  });
 });
 
 test.describe('player expandido', () => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Database, Disc3, LogOut, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Database, Disc3, LogOut, FlaskConical, ShieldCheck } from 'lucide-react';
 import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -8,6 +8,7 @@ import { APPEARANCES, readAppearance, saveAppearance, type Appearance } from '..
 import { sessionId } from '../utils/trace';
 import { fetchIsAdmin } from '../utils/adminClient';
 import { AdminPanel } from './AdminPanel';
+import { BackgroundLab } from './BackgroundLab';
 
 const APPEARANCE_LABELS: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
 
@@ -30,6 +31,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
   const [usage, setUsage] = useState<DailyUsage | null>(null);
   const [appearance, setAppearance] = useState<Appearance>(readAppearance);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [labOpen, setLabOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
 
   useEffect(() => {
@@ -148,6 +150,11 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
               <span className="flex-1">Painel de administrador</span>
               <ChevronRight className="h-4 w-4 text-label-tertiary" aria-hidden="true" />
             </button>
+            <button onClick={() => setLabOpen(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label">
+              <FlaskConical className="h-4 w-4 text-accent" aria-hidden="true" />
+              <span className="flex-1">Laboratório de segundo plano</span>
+              <ChevronRight className="h-4 w-4 text-label-tertiary" aria-hidden="true" />
+            </button>
           </Section>
         )}
 
@@ -163,6 +170,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
         </Section>
       </div>
       {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
+      {labOpen && <BackgroundLab onClose={() => setLabOpen(false)} />}
     </div>
   );
 };

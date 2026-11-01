@@ -18,7 +18,7 @@ import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '.
 import { useAuth } from './AuthContext';
 import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
 import { PlayedCounter } from '../utils/playedCounter';
-import { describeKeepAlive, isUnlockClip, startAudioKeepAlive, stopAudioKeepAlive, traceKeepAliveCalls, unlockAudioElement } from '../utils/audioUnlock';
+import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
@@ -211,18 +211,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Native HTML5 Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // Silent audio keep-alive element for iOS background and lock-screen playback
-  const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null);
-  /** Which of our own code paths is touching the keep-alive element right now (for the trace in the diagnostics). */
-  const keepAliveWhoRef = useRef('');
-  const touchKeepAlive = (who: string, work: () => void) => {
-    keepAliveWhoRef.current = who;
-    try {
-      work();
-    } finally {
-      keepAliveWhoRef.current = '';
-    }
-  };
   const currentTrackRef = useRef<Track | null>(null);
   // A track counts as played after enough listening (see playedCounter.ts): it goes to the play history
   const playedCounterRef = useRef<PlayedCounter | null>(null);
@@ -460,23 +448,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.volume = 0.85;
     audioRef.current = audio;
 
-    const keepAlive = new Audio();
-    keepAlive.preload = 'auto';
-    keepAlive.volume = 0.001;
-    keepAliveAudioRef.current = keepAlive;
-    // Who touches the element (our code or the system) goes to the diagnostics: the loop has been aborted in every report so far
-    traceKeepAliveCalls(keepAlive, logPlayback, () => keepAliveWhoRef.current);
-    // What the system does to the silent element, in its own words (evidence for INV-PLAY-25)
-    const keepAliveEvents = ['playing', 'pause', 'stalled', 'waiting', 'emptied', 'error', 'suspend'] as const;
-    const keepAliveHandlers = keepAliveEvents.map((name) => {
-      const handler = () => {
-        if (!keepAlive.getAttribute('src') && name !== 'error') return;
-        logPlayback(`áudio mudo: evento ${name} (${describeKeepAlive(keepAlive)})`);
-      };
-      keepAlive.addEventListener(name, handler);
-      return [name, handler] as const;
-    });
-
     const onTimeUpdate = () => {
       if (isUnlockClip(audio)) return;
       if (audio.currentTime !== undefined) {
@@ -539,9 +510,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.addEventListener('error', onError);
 
     return () => {
-      keepAliveHandlers.forEach(([name, handler]) => keepAlive.removeEventListener(name, handler));
-      touchKeepAlive('limpeza do componente', () => stopAudioKeepAlive(keepAlive));
-      keepAliveAudioRef.current = null;
       audio.pause();
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('durationchange', onDurationChange);
@@ -551,25 +519,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('error', onError);
     };
   }, [triggerFallbackEngine, playbackStarted]);
-
-  // Maintain background audio session on iOS (PWA standalone and mobile browsers)
-  // When playing via YouTube iframe fallback, the silent keep-alive loop keeps WebKit's AVAudioSession active
-  useEffect(() => {
-    const keepAlive = keepAliveAudioRef.current;
-    if (!keepAlive) return;
-
-    if (activeEngine === 'fallback' && isPlaying) {
-      touchKeepAlive('efeito: ligar', () =>
-        startAudioKeepAlive(keepAlive, (error) =>
-          logPlayback(error ? `áudio mudo de manutenção: o sistema recusou play() (${error})` : `áudio mudo de manutenção: play() aceito (${describeKeepAlive(keepAlive)})`)
-        )
-      );
-      logPlayback('áudio mudo de manutenção: ligado');
-    } else {
-      if (keepAlive.getAttribute('src')) logPlayback(`áudio mudo de manutenção: desligado (${isPlaying ? 'motor não é o YouTube' : 'reprodução parou'})`);
-      touchKeepAlive('efeito: desligar', () => stopAudioKeepAlive(keepAlive));
-    }
-  }, [activeEngine, isPlaying]);
 
   isPlayingRef.current = isPlaying;
   activeEngineRef.current = activeEngine;
@@ -587,7 +536,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const sessionState = () => {
       const audioSession = (navigator as unknown as { audioSession?: { type?: string; state?: string } }).audioSession;
       const media = 'mediaSession' in navigator ? navigator.mediaSession.playbackState : 'sem mediaSession';
-      return `áudio mudo: ${describeKeepAlive(keepAliveAudioRef.current)}; audioSession ${audioSession ? `${audioSession.type ?? '?'}/${audioSession.state ?? '?'}` : 'indisponível'}; mediaSession ${media}`;
+      return `audioSession ${audioSession ? `${audioSession.type ?? '?'}/${audioSession.state ?? '?'}` : 'indisponível'}; mediaSession ${media}`;
     };
 
     const onChange = () => {
@@ -909,20 +858,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    */
   const primeInTap = useCallback((track?: Track | null) => {
     unlockAudioElement(audioRef.current);
-    // The keep-alive element is unlocked by starting its loop right here, inside the tap (a separate unlock clip on the
-    // same element raced with the loop and aborted it: AbortError in the 2026-11-01 report, INV-PLAY-25)
-    const keepAlive = keepAliveAudioRef.current;
-    if (keepAlive) {
-      touchKeepAlive('primeInTap', () =>
-        startAudioKeepAlive(keepAlive, (error) =>
-          logPlayback(error ? `áudio mudo de manutenção: o sistema recusou play() no toque (${error})` : `áudio mudo de manutenção: play() aceito no toque (${describeKeepAlive(keepAlive)})`)
-        )
-      );
-      // Not every tap ends up on the YouTube player (radio, podcast, preview): stop the loop if it did not
-      setTimeout(() => {
-        if (!(activeEngineRef.current === 'fallback' && isPlayingRef.current)) touchKeepAlive('primeInTap: parar após 6 s', () => stopAudioKeepAlive(keepAlive));
-      }, 6000);
-    }
     youtubeEngine.prime();
     // A track whose video is not known yet is found only after the tap: the frame is released now, while the tap counts
     // (`null`: a live station, which does not use the YouTube player; a known video loads inside the tap anyway)
