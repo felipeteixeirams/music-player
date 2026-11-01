@@ -340,6 +340,8 @@ Mede o que ainda não foi medido (o T04 não fez a troca de aplicativo por 1 min
 5. Repita com um **episódio de podcast** e com uma **rádio ao vivo** (áudio nativo), para comparar.
 6. Copie o Diagnóstico: as linhas `app em segundo plano (...)` e `voltou ao app depois de N s; a faixa avançou M s enquanto estava fora` mostram o que aconteceu; se M é próximo de N, tocou o tempo todo.
 
+7. O app já toca um áudio mudo de manutenção com a faixa do YouTube (INV-PLAY-25). Confira no Diagnóstico a linha `áudio mudo de manutenção: ligado` e se, no app instalado, a faixa passou a seguir tocando fora. Registre se a música continuou ou pausou (linhas do INV-PLAY-24).
+
 Esperado (hipótese a confirmar): podcast e rádio seguem tocando nas duas situações; a faixa do YouTube segue no navegador e para no app instalado. Registre o resultado na matriz de compatibilidade no mesmo dia.
 
 ## Frentes em aberto (fora dos testes)
