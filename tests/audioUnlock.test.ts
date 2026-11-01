@@ -80,7 +80,7 @@ test('sem permissão para tocar o clipe é retirado, para o próximo toque tenta
   assert.equal(src(), '');
 });
 
-test('keep-alive: startAudioKeepAlive ativa loop contínuo e volume inaudível', () => {
+test('INV-PLAY-25: keep-alive: startAudioKeepAlive ativa loop contínuo e volume inaudível', () => {
   const { audio, plays, loop, volume, src } = fakeAudio();
   startAudioKeepAlive(audio);
   assert.equal(plays(), 1);
@@ -90,7 +90,7 @@ test('keep-alive: startAudioKeepAlive ativa loop contínuo e volume inaudível',
   assert.equal(isUnlockClip(audio), true);
 });
 
-test('keep-alive: stopAudioKeepAlive pausa e limpa a fonte de silêncio', () => {
+test('INV-PLAY-25: keep-alive: stopAudioKeepAlive pausa e limpa a fonte de silêncio', () => {
   const { audio, pauses, loop, src } = fakeAudio();
   startAudioKeepAlive(audio);
   stopAudioKeepAlive(audio);

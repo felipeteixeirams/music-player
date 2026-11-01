@@ -537,6 +537,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (activeEngine === 'fallback' && isPlaying) {
       startAudioKeepAlive(keepAlive);
+      logPlayback('áudio mudo de manutenção: ligado');
     } else {
       stopAudioKeepAlive(keepAlive);
     }
