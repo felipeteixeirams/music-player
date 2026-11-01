@@ -101,6 +101,8 @@ Leia [Fontes de áudio, descobertas e decisões](../specs/current/audio-sources-
 
 Leia a [avaliação do Capacitor](../specs/current/capacitor-evaluation.spec.md) para saber o que um app nativo para iPhone resolve (o áudio nativo em segundo plano) e o que não está provado (o player do YouTube em segundo plano), com os requisitos, o custo e um protótipo com critério de parada.
 
+Leia a [descoberta de funcionalidades](../specs/current/feature-discovery.spec.md) para ver as ideias avaliadas (tocar a seguir, timer de soneca, sugestões na busca, rádio de artista, notificações, offline de podcasts e outras), com a evidência de cada uma e as restrições do iPhone e da Vercel.
+
 Leia a [matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md) para saber o que funciona em cada ambiente (navegador do iPhone, app instalado, teste automático) e com que evidência, e o [roteiro de validação](../specs/current/validation-checklist.spec.md) para repetir os testes no aparelho.
 
 Com dependências instaladas, execute `npm test` para os testes determinísticos. Execute `npm run test:integrations:live` separadamente quando houver acesso à rede; esse comando consulta serviços públicos e pode falhar por indisponibilidade externa.
