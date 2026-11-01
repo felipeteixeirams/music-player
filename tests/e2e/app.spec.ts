@@ -50,6 +50,31 @@ test('Buscar mostra a grade de coleções, busca online e volta à grade ao limp
   await expect(page.getByRole('heading', { name: 'Explorar tudo' })).toBeVisible();
 });
 
+test('INV-CAT-01: a busca mostra o álbum do iTunes e as playlists, e cada um abre com as faixas', async ({ page }) => {
+  await nav(page, 'Buscar').click();
+  const box = page.getByRole('searchbox', { name: 'Buscar' });
+  await box.fill('summer eletrohits');
+  await box.press('Enter');
+
+  const albums = page.locator('section[aria-label="Álbuns"]');
+  const playlists = page.locator('section[aria-label="Playlists"]');
+  await expect(albums.getByRole('button', { name: /Summer Eletrohits 2020/ })).toBeVisible();
+  await expect(playlists.getByRole('button', { name: /Playlist Verão/ })).toBeVisible();
+  await expect(playlists.getByText('Dona da Lista · 30 faixas')).toBeVisible();
+
+  await albums.getByRole('button', { name: /Summer Eletrohits 2020/ }).click();
+  await expect(page.getByTestId('album-page').getByText('Faixa Oficial Um')).toBeVisible();
+  await expect(page.getByText('Vários Artistas · 2020')).toBeVisible();
+  await page.getByRole('banner').getByRole('button', { name: 'Buscar' }).click();
+
+  await page.locator('section[aria-label="Playlists"]').getByRole('button', { name: /Playlist Verão/ }).click();
+  const playlistPage = page.getByTestId('album-page');
+  await expect(playlistPage.getByText('Faixa da Playlist Um')).toBeVisible();
+  await expect(playlistPage.getByText('Playlist', { exact: true })).toBeVisible();
+  // The creator is not an artist: it is not a link to an artist page
+  await expect(playlistPage.getByRole('button', { name: 'Dona da Lista' })).toHaveCount(0);
+});
+
 test('INV-UI-06: a busca lista artistas, a página do artista toca as mais tocadas abre os álbuns e os artistas semelhantes', async ({ page }) => {
   await nav(page, 'Buscar').click();
   const box = page.getByRole('searchbox', { name: 'Buscar' });

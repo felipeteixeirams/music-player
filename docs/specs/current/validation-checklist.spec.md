@@ -344,6 +344,15 @@ Mede o que ainda não foi medido (o T04 não fez a troca de aplicativo por 1 min
 
 Esperado (hipótese a confirmar): podcast e rádio seguem tocando nas duas situações; a faixa do YouTube segue no navegador e para no app instalado. Registre o resultado na matriz de compatibilidade no mesmo dia.
 
+### T31: álbuns do iTunes e playlists na busca (INV-CAT-01)
+
+1. Busque `Summer Eletrohits`: a seção "Álbuns" deve trazer "Summer Eletrohits 2016/2017/2019/2020" (de Vários Artistas) antes dos singles de DJs, e a seção "Playlists" deve listar playlists com criador e número de faixas. Abra um álbum e toque uma faixa.
+2. Busque `Classic Metal Som Livre` e `Mulheres Apaixonadas`: anote o que apareceu como álbum e como playlist (na análise de 2026-11-02 só apareceram playlists de usuários, e uma da Globoplay para a novela).
+3. Abra uma playlist: o título mostra "Playlist" e o criador, sem link de artista, e Reproduzir/Aleatório funcionam.
+4. Anote quanto a busca demorou a mostrar as faixas (as coleções têm prazo de 2,5 s e não devem atrasá-las).
+
+Esperado: o que o catálogo tem aparece; o que não tem não aparece. Registre os títulos que você procurou e não achou: eles medem a cobertura real.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:

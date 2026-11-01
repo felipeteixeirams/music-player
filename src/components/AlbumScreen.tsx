@@ -78,7 +78,7 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
         <div className="relative group">
           <RemoteImage
             src={album.coverUrl}
-            alt={`Capa do álbum ${album.title}`}
+            alt={`Capa ${album.kind === 'playlist' ? 'da playlist' : 'do álbum'} ${album.title}`}
             referrerPolicy="no-referrer"
             className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl object-cover bg-fill-tertiary shadow-2xl shadow-black/60 ring-1 ring-white/10"
           />
@@ -88,7 +88,7 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
           {album.title}
         </h2>
 
-        {onOpenArtist ? (
+        {onOpenArtist && album.kind !== 'playlist' ? (
           <button
             onClick={() => onOpenArtist(album.artist)}
             className="mt-1 text-[17px] font-semibold text-accent hover:underline active:opacity-60 transition-opacity"
@@ -101,7 +101,7 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
 
         {/* Metadata: Artist, Year, and Duration */}
         <p className="mt-1 text-[13px] text-label-secondary font-medium">
-          <span>{[album.artist, album.year > 0 ? String(album.year) : ''].filter(Boolean).join(' · ')}</span>
+          <span>{[album.kind === 'playlist' ? 'Playlist' : album.artist, album.year > 0 ? String(album.year) : ''].filter(Boolean).join(' · ')}</span>
           {tracks.length > 0 && (
             <span>{` · ${tracks.length} ${tracks.length === 1 ? 'música' : 'músicas'}${totalMinutes > 0 ? `, ${totalMinutes} min` : ''}`}</span>
           )}
