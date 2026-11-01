@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isUnlockClip, SILENT_CLIP, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../src/utils/audioUnlock';
+import { describeKeepAlive, isUnlockClip, SILENT_CLIP, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../src/utils/audioUnlock';
 import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, logPlayback, subscribePlaybackLog } from '../src/utils/playbackDiagnostics';
 
 function fakeAudio(initialSrc = '', playResult: 'ok' | 'rejects' = 'ok') {
@@ -97,6 +97,23 @@ test('INV-PLAY-25: keep-alive: stopAudioKeepAlive pausa e limpa a fonte de silê
   assert.equal(pauses(), 1);
   assert.equal(loop(), false);
   assert.equal(src(), '');
+});
+
+test('INV-PLAY-25: o resultado do play() do áudio mudo chega a quem registra (aceito ou recusado)', async () => {
+  const results: Array<string | null> = [];
+  startAudioKeepAlive(fakeAudio().audio, (error) => results.push(error));
+  startAudioKeepAlive(fakeAudio('', 'rejects').audio, (error) => results.push(error));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(results, [null, 'Error']);
+});
+
+test('INV-PLAY-25: describeKeepAlive diz se o áudio mudo está sem fonte, tocando ou pausado', () => {
+  const element = (src: string, paused: boolean) =>
+    ({ getAttribute: () => src, paused, currentTime: 2.34, readyState: 4, volume: 0.001 }) as unknown as HTMLAudioElement;
+  assert.match(describeKeepAlive(null), /sem elemento/);
+  assert.match(describeKeepAlive(element('', true)), /^sem fonte/);
+  assert.match(describeKeepAlive(element('blob:x', true)), /^pausado, 2\.3 s, readyState 4/);
+  assert.match(describeKeepAlive(element('blob:x', false)), /^tocando/);
 });
 
 test('o registro de reprodução guarda os últimos eventos, avisa quem assina e formata com a hora', () => {

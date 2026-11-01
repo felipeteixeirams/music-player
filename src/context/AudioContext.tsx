@@ -18,7 +18,7 @@ import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '.
 import { useAuth } from './AuthContext';
 import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
 import { PlayedCounter } from '../utils/playedCounter';
-import { isUnlockClip, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../utils/audioUnlock';
+import { describeKeepAlive, isUnlockClip, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
@@ -454,6 +454,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     keepAlive.preload = 'auto';
     keepAlive.volume = 0.001;
     keepAliveAudioRef.current = keepAlive;
+    // What the system does to the silent element, in its own words (evidence for INV-PLAY-25)
+    const keepAliveEvents = ['playing', 'pause', 'stalled', 'waiting', 'emptied', 'error', 'suspend'] as const;
+    const keepAliveHandlers = keepAliveEvents.map((name) => {
+      const handler = () => {
+        if (!keepAlive.getAttribute('src') && name !== 'error') return;
+        logPlayback(`áudio mudo: evento ${name} (${describeKeepAlive(keepAlive)})`);
+      };
+      keepAlive.addEventListener(name, handler);
+      return [name, handler] as const;
+    });
 
     const onTimeUpdate = () => {
       if (isUnlockClip(audio)) return;
@@ -517,6 +527,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.addEventListener('error', onError);
 
     return () => {
+      keepAliveHandlers.forEach(([name, handler]) => keepAlive.removeEventListener(name, handler));
       stopAudioKeepAlive(keepAlive);
       keepAliveAudioRef.current = null;
       audio.pause();
@@ -536,9 +547,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!keepAlive) return;
 
     if (activeEngine === 'fallback' && isPlaying) {
-      startAudioKeepAlive(keepAlive);
+      startAudioKeepAlive(keepAlive, (error) =>
+        logPlayback(error ? `áudio mudo de manutenção: o sistema recusou play() (${error})` : `áudio mudo de manutenção: play() aceito (${describeKeepAlive(keepAlive)})`)
+      );
       logPlayback('áudio mudo de manutenção: ligado');
     } else {
+      if (keepAlive.getAttribute('src')) logPlayback(`áudio mudo de manutenção: desligado (${isPlaying ? 'motor não é o YouTube' : 'reprodução parou'})`);
       stopAudioKeepAlive(keepAlive);
     }
   }, [activeEngine, isPlaying]);
@@ -553,9 +567,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let timeAtHide = 0;
     let wasPlaying = false;
     let recheck: ReturnType<typeof setTimeout> | null = null;
+    const probes: ReturnType<typeof setTimeout>[] = [];
+
+    // The state of the audio session as the page sees it (a missing value is also evidence)
+    const sessionState = () => {
+      const audioSession = (navigator as unknown as { audioSession?: { type?: string; state?: string } }).audioSession;
+      const media = 'mediaSession' in navigator ? navigator.mediaSession.playbackState : 'sem mediaSession';
+      return `áudio mudo: ${describeKeepAlive(keepAliveAudioRef.current)}; audioSession ${audioSession ? `${audioSession.type ?? '?'}/${audioSession.state ?? '?'}` : 'indisponível'}; mediaSession ${media}`;
+    };
 
     const onChange = () => {
+      probes.splice(0).forEach(clearTimeout);
       if (document.visibilityState === 'hidden') {
+        logPlayback(`ao sair do app — ${sessionState()}`);
+        // If the page keeps running while away these lines appear; a gap means the system froze it
+        [1500, 4000].forEach((ms) => probes.push(setTimeout(() => logPlayback(`${ms / 1000} s fora — ${sessionState()}`), ms)));
         wasPlaying = isPlayingRef.current;
         timeAtHide = currentTimeRef.current;
         hiddenAt = Date.now();
@@ -567,6 +593,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const timeAtShow = currentTimeRef.current;
       hiddenAt = 0;
       if (!wasPlaying) return;
+      logPlayback(`ao voltar — ${sessionState()}`);
       logPlayback(`voltou ao app depois de ${away} s; a faixa avançou ${Math.round(timeAtShow - timeAtHide)} s enquanto estava fora`);
       // The player may take a moment to wake up: if the clock is still where it was, it was stopped
       if (recheck) clearTimeout(recheck);
@@ -596,6 +623,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('pageshow', onPageShow);
       if (recheck) clearTimeout(recheck);
+      probes.splice(0).forEach(clearTimeout);
     };
   }, []);
 
