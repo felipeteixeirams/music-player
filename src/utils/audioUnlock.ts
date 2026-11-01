@@ -94,7 +94,7 @@ export function unlockAudioElement(audio: HTMLAudioElement | null): void {
  * suspends background execution unless an HTML5 audio element is actively playing in the document.
  * This silent loop keeps WebKit's AVAudioSession in category Playback without audible noise.
  */
-export function startAudioKeepAlive(audio: HTMLAudioElement | null): void {
+export function startAudioKeepAlive(audio: HTMLAudioElement | null, onResult?: (error: string | null) => void): void {
   if (!audio) return;
   const url = getSilentAudioUrl();
   if (audio.getAttribute('src') !== url && (audio as unknown as { src?: string }).src !== url) {
@@ -102,7 +102,20 @@ export function startAudioKeepAlive(audio: HTMLAudioElement | null): void {
   }
   audio.loop = true;
   audio.volume = 0.001;
-  audio.play().catch(() => {});
+  // The caller can record whether the system accepted the silent loop: that is the evidence the experiment needs
+  Promise.resolve(audio.play()).then(
+    () => onResult?.(null),
+    (error: unknown) => onResult?.(error instanceof Error ? error.name || error.message : String(error))
+  );
+}
+
+/** One line telling what the silent keep-alive element is doing (for the diagnostics log). */
+export function describeKeepAlive(audio: HTMLAudioElement | null): string {
+  if (!audio) return 'sem elemento';
+  const hasSource = Boolean(audio.getAttribute('src'));
+  const state = !hasSource ? 'sem fonte' : audio.paused ? 'pausado' : 'tocando';
+  const time = Number.isFinite(audio.currentTime) ? audio.currentTime.toFixed(1) : '?';
+  return `${state}, ${time} s, readyState ${audio.readyState ?? '?'}, volume ${audio.volume}`;
 }
 
 /** Stops the silent audio keep-alive loop on the given audio element. */
