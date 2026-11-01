@@ -84,9 +84,9 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
           />
         </div>
 
-        <h1 className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-label leading-snug max-w-md">
+        <h2 className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-label leading-snug max-w-md">
           {album.title}
-        </h1>
+        </h2>
 
         {onOpenArtist ? (
           <button

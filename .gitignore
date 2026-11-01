@@ -9,3 +9,7 @@ coverage/
 !.env.e2e
 playwright-report/
 test-results/
+
+# Só o npm é usado (package-lock.json); o AI Studio gera bun.lock
+bun.lock
+bun.lockb
