@@ -131,3 +131,42 @@ export function stopAudioKeepAlive(audio: HTMLAudioElement | null): void {
     } catch {}
   }
 }
+
+/** The caller of a function, from the stack (two frames up from `trace`), short enough for one log line. */
+function callerOf(stack: string | undefined): string {
+  const frames = (stack ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+  // frames[0] is the message in some engines, the first frame in others; skip our own wrapper
+  const frame = frames.filter((line) => line.startsWith('at ') || line.includes('@')).slice(1, 3).join(' < ');
+  return frame.replace(/https?:\/\/[^/]+\//g, '/').replace(/\?[^\s):]*/g, '').slice(0, 160) || 'origem desconhecida';
+}
+
+/**
+ * Logs every call that touches the keep-alive element (`play`, `pause`, `load`, `src =`) with its caller, so a
+ * `pause` event in the diagnostics can be told apart: no call logged before it means the system did it (INV-PLAY-25).
+ */
+export function traceKeepAliveCalls(audio: HTMLAudioElement, log: (line: string) => void, label: () => string = () => ''): void {
+  const target = audio as unknown as Record<string, unknown>;
+  for (const name of ['play', 'pause', 'load'] as const) {
+    const original = (audio as unknown as Record<string, (...args: unknown[]) => unknown>)[name];
+    if (typeof original !== 'function') continue;
+    target[name] = function traced(this: HTMLAudioElement, ...args: unknown[]) {
+      log(`áudio mudo: ${name}() chamado por ${label() || 'sem rótulo nosso'} (${callerOf(new Error().stack)})`);
+      return original.apply(this, args);
+    };
+  }
+  const proto = Object.getPrototypeOf(audio) as object | null;
+  const descriptor = proto ? Object.getOwnPropertyDescriptor(proto, 'src') : undefined;
+  if (descriptor?.get && descriptor.set) {
+    const { get, set } = descriptor;
+    Object.defineProperty(audio, 'src', {
+      configurable: true,
+      get() {
+        return get.call(this);
+      },
+      set(value: string) {
+        log(`áudio mudo: src = ${value ? (value.startsWith('blob:') ? 'laço mudo' : value.slice(0, 20)) : '(vazio)'} por ${label() || 'sem rótulo nosso'} (${callerOf(new Error().stack)})`);
+        set.call(this, value);
+      }
+    });
+  }
+}
