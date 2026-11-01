@@ -329,6 +329,30 @@ Esperado: tudo isso sem gastar cota (Ajustes > Faixas novas hoje não sobe) e se
 
 Esperado: tudo isso sem alterar favoritos, playlists nem o histórico.
 
+### T30: trocar de aplicativo com a música tocando (app instalado e navegador)
+
+Mede o que ainda não foi medido (o T04 não fez a troca de aplicativo por 1 minuto). Faça duas vezes: uma no **app instalado** (PWA) e outra no **navegador** (Safari ou Edge), com a mesma conta, e depois copie o Diagnóstico de cada uma.
+
+1. Toque uma faixa completa (do YouTube) e deixe tocar uns 20 segundos.
+2. Volte para a tela inicial do iPhone (ou abra outro aplicativo) e fique fora **1 minuto**, sem bloquear a tela.
+3. Volte ao app. Anote se a música seguia tocando enquanto você estava fora (se você ouvia) e se ela está tocando agora.
+4. Repita bloqueando a tela com o botão lateral por 1 minuto.
+5. Repita com um **episódio de podcast** e com uma **rádio ao vivo** (áudio nativo), para comparar.
+6. Copie o Diagnóstico: as linhas `app em segundo plano (...)` e `voltou ao app depois de N s; a faixa avançou M s enquanto estava fora` mostram o que aconteceu; se M é próximo de N, tocou o tempo todo.
+
+7. O app já toca um áudio mudo de manutenção com a faixa do YouTube (INV-PLAY-25). Confira no Diagnóstico a linha `áudio mudo de manutenção: ligado` e se, no app instalado, a faixa passou a seguir tocando fora. Registre se a música continuou ou pausou (linhas do INV-PLAY-24) e leia as linhas `áudio mudo…`, `ao sair do app —`, `1,5 s fora —`, `4 s fora —` e `ao voltar —`: elas dizem se o `play()` do áudio mudo foi aceito, se ele seguia tocando ao sair e quem pausou primeiro (a ordem das linhas mostra). Faça com 20 s e com 1 min fora, e repita com a tela bloqueada.
+
+Esperado (hipótese a confirmar): podcast e rádio seguem tocando nas duas situações; a faixa do YouTube segue no navegador e para no app instalado. Registre o resultado na matriz de compatibilidade no mesmo dia.
+
+### T31: álbuns do iTunes e playlists na busca (INV-CAT-01)
+
+1. Busque `Summer Eletrohits`: a seção "Álbuns" deve trazer "Summer Eletrohits 2016/2017/2019/2020" (de Vários Artistas) antes dos singles de DJs, e a seção "Playlists" deve listar playlists com criador e número de faixas. Abra um álbum e toque uma faixa.
+2. Busque `Classic Metal Som Livre` e `Mulheres Apaixonadas`: anote o que apareceu como álbum e como playlist (na análise de 2026-11-02 só apareceram playlists de usuários, e uma da Globoplay para a novela).
+3. Abra uma playlist: o título mostra "Playlist" e o criador, sem link de artista, e Reproduzir/Aleatório funcionam.
+4. Anote quanto a busca demorou a mostrar as faixas (as coleções têm prazo de 2,5 s e não devem atrasá-las).
+
+Esperado: o que o catálogo tem aparece; o que não tem não aparece. Registre os títulos que você procurou e não achou: eles medem a cobertura real.
+
 ## Frentes em aberto (fora dos testes)
 
 Priorizadas, sujeitas ao resultado das rodadas acima:

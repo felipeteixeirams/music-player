@@ -148,6 +148,13 @@ export async function searchDeezerArtists(query: string, limit = 3, fetchImpl?: 
   return data.map(mapDeezerArtist).filter((artist): artist is ArtistSummary => artist !== null);
 }
 
+export async function searchDeezerAlbums(query: string, limit = 8, fetchImpl?: FetchLike): Promise<AlbumSummary[]> {
+  const payload = await requestDeezer(`/search/album?q=${encodeURIComponent(query)}&limit=${limit}`, fetchImpl);
+  const data = asRecord(payload)?.data;
+  if (!Array.isArray(data)) return [];
+  return data.map((entry) => mapDeezerAlbum(entry)).filter((album): album is AlbumSummary => album !== null);
+}
+
 export function mapDeezerAlbum(input: unknown, fallbackArtist = ''): AlbumSummary | null {
   const item = asRecord(input);
   if (!item) return null;
@@ -162,6 +169,47 @@ export function mapDeezerAlbum(input: unknown, fallbackArtist = ''): AlbumSummar
     year: Number.isFinite(year) && year > 1900 ? year : 0,
     artist: asText(asRecord(item.artist)?.name) ?? fallbackArtist
   };
+}
+
+/** Playlists shorter than this are noise (a user's three favorites), not a collection worth listing. */
+const MIN_PLAYLIST_TRACKS = 10;
+
+/** A Deezer playlist as an album-shaped entry (`pl-` id; the artist is its creator). */
+export function mapDeezerPlaylist(input: unknown): AlbumSummary | null {
+  const item = asRecord(input);
+  if (!item) return null;
+  const rawId = typeof item.id === 'number' || typeof item.id === 'string' ? String(item.id) : '';
+  const title = asText(item.title);
+  if (!/^\d+$/.test(rawId) || !title) return null;
+  const owner = asRecord(item.user) ?? asRecord(item.creator);
+  const count = typeof item.nb_tracks === 'number' ? item.nb_tracks : 0;
+  return {
+    id: `pl-${rawId}`,
+    title,
+    coverUrl: asHttpUrl(item.picture_big) ?? asHttpUrl(item.picture_medium) ?? FALLBACK_COVER,
+    year: 0,
+    artist: asText(owner?.name) ?? '',
+    kind: 'playlist',
+    ...(count > 0 ? { trackCount: count } : {})
+  };
+}
+
+export async function searchDeezerPlaylists(query: string, limit = 6, fetchImpl?: FetchLike): Promise<AlbumSummary[]> {
+  const payload = await requestDeezer(`/search/playlist?q=${encodeURIComponent(query)}&limit=${limit * 2}`, fetchImpl);
+  const data = asRecord(payload)?.data;
+  if (!Array.isArray(data)) return [];
+  return data
+    .map(mapDeezerPlaylist)
+    .filter((entry): entry is AlbumSummary => entry !== null && (entry.trackCount ?? 0) >= MIN_PLAYLIST_TRACKS)
+    .slice(0, limit);
+}
+
+/** A playlist and its tracks in playlist order (the album page shape, so the same screen shows it). */
+export async function fetchDeezerPlaylistAsAlbum(playlistId: string, fetchImpl?: FetchLike): Promise<AlbumPage> {
+  const info = mapDeezerPlaylist(await requestDeezer(`/playlist/${playlistId}`, fetchImpl));
+  if (!info) throw new Error('Playlist não encontrada');
+  const tracks = await fetchDeezerPlaylistPage(Number(playlistId), { limit: 300, style: info.artist || 'Deezer', fetchImpl });
+  return { album: info, tracks: { ...tracks, nextIndex: null } };
 }
 
 /** Artists similar to this one, most similar first. */

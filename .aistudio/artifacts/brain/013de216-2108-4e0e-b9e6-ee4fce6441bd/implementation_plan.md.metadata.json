@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for strict audio-driven visualizer behavior",
-  "updatedAt":  "2026-10-24T13:03:12.939386571Z",
+  "summary":  "Plano de implementação para a reformulação da tela de Podcasts no menu Buscar com seções ricas ('Não perca estes episódios', 'Novidades de podcast' e 'Categorias' com cards interativos), paginação e carregamento sob demanda.",
+  "updatedAt":  "2026-10-31T16:47:59.043909666Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

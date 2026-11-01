@@ -29,8 +29,17 @@ import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { LyricsView } from './LyricsView';
 import { QueueList } from './QueueList';
 import { RemoteImage } from './RemoteImage';
+import { ArtistAlbumActionSheet } from './ArtistAlbumActionSheet';
 
-export const ExpandedPlayer: React.FC = () => {
+interface ExpandedPlayerProps {
+  onNavigateToArtist?: (artistName: string) => void;
+  onNavigateToAlbum?: (albumTitle: string, artistName: string, coverUrl?: string) => void;
+}
+
+export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
+  onNavigateToArtist,
+  onNavigateToAlbum
+}) => {
   const playback = usePlaybackState();
   const {
     currentTrack,
@@ -70,6 +79,19 @@ export const ExpandedPlayer: React.FC = () => {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
   const [syncedLyrics, setSyncedLyrics] = useState<LrcLine[]>([]);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+
+  const handleSelectArtist = (artistName: string) => {
+    setIsActionSheetOpen(false);
+    toggleExpanded(false);
+    onNavigateToArtist?.(artistName);
+  };
+
+  const handleSelectAlbum = (albumTitle: string, artistName: string, coverUrl?: string) => {
+    setIsActionSheetOpen(false);
+    toggleExpanded(false);
+    onNavigateToAlbum?.(albumTitle, artistName, coverUrl);
+  };
 
   React.useEffect(() => {
     if (!currentTrack) return;
@@ -286,7 +308,14 @@ export const ExpandedPlayer: React.FC = () => {
               />
               <div className="min-w-0 flex-1 text-left">
                 <h2 className="truncate text-[17px] font-semibold text-label">{currentTrack.title}</h2>
-                <p className="truncate text-[15px] text-label-secondary">{currentTrack.artist}</p>
+                <button
+                  type="button"
+                  onClick={() => setIsActionSheetOpen(true)}
+                  className="truncate text-[15px] text-label-secondary hover:text-label text-left active:opacity-60 transition-opacity block max-w-full"
+                  aria-label={`Opções do artista ${currentTrack.artist}`}
+                >
+                  {currentTrack.artist}
+                </button>
               </div>
               {saveButton}
             </div>
@@ -309,9 +338,15 @@ export const ExpandedPlayer: React.FC = () => {
             <h2 className="text-[22px] font-bold text-label truncate tracking-tight">
               {currentTrack.title}
             </h2>
-            <p className="text-[20px] text-label-secondary truncate">{currentTrack.artist}</p>
+            <button
+              type="button"
+              onClick={() => setIsActionSheetOpen(true)}
+              className="text-[20px] text-label-secondary hover:text-label truncate text-left active:opacity-60 transition-opacity block max-w-full"
+              aria-label={`Opções do artista ${currentTrack.artist}`}
+            >
+              {currentTrack.artist}
+            </button>
           </div>
-
 
           {saveButton}
         </div>
@@ -501,6 +536,15 @@ export const ExpandedPlayer: React.FC = () => {
         </div>
       </div>
 
+      {currentTrack && (
+        <ArtistAlbumActionSheet
+          track={currentTrack}
+          isOpen={isActionSheetOpen}
+          onClose={() => setIsActionSheetOpen(false)}
+          onSelectArtist={handleSelectArtist}
+          onSelectAlbum={handleSelectAlbum}
+        />
+      )}
     </div>
   );
 };

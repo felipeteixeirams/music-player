@@ -14,6 +14,9 @@ const RETRY_EVERY_MS = 1500;
 const MAX_RETRIES = 8;
 
 const STATE = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 } as const;
+const STATE_NAMES: Record<number, string> = { [-1]: 'não iniciado', 0: 'terminou', 1: 'tocando', 2: 'pausado', 3: 'carregando', 5: 'pronto' };
+/** A state change this soon after the app came back may have happened while it was away (the page was asleep). */
+const JUST_BACK_MS = 2000;
 
 interface YouTubeApi {
   loadVideoById(videoId: string): void;
@@ -162,6 +165,7 @@ class YouTubeEngine {
 
     // Touches the iPhone accepts as a user gesture for media: touchend and click (pointerup is not certain to count)
     for (const type of ['pointerup', 'touchend', 'click']) document.addEventListener(type, this.nudge, true);
+    document.addEventListener('visibilitychange', this.onVisibility);
 
     loadApi()
       .then((YT) => {
@@ -289,6 +293,13 @@ class YouTubeEngine {
 
   private onState(state: number): void {
     this.playing = state === STATE.PLAYING;
+    // Said when the app is away, or just back (the page may have been asleep and the change only arrives now): this is where
+    // the report shows when the system paused the video
+    if (this.videoId && this.hiddenAt > 0) {
+      logPlayback(`player do YouTube mudou para ${STATE_NAMES[state] ?? state} ${Math.round((performance.now() - this.hiddenAt) / 1000)} s depois de o app sair`);
+    } else if (this.videoId && this.visibleAt > 0 && performance.now() - this.visibleAt < JUST_BACK_MS) {
+      logPlayback(`player do YouTube mudou para ${STATE_NAMES[state] ?? state} logo depois de o app voltar (pode ter sido com o app fora)`);
+    }
     if (!this.videoId) return;
     if (state === STATE.PLAYING) {
       // The reserve video playing under the tap is not the track starting
@@ -385,6 +396,35 @@ class YouTubeEngine {
   }
 
   private lastNudgeAt = 0;
+
+  /** When the app last left the screen (0 while it is in front) and when it last came back. */
+  private hiddenAt = 0;
+  private visibleAt = 0;
+
+  /** "tocando em 33 s": what the player says it is doing, for the report. */
+  private describe(): string {
+    if (!this.ready || !this.api || !this.videoId) return 'sem vídeo carregado';
+    try {
+      const state = this.api.getPlayerState();
+      return `${STATE_NAMES[state] ?? `estado ${state}`} em ${Math.round(this.api.getCurrentTime())} s`;
+    } catch {
+      return 'sem resposta';
+    }
+  }
+
+  /** Leaving and returning to the app: what the YouTube player was doing at each moment (the system may pause it in between). */
+  private onVisibility = (): void => {
+    if (document.visibilityState === 'hidden') {
+      this.hiddenAt = performance.now();
+      this.visibleAt = 0;
+      logPlayback(`player do YouTube ao sair do app: ${this.describe()}`);
+      return;
+    }
+    const away = this.hiddenAt ? Math.round((performance.now() - this.hiddenAt) / 1000) : 0;
+    this.hiddenAt = 0;
+    this.visibleAt = performance.now();
+    if (away > 0) logPlayback(`player do YouTube ao voltar (fora ${away} s): ${this.describe()}`);
+  };
 
   private nudge = (): void => {
     if (!this.wantPlay || this.started || !this.api || !this.ready || !this.videoId) return;

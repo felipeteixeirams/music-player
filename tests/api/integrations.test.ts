@@ -357,7 +357,7 @@ test('resolve endpoint validates its parameters without calling YouTube', async 
 });
 
 test('resolve endpoint answers an empty list when YouTube fails', async () => {
-  setFetchMock(async () => jsonResponse({}, 429));
+  setFetchMock(async () => jsonResponse({}, 500));
 
   const response = createResponse();
   await resolveHandler(

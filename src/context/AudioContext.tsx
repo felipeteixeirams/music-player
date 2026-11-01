@@ -18,7 +18,7 @@ import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '.
 import { useAuth } from './AuthContext';
 import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
 import { PlayedCounter } from '../utils/playedCounter';
-import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
+import { describeKeepAlive, isUnlockClip, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../utils/audioUnlock';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
@@ -211,6 +211,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Native HTML5 Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Silent audio keep-alive element for iOS background and lock-screen playback
+  const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
   // A track counts as played after enough listening (see playedCounter.ts): it goes to the play history
   const playedCounterRef = useRef<PlayedCounter | null>(null);
@@ -448,6 +450,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.volume = 0.85;
     audioRef.current = audio;
 
+    const keepAlive = new Audio();
+    keepAlive.preload = 'auto';
+    keepAlive.volume = 0.001;
+    keepAliveAudioRef.current = keepAlive;
+    // What the system does to the silent element, in its own words (evidence for INV-PLAY-25)
+    const keepAliveEvents = ['playing', 'pause', 'stalled', 'waiting', 'emptied', 'error', 'suspend'] as const;
+    const keepAliveHandlers = keepAliveEvents.map((name) => {
+      const handler = () => {
+        if (!keepAlive.getAttribute('src') && name !== 'error') return;
+        logPlayback(`áudio mudo: evento ${name} (${describeKeepAlive(keepAlive)})`);
+      };
+      keepAlive.addEventListener(name, handler);
+      return [name, handler] as const;
+    });
+
     const onTimeUpdate = () => {
       if (isUnlockClip(audio)) return;
       if (audio.currentTime !== undefined) {
@@ -510,6 +527,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.addEventListener('error', onError);
 
     return () => {
+      keepAliveHandlers.forEach(([name, handler]) => keepAlive.removeEventListener(name, handler));
+      stopAudioKeepAlive(keepAlive);
+      keepAliveAudioRef.current = null;
       audio.pause();
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('durationchange', onDurationChange);
@@ -519,6 +539,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener('error', onError);
     };
   }, [triggerFallbackEngine, playbackStarted]);
+
+  // Maintain background audio session on iOS (PWA standalone and mobile browsers)
+  // When playing via YouTube iframe fallback, the silent keep-alive loop keeps WebKit's AVAudioSession active
+  useEffect(() => {
+    const keepAlive = keepAliveAudioRef.current;
+    if (!keepAlive) return;
+
+    if (activeEngine === 'fallback' && isPlaying) {
+      startAudioKeepAlive(keepAlive, (error) =>
+        logPlayback(error ? `áudio mudo de manutenção: o sistema recusou play() (${error})` : `áudio mudo de manutenção: play() aceito (${describeKeepAlive(keepAlive)})`)
+      );
+      logPlayback('áudio mudo de manutenção: ligado');
+    } else {
+      if (keepAlive.getAttribute('src')) logPlayback(`áudio mudo de manutenção: desligado (${isPlaying ? 'motor não é o YouTube' : 'reprodução parou'})`);
+      stopAudioKeepAlive(keepAlive);
+    }
+  }, [activeEngine, isPlaying]);
 
   isPlayingRef.current = isPlaying;
   activeEngineRef.current = activeEngine;
@@ -530,9 +567,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let timeAtHide = 0;
     let wasPlaying = false;
     let recheck: ReturnType<typeof setTimeout> | null = null;
+    const probes: ReturnType<typeof setTimeout>[] = [];
+
+    // The state of the audio session as the page sees it (a missing value is also evidence)
+    const sessionState = () => {
+      const audioSession = (navigator as unknown as { audioSession?: { type?: string; state?: string } }).audioSession;
+      const media = 'mediaSession' in navigator ? navigator.mediaSession.playbackState : 'sem mediaSession';
+      return `áudio mudo: ${describeKeepAlive(keepAliveAudioRef.current)}; audioSession ${audioSession ? `${audioSession.type ?? '?'}/${audioSession.state ?? '?'}` : 'indisponível'}; mediaSession ${media}`;
+    };
 
     const onChange = () => {
+      probes.splice(0).forEach(clearTimeout);
       if (document.visibilityState === 'hidden') {
+        logPlayback(`ao sair do app — ${sessionState()}`);
+        // If the page keeps running while away these lines appear; a gap means the system froze it
+        [1500, 4000].forEach((ms) => probes.push(setTimeout(() => logPlayback(`${ms / 1000} s fora — ${sessionState()}`), ms)));
         wasPlaying = isPlayingRef.current;
         timeAtHide = currentTimeRef.current;
         hiddenAt = Date.now();
@@ -544,6 +593,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const timeAtShow = currentTimeRef.current;
       hiddenAt = 0;
       if (!wasPlaying) return;
+      logPlayback(`ao voltar — ${sessionState()}`);
       logPlayback(`voltou ao app depois de ${away} s; a faixa avançou ${Math.round(timeAtShow - timeAtHide)} s enquanto estava fora`);
       // The player may take a moment to wake up: if the clock is still where it was, it was stopped
       if (recheck) clearTimeout(recheck);
@@ -573,6 +623,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('pageshow', onPageShow);
       if (recheck) clearTimeout(recheck);
+      probes.splice(0).forEach(clearTimeout);
     };
   }, []);
 
@@ -745,14 +796,26 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!('mediaSession' in navigator) || !currentTrack) return;
 
     try {
+      const rawCover = currentTrack.coverUrl;
+      let cover = '';
+      if (rawCover) {
+        try {
+          cover = new URL(rawCover, window.location.href).href;
+        } catch {
+          cover = rawCover;
+        }
+      }
+
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
         album: currentTrack.album,
-        artwork: [
-          { src: currentTrack.coverUrl, sizes: '192x192', type: 'image/jpeg' },
-          { src: currentTrack.coverUrl, sizes: '512x512', type: 'image/jpeg' }
-        ]
+        artwork: cover
+          ? [
+              { src: cover, sizes: '192x192', type: 'image/jpeg' },
+              { src: cover, sizes: '512x512', type: 'image/jpeg' }
+            ]
+          : []
       });
 
       navigator.mediaSession.setActionHandler('play', () => {
@@ -794,6 +857,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [currentTrack]);
 
+  // Synchronize Media Session Playback State (playing / paused) for Lock Screen / Control Center
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    } catch {}
+  }, [isPlaying]);
+
   // Update Media Session Position State
   useEffect(() => {
     if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession) || !currentTrack) return;
@@ -802,7 +873,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (shownDuration > 0 && currentTime >= 0) {
         navigator.mediaSession.setPositionState({
           duration: shownDuration,
-          playbackRate: isPlaying ? 1.0 : 0.0,
+          playbackRate: isPlaying ? (playbackSpeedRef.current || 1.0) : 0.0,
           position: Math.min(currentTime, shownDuration)
         });
       }
@@ -824,6 +895,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    */
   const primeInTap = useCallback((track?: Track | null) => {
     unlockAudioElement(audioRef.current);
+    // The keep-alive element is unlocked by starting its loop right here, inside the tap (a separate unlock clip on the
+    // same element raced with the loop and aborted it: AbortError in the 2026-11-01 report, INV-PLAY-25)
+    const keepAlive = keepAliveAudioRef.current;
+    if (keepAlive) {
+      startAudioKeepAlive(keepAlive, (error) =>
+        logPlayback(error ? `áudio mudo de manutenção: o sistema recusou play() no toque (${error})` : `áudio mudo de manutenção: play() aceito no toque (${describeKeepAlive(keepAlive)})`)
+      );
+      // Not every tap ends up on the YouTube player (radio, podcast, preview): stop the loop if it did not
+      setTimeout(() => {
+        if (!(activeEngineRef.current === 'fallback' && isPlayingRef.current)) stopAudioKeepAlive(keepAlive);
+      }, 6000);
+    }
     youtubeEngine.prime();
     // A track whose video is not known yet is found only after the tap: the frame is released now, while the tap counts
     // (`null`: a live station, which does not use the YouTube player; a known video loads inside the tap anyway)

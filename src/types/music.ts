@@ -143,6 +143,10 @@ export interface AlbumSummary {
   /** Release year; 0 when unknown. */
   year: number;
   artist: string;
+  /** `playlist` for a catalog playlist shown beside the albums (the artist is then its creator). Absent means album. */
+  kind?: 'album' | 'playlist';
+  /** Number of tracks, when the catalog says (playlists and iTunes albums). */
+  trackCount?: number;
 }
 
 /** Album page: the album and its tracks in album order. */

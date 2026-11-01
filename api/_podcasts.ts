@@ -200,14 +200,39 @@ export async function showWithEpisodes(idInput: unknown, fetchImpl: FetchLike = 
   const id = Array.isArray(idInput) ? idInput[0] : idInput;
   if (typeof id !== 'string' || !/^\d{1,12}$/.test(id)) throw new PodcastError(400, 'Identificador de podcast inválido');
 
-  const lookup = await fetchImpl(`${ITUNES_LOOKUP}?${new URLSearchParams({ id, entity: 'podcast', country: 'BR' })}`, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  if (!lookup.ok) throw new PodcastError(502, `A consulta ao podcast respondeu HTTP ${lookup.status}`);
-  const data = asRecord(await lookup.json());
-  const entry = asRecord(Array.isArray(data?.results) ? data.results[0] : null);
+  let entry: Record<string, unknown> | null = null;
+
+  try {
+    const lookup = await fetchImpl(`${ITUNES_LOOKUP}?${new URLSearchParams({ id, entity: 'podcast', country: 'BR' })}`, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (lookup.ok) {
+      const data = asRecord(await lookup.json());
+      entry = asRecord(Array.isArray(data?.results) ? data.results[0] : null);
+    }
+  } catch {}
+
+  // Fallback: try lookup without country if regional lookup failed or returned no entry
+  if (!entry || !asText(entry.feedUrl)) {
+    try {
+      const lookupGlobal = await fetchImpl(`${ITUNES_LOOKUP}?${new URLSearchParams({ id, entity: 'podcast' })}`, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      if (lookupGlobal.ok) {
+        const dataGlobal = asRecord(await lookupGlobal.json());
+        const globalEntry = asRecord(Array.isArray(dataGlobal?.results) ? dataGlobal?.results[0] : null);
+        if (globalEntry && asText(globalEntry.feedUrl)) {
+          entry = globalEntry;
+        }
+      }
+    } catch {}
+  }
+
   const base = mapShow(entry);
   const feedUrl = asText(entry?.feedUrl);
   if (!base || !feedUrl) throw new PodcastError(404, 'Podcast não encontrado');
 
-  const { show: fromFeed, episodes } = parseFeed(await fetchFeedText(feedUrl, fetchImpl), base.id);
-  return { show: { ...base, description: fromFeed.description, language: fromFeed.language }, episodes };
+  try {
+    const { show: fromFeed, episodes } = parseFeed(await fetchFeedText(feedUrl, fetchImpl), base.id);
+    return { show: { ...base, description: fromFeed.description, language: fromFeed.language }, episodes };
+  } catch (err) {
+    console.warn(`[Podcast] ⚠️ Falha ao ler feed RSS para ${base.title} (${feedUrl}): ${(err as Error)?.message || err}`);
+    throw new PodcastError(502, 'Não foi possível carregar os episódios deste podcast');
+  }
 }

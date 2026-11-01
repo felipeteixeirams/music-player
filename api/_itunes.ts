@@ -1,4 +1,4 @@
-import type { Track } from '../src/types/music';
+import type { AlbumPage, AlbumSummary, Track } from '../src/types/music';
 
 const ITUNES_SEARCH = 'https://itunes.apple.com/search';
 const FALLBACK_COVER = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500';
@@ -93,4 +93,59 @@ export async function searchItunesTracks(query: string, options: ItunesListOptio
   });
   if (!response.ok) throw new Error(`iTunes HTTP ${response.status}`);
   return mapItunesTracks(await response.json(), options);
+}
+
+/** An album of the iTunes catalog; its id carries the `it-` prefix so it cannot be taken for a Deezer one. */
+export function mapItunesAlbum(input: unknown): AlbumSummary | null {
+  const item = asRecord(input);
+  if (!item || item.wrapperType !== 'collection' || item.collectionType !== 'Album') return null;
+  const rawId = typeof item.collectionId === 'number' || typeof item.collectionId === 'string' ? String(item.collectionId) : '';
+  const title = asText(item.collectionName);
+  if (!/^\d+$/.test(rawId) || !title) return null;
+  const year = Number.parseInt(typeof item.releaseDate === 'string' ? item.releaseDate.slice(0, 4) : '', 10);
+  const trackCount = typeof item.trackCount === 'number' && item.trackCount > 0 ? item.trackCount : undefined;
+  return {
+    id: `it-${rawId}`,
+    title,
+    coverUrl: largeArtwork(asHttpsUrl(item.artworkUrl100)),
+    year: Number.isFinite(year) && year > 1900 ? year : 0,
+    artist: asText(item.artistName) ?? '',
+    kind: 'album',
+    ...(trackCount ? { trackCount } : {})
+  };
+}
+
+/**
+ * Albums of the Brazilian iTunes store. Singles are left out (Deezer lists them well): what iTunes adds is the
+ * official compilations (e.g. "Summer Eletrohits 2020") that Deezer does not have as albums.
+ */
+export async function searchItunesAlbums(query: string, limit = 8, fetchImpl?: FetchLike): Promise<AlbumSummary[]> {
+  const params = new URLSearchParams({ term: query, media: 'music', entity: 'album', country: 'BR', limit: String(limit * 2) });
+  const response = await (fetchImpl ?? fetch)(`${ITUNES_SEARCH}?${params}`, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  });
+  if (!response.ok) throw new Error(`iTunes HTTP ${response.status}`);
+  const results = asRecord(await response.json())?.results;
+  if (!Array.isArray(results)) return [];
+  return results
+    .map(mapItunesAlbum)
+    .filter((album): album is AlbumSummary => album !== null && !/ - single$/i.test(album.title))
+    .slice(0, limit);
+}
+
+/** The album and its tracks in album order (`id` is the iTunes collection id, without the prefix). */
+export async function fetchItunesAlbumPage(collectionId: string, fetchImpl?: FetchLike): Promise<AlbumPage> {
+  const params = new URLSearchParams({ id: collectionId, entity: 'song', country: 'BR', limit: '200' });
+  const response = await (fetchImpl ?? fetch)(`https://itunes.apple.com/lookup?${params}`, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  });
+  if (!response.ok) throw new Error(`iTunes HTTP ${response.status}`);
+  const results = asRecord(await response.json())?.results;
+  const list = Array.isArray(results) ? results : [];
+  const album = list.map(mapItunesAlbum).find((entry): entry is AlbumSummary => entry !== null);
+  if (!album) throw new Error('Álbum não encontrado');
+  const tracks = mapItunesTracks({ results: list }, { style: album.artist, limit: 200 });
+  return { album, tracks: { tracks, total: tracks.length, nextIndex: null } };
 }

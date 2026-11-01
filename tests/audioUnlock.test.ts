@@ -1,25 +1,53 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isUnlockClip, SILENT_CLIP, unlockAudioElement } from '../src/utils/audioUnlock';
+import { describeKeepAlive, isUnlockClip, SILENT_CLIP, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../src/utils/audioUnlock';
 import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, logPlayback, subscribePlaybackLog } from '../src/utils/playbackDiagnostics';
 
 function fakeAudio(initialSrc = '', playResult: 'ok' | 'rejects' = 'ok') {
   let src = initialSrc;
   let plays = 0;
+  let pauses = 0;
+  let loop = false;
+  let volume = 1;
   const audio = {
     getAttribute: (name: string) => (name === 'src' && src ? src : null),
     removeAttribute: (name: string) => {
       if (name === 'src') src = '';
     },
+    get src() {
+      return src;
+    },
     set src(value: string) {
       src = value;
+    },
+    get loop() {
+      return loop;
+    },
+    set loop(value: boolean) {
+      loop = value;
+    },
+    get volume() {
+      return volume;
+    },
+    set volume(value: number) {
+      volume = value;
     },
     play: () => {
       plays++;
       return playResult === 'ok' ? Promise.resolve() : Promise.reject(new Error('NotAllowedError'));
+    },
+    pause: () => {
+      pauses++;
     }
   };
-  return { audio: audio as unknown as HTMLAudioElement, plays: () => plays, src: () => src };
+  return {
+    audio: audio as unknown as HTMLAudioElement,
+    plays: () => plays,
+    pauses: () => pauses,
+    src: () => src,
+    loop: () => loop,
+    volume: () => volume
+  };
 }
 
 test('o clipe de silêncio é um WAV curto e válido', () => {
@@ -50,6 +78,52 @@ test('sem permissão para tocar o clipe é retirado, para o próximo toque tenta
   unlockAudioElement(audio);
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(src(), '');
+});
+
+test('INV-PLAY-25: keep-alive: startAudioKeepAlive ativa loop contínuo e volume inaudível', () => {
+  const { audio, plays, loop, volume, src } = fakeAudio();
+  startAudioKeepAlive(audio);
+  assert.equal(plays(), 1);
+  assert.equal(loop(), true);
+  assert.equal(volume(), 0.001);
+  assert.ok(src().length > 0);
+  assert.equal(isUnlockClip(audio), true);
+});
+
+test('INV-PLAY-25: keep-alive: stopAudioKeepAlive pausa e limpa a fonte de silêncio', () => {
+  const { audio, pauses, loop, src } = fakeAudio();
+  startAudioKeepAlive(audio);
+  stopAudioKeepAlive(audio);
+  assert.equal(pauses(), 1);
+  assert.equal(loop(), false);
+  assert.equal(src(), '');
+});
+
+test('INV-PLAY-25: o resultado do play() do áudio mudo chega a quem registra (aceito ou recusado)', async () => {
+  const results: Array<string | null> = [];
+  startAudioKeepAlive(fakeAudio().audio, (error) => results.push(error));
+  startAudioKeepAlive(fakeAudio('', 'rejects').audio, (error) => results.push(error));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(results, [null, 'Error']);
+});
+
+test('INV-PLAY-25: describeKeepAlive diz se o áudio mudo está sem fonte, tocando ou pausado', () => {
+  const element = (src: string, paused: boolean) =>
+    ({ getAttribute: () => src, paused, currentTime: 2.34, readyState: 4, volume: 0.001 }) as unknown as HTMLAudioElement;
+  assert.match(describeKeepAlive(null), /sem elemento/);
+  assert.match(describeKeepAlive(element('', true)), /^sem fonte/);
+  assert.match(describeKeepAlive(element('blob:x', true)), /^pausado, 2\.3 s, readyState 4/);
+  assert.match(describeKeepAlive(element('blob:x', false)), /^tocando/);
+});
+
+test('INV-PLAY-25: a recusa do clipe de desbloqueio não retira a fonte que o áudio mudo pôs depois', async () => {
+  const { audio, src } = fakeAudio('', 'rejects');
+  unlockAudioElement(audio);
+  startAudioKeepAlive(audio);
+  const loop = src();
+  assert.notEqual(loop, SILENT_CLIP);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(src(), loop);
 });
 
 test('o registro de reprodução guarda os últimos eventos, avisa quem assina e formata com a hora', () => {

@@ -52,10 +52,11 @@ export async function fetchCategoryPage(categoryId: string, index: number, signa
   return body;
 }
 
-export async function fetchSearchPage(query: string, index: number, signal?: AbortSignal): Promise<TrackPage & { source?: string }> {
-  const body = await getJson(`/api/search?q=${encodeURIComponent(query)}&index=${index}`, signal);
+export async function fetchSearchPage(query: string, index: number, signal?: AbortSignal): Promise<TrackPage & { source?: string; albums?: AlbumSummary[] }> {
+  const body = (await getJson(`/api/search?q=${encodeURIComponent(query)}&index=${index}`, signal)) as (TrackPage & { source?: string; albums?: unknown }) | null;
   if (!isTrackPage(body)) throw new CatalogError('Resposta inesperada do servidor ao buscar.');
-  return body as TrackPage & { source?: string };
+  const albums = Array.isArray(body.albums) ? body.albums.filter(isAlbum) : [];
+  return { ...body, albums };
 }
 
 const isArtist = (value: unknown): value is ArtistSummary => {
