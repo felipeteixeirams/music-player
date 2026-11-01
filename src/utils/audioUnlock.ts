@@ -84,7 +84,8 @@ export function unlockAudioElement(audio: HTMLAudioElement | null): void {
   audio.src = SILENT_CLIP;
   audio.play().catch(() => {
     // not allowed here (no tap): the next tap tries again
-    if (isUnlockClip(audio)) audio.removeAttribute('src');
+    // Only the unlock clip itself: the keep-alive loop may have replaced it by now, and removing its source aborts it
+    if (audio.getAttribute('src') === SILENT_CLIP) audio.removeAttribute('src');
   });
 }
 

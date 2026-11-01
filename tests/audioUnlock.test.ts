@@ -116,6 +116,16 @@ test('INV-PLAY-25: describeKeepAlive diz se o áudio mudo está sem fonte, tocan
   assert.match(describeKeepAlive(element('blob:x', false)), /^tocando/);
 });
 
+test('INV-PLAY-25: a recusa do clipe de desbloqueio não retira a fonte que o áudio mudo pôs depois', async () => {
+  const { audio, src } = fakeAudio('', 'rejects');
+  unlockAudioElement(audio);
+  startAudioKeepAlive(audio);
+  const loop = src();
+  assert.notEqual(loop, SILENT_CLIP);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(src(), loop);
+});
+
 test('o registro de reprodução guarda os últimos eventos, avisa quem assina e formata com a hora', () => {
   clearPlaybackLog();
   let notified = 0;

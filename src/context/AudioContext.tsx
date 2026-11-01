@@ -895,7 +895,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    */
   const primeInTap = useCallback((track?: Track | null) => {
     unlockAudioElement(audioRef.current);
-    unlockAudioElement(keepAliveAudioRef.current);
+    // The keep-alive element is unlocked by starting its loop right here, inside the tap (a separate unlock clip on the
+    // same element raced with the loop and aborted it: AbortError in the 2026-11-01 report, INV-PLAY-25)
+    const keepAlive = keepAliveAudioRef.current;
+    if (keepAlive) {
+      startAudioKeepAlive(keepAlive, (error) =>
+        logPlayback(error ? `áudio mudo de manutenção: o sistema recusou play() no toque (${error})` : `áudio mudo de manutenção: play() aceito no toque (${describeKeepAlive(keepAlive)})`)
+      );
+      // Not every tap ends up on the YouTube player (radio, podcast, preview): stop the loop if it did not
+      setTimeout(() => {
+        if (!(activeEngineRef.current === 'fallback' && isPlayingRef.current)) stopAudioKeepAlive(keepAlive);
+      }, 6000);
+    }
     youtubeEngine.prime();
     // A track whose video is not known yet is found only after the tap: the frame is released now, while the tap counts
     // (`null`: a live station, which does not use the YouTube player; a known video loads inside the tap anyway)
