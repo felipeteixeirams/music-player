@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { describeKeepAlive, isUnlockClip, SILENT_CLIP, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../src/utils/audioUnlock';
+import { describeKeepAlive, traceKeepAliveCalls, isUnlockClip, SILENT_CLIP, startAudioKeepAlive, stopAudioKeepAlive, unlockAudioElement } from '../src/utils/audioUnlock';
 import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, logPlayback, subscribePlaybackLog } from '../src/utils/playbackDiagnostics';
 
 function fakeAudio(initialSrc = '', playResult: 'ok' | 'rejects' = 'ok') {
@@ -124,6 +124,19 @@ test('INV-PLAY-25: a recusa do clipe de desbloqueio não retira a fonte que o á
   assert.notEqual(loop, SILENT_CLIP);
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(src(), loop);
+});
+
+test('INV-PLAY-25: traceKeepAliveCalls registra play, pause e load com quem chamou, e ainda chama o original', () => {
+  const lines: string[] = [];
+  const { audio, plays, pauses } = fakeAudio();
+  (audio as unknown as Record<string, unknown>).load = () => undefined;
+  traceKeepAliveCalls(audio, (line) => lines.push(line));
+  audio.play();
+  audio.pause();
+  audio.load();
+  assert.equal(plays(), 1);
+  assert.equal(pauses(), 1);
+  assert.deepEqual(lines.map((line) => line.match(/^áudio mudo: (\w+)\(\) chamado por/)?.[1]), ['play', 'pause', 'load']);
 });
 
 test('o registro de reprodução guarda os últimos eventos, avisa quem assina e formata com a hora', () => {
