@@ -196,8 +196,21 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       return json(route, { artists: [{ id: '1783', name: 'Artista Teste', pictureUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', fans: 1234567 }] });
     }
     if (url.pathname === '/api/search' && url.searchParams.has('album')) {
+      const albumId = url.searchParams.get('album') ?? '';
+      if (albumId.startsWith('pl-')) {
+        return reply(route, {
+          album: { id: albumId, title: 'Playlist Verão', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', year: 0, artist: 'Dona da Lista', kind: 'playlist', trackCount: 30 },
+          tracks: page([track(501, 'Faixa da Playlist Um', 'Cantor A', 'Vários'), track(502, 'Faixa da Playlist Dois', 'Cantor B', 'Vários')])
+        });
+      }
+      if (albumId.startsWith('it-')) {
+        return reply(route, {
+          album: { id: albumId, title: 'Summer Eletrohits 2020', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', year: 2020, artist: 'Vários Artistas', kind: 'album', trackCount: 14 },
+          tracks: page([track(601, 'Faixa Oficial Um', 'Vários Artistas', 'Summer Eletrohits 2020')])
+        });
+      }
       return reply(route, {
-        album: { id: url.searchParams.get('album'), title: 'Álbum Teste', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', year: 2001, artist: 'Artista Teste' },
+        album: { id: albumId, title: 'Álbum Teste', coverUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', year: 2001, artist: 'Artista Teste' },
         tracks: page([track(401, 'Faixa do Álbum Um', 'Artista Teste', 'Álbum Teste'), track(402, 'Faixa do Álbum Dois', 'Artista Teste', 'Álbum Teste')])
       });
     }
@@ -220,7 +233,14 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     }
     if (url.pathname === '/api/search') {
       const q = url.searchParams.get('q') ?? '';
-      return reply(route, page([track(101, `${q} - Ao Vivo`, 'Intérprete Busca'), track(102, `${q} - Acústico`, 'Intérprete Busca')]));
+      const cover = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+      const collections = /eletrohits/i.test(q)
+        ? [
+            { id: 'it-1495409741', title: 'Summer Eletrohits 2020', coverUrl: cover, year: 2020, artist: 'Vários Artistas', kind: 'album', trackCount: 14 },
+            { id: 'pl-9123981402', title: 'Playlist Verão', coverUrl: cover, year: 0, artist: 'Dona da Lista', kind: 'playlist', trackCount: 30 }
+          ]
+        : [];
+      return reply(route, { ...page([track(101, `${q} - Ao Vivo`, 'Intérprete Busca'), track(102, `${q} - Acústico`, 'Intérprete Busca')]), albums: collections });
     }
     if (url.pathname === '/api/radio' && url.searchParams.has('click')) return json(route, { ok: true });
     if (url.pathname === '/api/radio' && url.searchParams.has('live')) {

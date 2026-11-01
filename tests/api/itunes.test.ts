@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mapItunesTrack, mapItunesTracks } from '../../api/_itunes';
-import { searchCatalog } from '../../api/_catalog';
+import { fetchItunesAlbumPage, mapItunesAlbum, mapItunesTrack, mapItunesTracks, searchItunesAlbums } from '../../api/_itunes';
+import { mapDeezerPlaylist, searchDeezerPlaylists } from '../../api/_deezer';
+import { mergeAlbumResults, relevantToQuery, searchCatalog } from '../../api/_catalog';
+import { searchEndpoint } from '../../api/_endpoints';
 
 const valid = {
   wrapperType: 'track',
@@ -77,7 +79,7 @@ test('searchCatalog answers from Deezer and never calls iTunes when Deezer has t
   const result = await searchCatalog('anything', { fetchImpl });
   assert.equal(result.source, 'deezer');
   assert.equal(result.tracks[0].id, 'deezer-1');
-  assert.ok(!requested.some((url) => url.includes('apple.com')), 'never calls iTunes when Deezer has tracks');
+  assert.ok(!requested.some((url) => url.includes('apple.com') && url.includes('entity=song')), 'never searches iTunes tracks when Deezer has tracks');
   assert.ok(requested.some((u) => /\/search\?q=anything&index=0&limit=20$/.test(u)));
 });
 
@@ -123,4 +125,103 @@ test('searchCatalog asks Deezer for the requested page and never falls back to i
 
   const down = (async () => new Response('', { status: 503 })) as unknown as typeof fetch;
   await assert.rejects(searchCatalog('rock', { index: 40, fetchImpl: down }), /Deezer HTTP 503/);
+});
+
+const itunesAlbum = (id: number, name: string, extra: Record<string, unknown> = {}) => ({
+  wrapperType: 'collection',
+  collectionType: 'Album',
+  collectionId: id,
+  collectionName: name,
+  artistName: 'Vários Artistas',
+  artworkUrl100: 'https://is1-ssl.mzstatic.com/image/thumb/Music/100x100bb.jpg',
+  releaseDate: '2020-01-31T08:00:00Z',
+  trackCount: 14,
+  ...extra
+});
+
+test('INV-CAT-01: o álbum oficial que só o iTunes tem entra na busca, na frente de singles de nome parecido', async () => {
+  const fetchImpl = (async (url: string) => {
+    const text = String(url);
+    if (text.includes('itunes.apple.com/search')) {
+      assert.match(text, /entity=album/);
+      assert.match(text, /country=BR/);
+      return Response.json({ results: [itunesAlbum(1495409741, 'Summer Eletrohits 2020'), itunesAlbum(2, 'Summer Eletrohits - Single')] });
+    }
+    if (text.includes('/search/album')) return Response.json({ data: [{ id: 9, title: 'Summer Eletrohits', artist: { name: 'DJ Qualquer' }, release_date: '2021-01-01' }] });
+    if (text.includes('/search/playlist')) return Response.json({ data: [] });
+    return Response.json({ data: [deezerItem(1)] });
+  }) as unknown as typeof fetch;
+
+  const result = await searchCatalog('Summer Eletrohits', { fetchImpl });
+  const titles = (result.albums ?? []).map((album) => album.title);
+  assert.deepEqual(titles, ['Summer Eletrohits 2020', 'Summer Eletrohits'], 'o single do iTunes sai; o oficial vem primeiro');
+  assert.equal(result.albums?.[0].id, 'it-1495409741');
+});
+
+test('INV-CAT-01: playlists do Deezer entram com o criador e a contagem, sem as muito curtas', async () => {
+  const fetchImpl = (async (url: string) =>
+    Response.json({
+      data: [
+        { id: 1, title: 'Classic Metal Som Livre', nb_tracks: 124, user: { name: 'Fulano' }, picture_big: 'https://cdn.example/p.jpg' },
+        { id: 2, title: 'Curta', nb_tracks: 3, user: { name: 'Ciclano' } }
+      ]
+    })
+  ) as unknown as typeof fetch;
+  const playlists = await searchDeezerPlaylists('classic metal', 6, fetchImpl);
+  assert.deepEqual(playlists.map((entry) => [entry.id, entry.kind, entry.artist, entry.trackCount]), [['pl-1', 'playlist', 'Fulano', 124]]);
+  assert.equal(mapDeezerPlaylist({ id: 'x', title: 'a' }), null);
+});
+
+test('INV-CAT-01: a busca de coleções falha ou demora sem derrubar as faixas', async () => {
+  const fetchImpl = (async (url: string) => {
+    const text = String(url);
+    if (text.includes('apple.com') || text.includes('/search/album') || text.includes('/search/playlist')) throw new Error('fora do ar');
+    return Response.json({ data: [deezerItem(1)] });
+  }) as unknown as typeof fetch;
+  const result = await searchCatalog('anything', { fetchImpl });
+  assert.equal(result.tracks[0].id, 'deezer-1');
+  assert.deepEqual(result.albums, []);
+});
+
+test('INV-CAT-01: mergeAlbumResults tira a repetição entre as fontes e põe as playlists depois dos álbuns', () => {
+  const a = { id: '1', title: 'Álbum Teste', artist: 'Quem', coverUrl: 'c', year: 2000 };
+  const same = { ...a, id: 'it-5' };
+  const pl = { id: 'pl-1', title: 'Lista', artist: 'U', coverUrl: 'c', year: 0, kind: 'playlist' as const };
+  assert.deepEqual(mergeAlbumResults('x', [a], [same], [pl]).map((entry) => entry.id), ['1', 'pl-1']);
+});
+
+test('INV-CAT-01: a página de um álbum do iTunes (it-) traz as faixas na ordem do álbum', async () => {
+  const song = (n: number) => ({ ...valid, trackId: 1000 + n, trackName: `Faixa ${n}`, collectionName: 'Summer Eletrohits 2020' });
+  const fetchImpl = (async (url: string) => {
+    assert.match(String(url), /lookup\?id=1495409741&entity=song&country=BR/);
+    return Response.json({ results: [itunesAlbum(1495409741, 'Summer Eletrohits 2020'), song(1), song(2)] });
+  }) as unknown as typeof fetch;
+  const page = await fetchItunesAlbumPage('1495409741', fetchImpl);
+  assert.equal(page.album.title, 'Summer Eletrohits 2020');
+  assert.deepEqual(page.tracks.tracks.map((track) => track.title), ['Faixa 1', 'Faixa 2']);
+  assert.equal(mapItunesAlbum({ wrapperType: 'track' }), null);
+  assert.deepEqual((await searchItunesAlbums('x', 8, (async () => Response.json({ results: [] })) as unknown as typeof fetch)), []);
+});
+
+test('INV-CAT-01: o endpoint de álbum aceita número (Deezer), it- (iTunes) e pl- (playlist), e recusa o resto', async () => {
+  for (const bad of ['abc', 'it-', 'pl-x', 'xx-1', '1; drop']) assert.equal((await searchEndpoint({ album: bad })).status, 400, bad);
+  const fetchImpl = (async (url: string) => {
+    const text = String(url);
+    if (text.includes('/playlist/55/tracks')) return Response.json({ data: [deezerItem(7)], total: 1 });
+    if (text.includes('/playlist/55')) return Response.json({ id: 55, title: 'Lista', nb_tracks: 30, creator: { name: 'Dono' } });
+    return new Response('', { status: 500 });
+  }) as unknown as typeof fetch;
+  const result = await searchEndpoint({ album: 'pl-55' }, fetchImpl);
+  assert.equal(result.status, 200);
+  const body = result.body as { album: { kind: string; artist: string }; tracks: { tracks: unknown[] } };
+  assert.equal(body.album.kind, 'playlist');
+  assert.equal(body.album.artist, 'Dono');
+  assert.equal(body.tracks.tracks.length, 1);
+});
+
+test('INV-CAT-01: álbum do iTunes sem nenhuma palavra da busca é descartado (resposta frouxa da loja)', () => {
+  const album = (title: string, artist = 'X') => ({ id: 'it-1', title, artist, coverUrl: 'c', year: 2020 });
+  const kept = relevantToQuery('Classic Metal Som Livre', [album('Guerreiras do K-Pop'), album('Legacy', 'Eagles'), album('Classic Rock Hits'), album('Heavy', 'Som Livre')]);
+  assert.deepEqual(kept.map((entry) => entry.title), ['Classic Rock Hits', 'Heavy']);
+  assert.equal(relevantToQuery('ab', [album('Qualquer')]).length, 1, 'texto só de palavras curtas não filtra');
 });

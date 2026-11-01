@@ -532,26 +532,33 @@ const MusicAppContent: React.FC = () => {
                     </div>
                   </section>
                 )}
-                {onlineSearch.albums && onlineSearch.albums.length > 0 && (
-                  <section aria-label="Álbuns" className="px-4 pb-2">
-                    <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">Álbuns</h2>
-                    <div className="flex gap-4 overflow-x-auto">
-                      {onlineSearch.albums.map((album) => (
-                        <button
-                          key={album.id}
-                          onClick={() => {
-                            setArtistStack([]);
-                            setSelectedAlbum(album);
-                          }}
-                          className="flex w-32 shrink-0 flex-col gap-1.5 text-left active:opacity-60"
-                        >
-                          <RemoteImage src={album.coverUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-32 w-32 rounded-cover object-cover bg-fill-tertiary shadow-md" />
-                          <span className="w-full truncate text-[13px] font-medium text-label">{album.title}</span>
-                          <span className="w-full truncate text-[11px] text-label-secondary">{album.artist}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
+                {([
+                  ['Álbuns', (onlineSearch.albums ?? []).filter((entry) => entry.kind !== 'playlist')],
+                  ['Playlists', (onlineSearch.albums ?? []).filter((entry) => entry.kind === 'playlist')]
+                ] as const).map(([label, entries]) =>
+                  entries.length > 0 && (
+                    <section key={label} aria-label={label} className="px-4 pb-2">
+                      <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">{label}</h2>
+                      <div className="flex gap-4 overflow-x-auto">
+                        {entries.map((album) => (
+                          <button
+                            key={album.id}
+                            onClick={() => {
+                              setArtistStack([]);
+                              setSelectedAlbum(album);
+                            }}
+                            className="flex w-32 shrink-0 flex-col gap-1.5 text-left active:opacity-60"
+                          >
+                            <RemoteImage src={album.coverUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-32 w-32 rounded-cover object-cover bg-fill-tertiary shadow-md" />
+                            <span className="w-full truncate text-[13px] font-medium text-label">{album.title}</span>
+                            <span className="w-full truncate text-[11px] text-label-secondary">
+                              {album.kind === 'playlist' && album.trackCount ? `${album.artist} · ${album.trackCount} faixas` : album.artist}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )
                 )}
                 <TrackList
                   tracks={onlineSearch.tracks}

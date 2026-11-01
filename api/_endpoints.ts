@@ -1,6 +1,7 @@
 import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
-import { buildDeezerFeed, fetchAlbumPage, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
+import { buildDeezerFeed, fetchAlbumPage, fetchDeezerPlaylistAsAlbum, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
+import { fetchItunesAlbumPage } from './_itunes.js';
 import { findRadioStation } from './_radios.js';
 import { PodcastError, searchShows, showWithEpisodes } from './_podcasts.js';
 import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick } from './_radioBrowser.js';
@@ -130,9 +131,14 @@ async function artistEndpoint(raw: unknown, query: { index?: unknown; limit?: un
 /** `GET /api/search?album=<id>`: the album and its tracks. */
 async function albumEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<EndpointResult> {
   const id = firstText(raw);
-  if (typeof id !== 'string' || !/^\d{1,12}$/.test(id)) return failure(400, 'Álbum inválido');
+  const match = typeof id === 'string' ? /^(it-|pl-)?(\d{1,12})$/.exec(id) : null;
+  if (!match) return failure(400, 'Álbum inválido');
   try {
-    const page = await fetchAlbumPage(id, fetchImpl);
+    // `it-` is an iTunes album and `pl-` a Deezer playlist shown with the album screen; a bare number is a Deezer album
+    const page =
+      match[1] === 'it-' ? await fetchItunesAlbumPage(match[2], fetchImpl)
+      : match[1] === 'pl-' ? await fetchDeezerPlaylistAsAlbum(match[2], fetchImpl)
+      : await fetchAlbumPage(match[2], fetchImpl);
     return { status: 200, body: page, cacheControl: 's-maxage=3600, stale-while-revalidate=86400' };
   } catch (err: any) {
     console.warn(`[Search] ⚠️ Álbum ${id} falhou: ${err?.message || err}`);
