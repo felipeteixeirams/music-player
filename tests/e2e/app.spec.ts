@@ -614,7 +614,10 @@ test.describe('painel de administrador', () => {
 
     await lab.getByRole('button', { name: /^B · Só silêncio/ }).click();
     await lab.getByRole('switch', { name: /audioSession/ }).check();
+    // The way of leaving the app must be chosen first: the report cannot tell it by itself
+    await expect(lab.getByRole('button', { name: 'Iniciar caso B' })).toBeDisabled();
     await lab.getByRole('button', { name: 'Bloquear a tela (botão lateral)' }).click();
+    await expect(lab.getByRole('button', { name: 'Iniciar caso B' })).toBeEnabled();
     await lab.getByRole('button', { name: 'Iniciar caso B' }).click();
     const report = lab.getByTestId('lab-report');
     await expect(report).toContainText('caso B: Só silêncio em loop');

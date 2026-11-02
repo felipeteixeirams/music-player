@@ -64,9 +64,9 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const [copied, setCopied] = useState(false);
   const [problem, setProblem] = useState('');
   const [lateRadio, setLateRadio] = useState(false);
-  const [exitMode, setExitMode] = useState<LabExit>('home');
+  const [exitMode, setExitMode] = useState<LabExit | null>(null);
   /** The case and options as they were when the case started: the report must not follow later changes on the screen. */
-  const [reported, setReported] = useState<{ labCase: LabCase; options: LabOptions; exitMode: LabExit }>({ labCase: LAB_CASES[0], options: DEFAULT_LAB_OPTIONS, exitMode: 'home' });
+  const [reported, setReported] = useState<{ labCase: LabCase; options: LabOptions; exitMode: LabExit | null }>({ labCase: LAB_CASES[0], options: DEFAULT_LAB_OPTIONS, exitMode: null });
   const run = useRef<Running | null>(null);
   const frameHost = useRef<HTMLDivElement | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -219,6 +219,8 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   };
 
   const start = (labCase: LabCase) => {
+    // Without the choice the report could not say how the app was left, and that may decide the result
+    if (!exitMode) return setProblem('Escolha antes como você vai sair do app (trocar de app ou bloquear a tela).');
     stop();
     setProblem('');
     setLateRadio(false);
@@ -315,7 +317,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     currentEnvironment(),
     reported.labCase,
     reported.options,
-    [`saída: ${LAB_EXITS.find((entry) => entry.id === reported.exitMode)?.report ?? reported.exitMode}`, `rádio: ${radioText.trim()}`, `vídeo: ${videoText.trim()}`],
+    [`saída: ${LAB_EXITS.find((entry) => entry.id === reported.exitMode)?.report ?? 'não informada'}`, `rádio: ${radioText.trim()}`, `vídeo: ${videoText.trim()}`],
     lines
   );
 
@@ -396,7 +398,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
  
         <section aria-label="Saída do app" className="divide-y divide-separator overflow-hidden rounded-card bg-elevated">
-          <p className="px-4 pt-3 text-[12px] text-label-secondary">Como você vai sair do app neste teste? O relatório registra a escolha (trocar de app e bloquear a tela podem se comportar de forma diferente).</p>
+          <p className="px-4 pt-3 text-[12px] text-label-secondary">Como você vai sair do app neste teste? Escolha antes de iniciar: o relatório registra a escolha (trocar de app e bloquear a tela podem se comportar de forma diferente).</p>
           {LAB_EXITS.map((entry) => (
             <button
               key={entry.id}
@@ -412,7 +414,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         {problem && <p role="alert" className="text-[13px] text-rose-500">{problem}</p>}
 
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => start(selected)} className="rounded-xl bg-fill-tertiary py-3 text-[17px] font-semibold text-accent active:scale-[0.98]">
+          <button onClick={() => start(selected)} disabled={!exitMode} className="rounded-xl bg-fill-tertiary py-3 text-[17px] font-semibold text-accent disabled:opacity-40 active:scale-[0.98]">
             Iniciar caso {selected.id}
           </button>
           <button onClick={stop} disabled={!running} className="rounded-xl bg-fill-tertiary py-3 text-[17px] font-semibold text-label disabled:opacity-40 active:scale-[0.98]">
