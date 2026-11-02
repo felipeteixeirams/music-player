@@ -7,6 +7,7 @@ import {
   DEFAULT_RADIO_URL,
   DEFAULT_VIDEO_ID,
   LAB_CASES,
+  LAB_EXITS,
   describeAdvance,
   SILENT_SECONDS,
   findLabCase,
@@ -98,4 +99,10 @@ test('INV-PLAY-26: um toque na tela pede o início do vídeo de novo, uma vez po
   assert.equal(shouldNudge(false, 1000, 1200), false, 'pointerup, touchend e click do mesmo toque contam uma vez');
   assert.equal(shouldNudge(false, 1000, 1700), true);
   assert.equal(shouldNudge(true, 0, 10_000), false, 'depois de começar não há o que pedir');
+});
+
+test('INV-PLAY-26: o relatório distingue sair trocando de app e bloqueando a tela', () => {
+  assert.deepEqual(LAB_EXITS.map((entry) => entry.id), ['home', 'lock']);
+  assert.match(LAB_EXITS[0].report, /sem bloquear a tela/);
+  assert.match(LAB_EXITS[1].report, /tela bloqueada/);
 });

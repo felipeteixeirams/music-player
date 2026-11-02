@@ -105,3 +105,11 @@ export const NUDGE_INTERVAL_MS = 600;
 export function shouldNudge(videoStarted: boolean, lastNudgeAt: number, now: number): boolean {
   return !videoStarted && now - lastNudgeAt >= NUDGE_INTERVAL_MS;
 }
+
+/** How the person will leave the app in this run: the report cannot tell the two apart by itself, and they may behave differently. */
+export type LabExit = 'home' | 'lock';
+
+export const LAB_EXITS: readonly { id: LabExit; label: string; report: string }[] = [
+  { id: 'home', label: 'Trocar de app (tela inicial)', report: 'troca de app (tela inicial, sem bloquear a tela)' },
+  { id: 'lock', label: 'Bloquear a tela (botão lateral)', report: 'tela bloqueada (botão lateral)' }
+] as const;

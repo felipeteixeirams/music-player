@@ -614,10 +614,12 @@ test.describe('painel de administrador', () => {
 
     await lab.getByRole('button', { name: /^B · Só silêncio/ }).click();
     await lab.getByRole('switch', { name: /audioSession/ }).check();
+    await lab.getByRole('button', { name: 'Bloquear a tela (botão lateral)' }).click();
     await lab.getByRole('button', { name: 'Iniciar caso B' }).click();
     const report = lab.getByTestId('lab-report');
     await expect(report).toContainText('caso B: Só silêncio em loop');
     await expect(report).toContainText('opções: audioSession playback sim; mediaSession não');
+    await expect(report).toContainText('saída: tela bloqueada (botão lateral)');
     await expect(report).toContainText('caso B iniciado no toque');
     await expect(report).toContainText(/áudio: (play\(\) aceito|evento playing)/);
 
