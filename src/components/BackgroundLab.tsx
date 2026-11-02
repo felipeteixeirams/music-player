@@ -17,6 +17,7 @@ import {
   formatLabReport,
   parseStreamUrl,
   parseVideoId,
+  shouldNudge,
   type LabCase,
   type LabLine,
   type LabOptions
@@ -41,6 +42,9 @@ interface Running {
   player: YouTubeApi | null;
   /** Blob address of the silent file, released when the case stops. */
   silentUrl: string;
+  /** The video reached the playing state at least once (no more touches needed to start it). */
+  videoStarted: boolean;
+  lastNudgeAt: number;
 }
 
 /**
@@ -156,6 +160,28 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     };
   }, [describeState, log, readTimes]);
 
+  // A touch anywhere asks the player to start again, as the app's own player does: the first playVideo() runs when the
+  // player is ready, after the tap on Start, and the iPhone refuses it (report of case D, 2026-11-02)
+  useEffect(() => {
+    if (!running) return;
+    const onTouch = () => {
+      const current = run.current;
+      if (!current?.player || !current.labCase.frame) return;
+      const now = performance.now();
+      if (!shouldNudge(current.videoStarted, current.lastNudgeAt, now)) return;
+      current.lastNudgeAt = now;
+      log('toque na tela: playVideo() de novo');
+      try {
+        current.player.playVideo();
+      } catch {
+        log('toque na tela: o player não respondeu');
+      }
+    };
+    const types = ['pointerup', 'touchend', 'click'] as const;
+    types.forEach((type) => document.addEventListener(type, onTouch, true));
+    return () => types.forEach((type) => document.removeEventListener(type, onTouch, true));
+  }, [running, log]);
+
   const start = (labCase: LabCase) => {
     stop();
     setProblem('');
@@ -166,7 +192,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     // The app's own player would be a second thing playing: stop it so the case is the only one
     if (isPlaying) togglePlayPause();
 
-    const current: Running = { labCase, startedAt: performance.now(), audio: null, iframe: null, player: null, silentUrl: '' };
+    const current: Running = { labCase, startedAt: performance.now(), audio: null, iframe: null, player: null, silentUrl: '', videoStarted: false, lastNudgeAt: 0 };
     run.current = current;
     setLines([]);
     setRunning(true);
@@ -237,8 +263,17 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               onReady: () => {
                 log('vídeo: player pronto; playVideo()');
                 current.player?.playVideo();
+                // The iPhone starts a video only because of a touch: say so when it has not started
+                timers.current.push(
+                  setTimeout(() => {
+                    if (run.current === current && !current.videoStarted) log('vídeo: 3 s sem começar — toque em qualquer ponto da tela (o iPhone só inicia vídeo por causa de um toque)');
+                  }, 3000)
+                );
               },
-              onStateChange: (event) => log(`vídeo: ${YT_STATES[event.data] ?? event.data} (${current.player?.getCurrentTime().toFixed(1) ?? '?'} s)`),
+              onStateChange: (event) => {
+                if (event.data === 1) current.videoStarted = true;
+                log(`vídeo: ${YT_STATES[event.data] ?? event.data} (${current.player?.getCurrentTime().toFixed(1) ?? '?'} s)`);
+              },
               onError: (event) => log(`vídeo: erro ${event.data} — ${describeYouTubeError(event.data)}`)
             }
           });
@@ -299,7 +334,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         </div>
 
         <p className="text-[13px] leading-5 text-label-secondary">
-          Escolha um caso, toque em Iniciar, confirme que está tocando, saia do app por 30 s, volte e copie o relatório. Faça no app instalado e
+          Escolha um caso, toque em Iniciar, confirme que está tocando (nos casos com YouTube, toque em qualquer ponto da tela se o vídeo não começar: o iPhone só inicia vídeo por causa de um toque), saia do app por 30 s, volte e copie o relatório. Faça no app instalado e
           repita no navegador. Um caso por vez: iniciar outro encerra o anterior.
         </p>
 

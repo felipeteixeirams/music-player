@@ -13,7 +13,8 @@ import {
   formatLabClock,
   formatLabReport,
   parseStreamUrl,
-  parseVideoId
+  parseVideoId,
+  shouldNudge
 } from '../src/utils/backgroundLab';
 import { describeYouTubeError } from '../src/utils/youtubeErrors';
 
@@ -89,4 +90,11 @@ function sources(dir: string): string[] {
 test('INV-PLAY-25: o áudio mudo de manutenção, refutado nas medições do aparelho, não existe mais no app', () => {
   const found = sources('src').filter((file) => /startAudioKeepAlive|stopAudioKeepAlive|keepAliveAudio/.test(readFileSync(file, 'utf8')));
   assert.deepEqual(found, []);
+});
+
+test('INV-PLAY-26: um toque na tela pede o início do vídeo de novo, uma vez por toque, e só enquanto ele não começou', () => {
+  assert.equal(shouldNudge(false, 0, 1000), true);
+  assert.equal(shouldNudge(false, 1000, 1200), false, 'pointerup, touchend e click do mesmo toque contam uma vez');
+  assert.equal(shouldNudge(false, 1000, 1700), true);
+  assert.equal(shouldNudge(true, 0, 10_000), false, 'depois de começar não há o que pedir');
 });
