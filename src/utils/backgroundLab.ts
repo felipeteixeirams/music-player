@@ -96,3 +96,10 @@ export function describeAdvance(before: number | null, after: number | null): st
   if (before === null || after === null || !Number.isFinite(before) || !Number.isFinite(after)) return '?';
   return `${(after - before).toFixed(1)} s`;
 }
+
+/** One touch raises pointerup, touchend and click: one attempt to start the video per touch (as the app's own player does). */
+export const NUDGE_INTERVAL_MS = 600;
+
+export function shouldNudge(videoStarted: boolean, lastNudgeAt: number, now: number): boolean {
+  return !videoStarted && now - lastNudgeAt >= NUDGE_INTERVAL_MS;
+}
