@@ -77,12 +77,19 @@ O usuário trouxe uma pesquisa que conclui que o problema não é manter o PWA v
 - 💭 **O que esses plugins não resolvem para este projeto.** Eles tocam uma **URL de áudio**. A faixa do YouTube não entrega URL de áudio, e extrair ou baixar está descartado. O que tem URL (rádios, podcasts e a prévia de 30 s do Deezer) **já toca em segundo plano no PWA** (T32, casos A e B). Um plugin nativo traria controles da tela de bloqueio e mais robustez nesses casos, não o YouTube. Por isso o "experimento 2" da pesquisa (Capacitor com plugin de áudio) só vale se o Capacitor virar o caminho por outro motivo.
 - 📖 **O experimento que decide é o do iframe dentro do app nativo**, e a evidência externa não é animadora: um relato no [Apple Developer Forums](https://developer.apple.com/forums/thread/781787) de um `WKWebView` com YouTube que não manteve o áudio em segundo plano mesmo com o modo `audio` e sessão `playback` ativos (o registro de erros do relato aponta para permissões do WebKit); perguntas [sem resposta confirmada](https://reddit.birdcat.cafe/r/howdidtheycodeit/comments/1k36uy0/how_do_apps_like_musi_and_demus_enable_background) sobre como o Musi e o Demus fazem; e uma [pergunta antiga](https://kiwix.lema.org/stackoverflow.com_en_all_2023-11/questions/45897456/uiwebview-play-audio-when-app-goes-to-background) em que um comentário (não verificado) diz que tocar áudio do YouTube sem mostrar o vídeo fere os termos e pode levar à rejeição na App Store. Nada específico de Capacitor foi encontrado.
 
-## O teste que vem antes do protótipo: caso D no navegador
+## O teste que vem antes do protótipo: o navegador e a tela bloqueada
 
-O caso D do laboratório de segundo plano (YouTube oculto, ver INV-PLAY-26) ainda **não foi rodado no navegador** (Safari ou Edge). É de graça (minutos, sem código) e separa duas explicações:
+**Resultado do caso D no navegador (Edge, o relatório informa iOS 27.0, 2026-11-02):** o laboratório (caso D, duas vezes) e o app de verdade (faixa "Stereo Love") **pausaram ao trocar de app** (sair para a tela inicial, sem bloquear a tela), com `avançou 0 s`. Isso **não reproduz o T04** (2026-10-25), em que o Edge seguiu tocando com a **tela bloqueada**.
 
-- Se o vídeo **toca em segundo plano no navegador** e pausa no app instalado, o script do YouTube não pausa sozinho quando a página fica oculta: o bloqueio é regra do modo "app instalado" do iOS. 💭 Isso aumenta a chance de um app nativo se comportar de outro jeito, porque quem configura a tela web e a sessão de áudio passa a ser o app.
-- Se **pausa também no navegador**, é provável que o próprio player do YouTube pause com a página oculta, e o Capacitor não ajudaria. 💭 Nesse caso o protótipo nem vale o custo.
+Pelo critério anterior ("se pausa também no navegador, é provável que o próprio player do YouTube pause com a página oculta"), o Capacitor perderia força. Mas **a tela bloqueada nunca foi medida no laboratório** (todos os testes de navegador foram troca de app), e o T04 foi com tela bloqueada. Duas explicações ainda em aberto:
+
+- 💭 Trocar de app e bloquear a tela são casos diferentes para o iOS, e o T04 só tocou porque bloqueou a tela. Nesse caso "usar pelo navegador com a tela bloqueada" pode continuar sendo uma saída, e o app nativo pode se comportar de outro jeito.
+- 💭 O iOS mudou desde 2026-10-25 (o Edge informa `iOS 27.0`; o Safari informa `18.7`, número que talvez seja limitado pelo próprio navegador). A versão real do aparelho não foi conferida.
+
+**Teste que decide (2 minutos cada):** o caso D do laboratório e uma faixa normal do app, no **Edge** e no **app instalado**, com a **tela bloqueada por 1 minuto** (o laboratório agora pede para escolher a saída e a registra no relatório). Conferir também a versão real do iOS em Ajustes, Geral, Sobre.
+
+- Se tocar com a tela bloqueada no navegador (e pausar no app instalado), a regra depende do jeito de sair e do modo; o protótipo do Capacitor continua válido.
+- Se pausar com a tela bloqueada também, o T04 deixou de valer, e o Capacitor só vale se alguém quiser testar mesmo assim, por conta e risco.
 
 ## Protótipo com critério de parada (se houver Mac ou build na nuvem)
 
@@ -99,8 +106,8 @@ O casco do protótipo está em [`native/capacitor/`](../../../native/capacitor/R
 
 ## Recomendação
 
-1. **Rodar o caso D no navegador** (Safari ou Edge): é a única coisa que falta do T32 e informa se o protótipo vale a pena.
-2. Só se o D tocar em segundo plano no navegador e o grupo quiser mesmo o YouTube em segundo plano: fazer o protótipo acima, **só do iframe**. Hoje **não vale** assumir US$ 99 por ano e um Mac (ou serviço de build) por uma promessa que a pesquisa não sustenta para o YouTube.
+1. **Rodar a tela bloqueada** (caso D do laboratório e uma faixa normal, no Edge e no app instalado, 1 minuto): é o que falta do T32. O caso D no navegador por troca de app já foi feito (2026-11-02) e pausou.
+2. Só se o vídeo tocar com a tela bloqueada em algum ambiente e o grupo quiser mesmo o YouTube em segundo plano: fazer o protótipo acima, **só do iframe**. Hoje **não vale** assumir US$ 99 por ano e um Mac (ou serviço de build) por uma promessa que a pesquisa não sustenta para o YouTube.
 3. **Não escolher plugin de áudio agora.** Se um dia o Capacitor virar o caminho por outro motivo, os candidatos vivos são o `@smartcompanion/native-audio-player` (mais focado em segundo plano e tela de bloqueio, mais novo e com bem menos uso), o `@capgo/capacitor-native-audio` (mais usado, MPL-2.0, mas atenção ao recurso de interromper outros apps no iOS) e o `@mediagrid/capacitor-native-audio`; escolher instalando cada um num app em branco e testando no iPhone. O `capacitor-media-session` está abandonado.
 4. Se o objetivo for "app de verdade" para podcasts e rádios, o PWA já toca isso em segundo plano; o Capacitor traria push mais estável e a presença na tela inicial como app, não o áudio.
 
@@ -109,7 +116,7 @@ O casco do protótipo está em [`native/capacitor/`](../../../native/capacitor/R
 - Há um Mac, ou prefere um serviço de build na nuvem? Aceita a conta de desenvolvedor de US$ 99 por ano?
 - Quantas pessoas do grupo usam iPhone e quantas Android? (O Android não foi avaliado aqui.)
 - Importa mais o YouTube em segundo plano ou o áudio nativo (podcasts e rádios) que já funciona? (Arquivos próprios foram descartados.)
-- Você roda o caso D no navegador (Safari ou Edge)? É o passo que decide se o protótipo compensa.
+- Você roda a tela bloqueada (Edge e app instalado)? É o passo que decide se o protótipo compensa.
 
 ## Registro de decisões
 

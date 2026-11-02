@@ -363,6 +363,8 @@ Só para o administrador: Ajustes > Administração > Laboratório de segundo pl
 4. Repita bloqueando a tela com o botão lateral por 30 s.
 5. Ordem sugerida: A (controle), D (controle), C, B, G, F; depois repita C, D e F com a opção `audioSession.type = 'playback'` ligada, e uma vez com `mediaSession` ligada.
 
+**Escolha em "Como você vai sair do app" antes de iniciar** (troca de app ou tela bloqueada) e saia desse jeito: o relatório registra a escolha na linha `saída:`, porque trocar de app e bloquear a tela podem se comportar de forma diferente (o T04 foi com a tela bloqueada). Faça cada caso nos dois jeitos.
+
 Como ler: no relatório, `áudio avançou X s` / `vídeo avançou Y s` perto do tempo fora quer dizer que tocou o tempo todo; 0.0 s, que o sistema pausou. A ordem das linhas mostra quem pausou primeiro (`áudio: evento pause` contra `vídeo: pausado`).
 
 ## Frentes em aberto (fora dos testes)

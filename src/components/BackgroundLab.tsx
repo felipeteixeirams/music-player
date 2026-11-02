@@ -11,6 +11,7 @@ import {
   DEFAULT_RADIO_URL,
   DEFAULT_VIDEO_ID,
   LAB_CASES,
+  LAB_EXITS,
   describeAdvance,
   SILENT_SECONDS,
   formatLabClock,
@@ -19,6 +20,7 @@ import {
   parseVideoId,
   shouldNudge,
   type LabCase,
+  type LabExit,
   type LabLine,
   type LabOptions
 } from '../utils/backgroundLab';
@@ -62,8 +64,9 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const [copied, setCopied] = useState(false);
   const [problem, setProblem] = useState('');
   const [lateRadio, setLateRadio] = useState(false);
+  const [exitMode, setExitMode] = useState<LabExit>('home');
   /** The case and options as they were when the case started: the report must not follow later changes on the screen. */
-  const [reported, setReported] = useState<{ labCase: LabCase; options: LabOptions }>({ labCase: LAB_CASES[0], options: DEFAULT_LAB_OPTIONS });
+  const [reported, setReported] = useState<{ labCase: LabCase; options: LabOptions; exitMode: LabExit }>({ labCase: LAB_CASES[0], options: DEFAULT_LAB_OPTIONS, exitMode: 'home' });
   const run = useRef<Running | null>(null);
   const frameHost = useRef<HTMLDivElement | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -219,7 +222,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     stop();
     setProblem('');
     setLateRadio(false);
-    setReported({ labCase, options: { ...options } });
+    setReported({ labCase, options: { ...options }, exitMode });
     const radio = parseStreamUrl(radioText);
     const video = parseVideoId(videoText);
     if ((labCase.audio === 'radio' || labCase.audio === 'radio-later') && !radio) return setProblem('Endereço da rádio inválido.');
@@ -312,7 +315,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     currentEnvironment(),
     reported.labCase,
     reported.options,
-    [`rádio: ${radioText.trim()}`, `vídeo: ${videoText.trim()}`],
+    [`saída: ${LAB_EXITS.find((entry) => entry.id === reported.exitMode)?.report ?? reported.exitMode}`, `rádio: ${radioText.trim()}`, `vídeo: ${videoText.trim()}`],
     lines
   );
 
@@ -389,6 +392,21 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               <input value={videoText} onChange={(event) => setVideoText(event.target.value)} className="mt-1 w-full rounded-lg bg-fill-tertiary px-3 py-2 text-[14px] text-label" />
             </label>
           </div>
+        </section>
+
+ 
+        <section aria-label="Saída do app" className="divide-y divide-separator overflow-hidden rounded-card bg-elevated">
+          <p className="px-4 pt-3 text-[12px] text-label-secondary">Como você vai sair do app neste teste? O relatório registra a escolha (trocar de app e bloquear a tela podem se comportar de forma diferente).</p>
+          {LAB_EXITS.map((entry) => (
+            <button
+              key={entry.id}
+              onClick={() => setExitMode(entry.id)}
+              aria-pressed={exitMode === entry.id}
+              className={`flex w-full items-center px-4 py-3 text-left text-[15px] text-label ${exitMode === entry.id ? 'bg-fill-tertiary font-semibold' : ''}`}
+            >
+              {entry.label}
+            </button>
+          ))}
         </section>
 
         {problem && <p role="alert" className="text-[13px] text-rose-500">{problem}</p>}
