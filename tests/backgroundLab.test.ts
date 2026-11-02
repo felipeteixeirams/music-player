@@ -27,7 +27,8 @@ test('INV-PLAY-26: o laboratório isola um caso por vez: áudio nativo, áudio m
       ['C', null, 'visible'],
       ['D', null, 'hidden'],
       ['F', 'radio', 'hidden'],
-      ['G', 'silent', 'hidden']
+      ['G', 'silent', 'hidden'],
+      ['H', 'radio-later', 'hidden']
     ]
   );
   assert.equal(new Set(LAB_CASES.map((entry) => entry.id)).size, LAB_CASES.length, 'ids únicos');
