@@ -127,7 +127,7 @@ Atualizado em 2026-10-29, depois dos PRs #56 a #100 (e o branch `fix/refund-empt
 9. **Tarefas do painel do Supabase** do lado do usuário: Site URL, limites de envio de e-mail e usuários convidados com confirmação automática.
 10. **Configurar o GitHub**: ativar a regra "Require status checks to pass" (job `checks`) na `main`, para o merge exigir o CI, e "Automatically delete head branches" em Settings > General, para os branches mesclados saírem sozinhos.
 11. **Retenção dos erros do app**: os logs da Vercel no plano gratuito guardam pouco tempo. Se o usuário sentir falta de histórico, guardar os `[Client]` numa tabela do Supabase (hoje só vão para o log).
-12. **Limite de taxa global das rotas**: hoje é por instância; precisa do firewall da Vercel ou de armazenamento compartilhado.
+12. **Limite de taxa global das rotas**: hoje é por instância; precisa do firewall da Vercel ou de armazenamento compartilhado. **Recurso a confirmar (2026-11-02, o usuário acha que a Vercel oferece Redis no plano gratuito; ele vai verificar antes):** um Redis compartilhado serviria para o limite global de taxa e para contadores que hoje dependem do Supabase. Só considerar se for realmente necessário; não há trabalho planejado nem limites conferidos.
 13. **Retirar o campo `featured` de `/api/feed`**: a home não o mostra desde o PR #79; ficou só por compatibilidade com apps abertos. Pode sair depois de as versões antigas sumirem.
 14. **Limpezas pequenas de código**: `preferredEngine` e `switchEngineManually` do `AudioContext` não têm tela que os use; `public/assets/aistudio/` guarda um log colado da Vercel.
 15. **Melhorias de documentação** ainda não feitas: encurtar o `AGENTS.md`, um fato em um lugar só, rótulos de evidência em todas as seções.

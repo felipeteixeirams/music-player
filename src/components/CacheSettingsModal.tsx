@@ -97,7 +97,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
     { label: '150 MB (Moderado)', value: 150 },
     { label: '250 MB (Padrão)', value: 250 },
     { label: '500 MB (Avançado)', value: 500 },
-    { label: '1 GB (Ilimitado / Offline)', value: 1024 }
+    { label: '1 GB (Máximo)', value: 1024 }
   ];
 
   return (
@@ -115,7 +115,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
             </div>
             <div>
               <h3 className="text-sm font-semibold">Gerenciamento de Cache</h3>
-              <p className="text-[11px] text-label-secondary">Controle de espaço de armazenamento</p>
+              <p className="text-[11px] text-label-secondary">Capas e arquivos do app, para abrir mais rápido</p>
             </div>
           </div>
           <button
@@ -200,7 +200,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
             <span>Limpar Todo o Cache & Reiniciar</span>
           </button>
           <p className="text-[10px] text-label-tertiary text-center">
-            Remove capas em cache, Service Worker offline e libera espaço no seu dispositivo.
+            Remove as capas e os arquivos do app guardados no aparelho e libera espaço. As músicas nunca ficam guardadas.
           </p>
         </div>
 
