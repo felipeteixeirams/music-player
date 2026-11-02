@@ -62,7 +62,7 @@ Marcas de evidência: ✅ medido por mim hoje; 🔎 conferido no código; 📖 f
 
 O usuário trouxe uma pesquisa que conclui que o problema não é manter o PWA vivo, e sim manter o **vídeo do YouTube** tocando dentro de um PWA instalado, e que sugere Capacitor com um plugin de áudio nativo. Conferência feita aqui:
 
-- ✅ **A premissa bate com as medições do T32** (2026-11-02, iPhone 11, iOS 18.7): o `<audio>` segue tocando fora do app e o vídeo do YouTube pausa no instante da saída, visível ou oculto, com ou sem `audioSession`, `mediaSession` e áudio nativo ao lado. Ver a [matriz de compatibilidade](compatibility-matrix.spec.md).
+- ✅ **A premissa bate com as medições do T32** (2026-11-02, iPhone 11; o Safari informa iOS 18.7, a versão real é 27.0.1): o `<audio>` segue tocando fora do app e o vídeo do YouTube pausa no instante da saída, visível ou oculto, com ou sem `audioSession`, `mediaSession` e áudio nativo ao lado. Ver a [matriz de compatibilidade](compatibility-matrix.spec.md).
 - 📖 **O que a Apple exige para áudio em segundo plano em app nativo** (citado na pesquisa; a documentação da Apple não foi lida aqui): `AVAudioSession` com a categoria `playback`, o modo de fundo `audio` em `UIBackgroundModes` e o recurso "Background Modes" no projeto do Xcode. É capacidade de app nativo e não dá para pedir isso a um PWA.
 - 📖 **Plugins candidatos, conferidos no registro do npm e nos READMEs em 2026-11-02** (nada foi instalado nem testado; o iOS não foi rodado). Uma primeira versão desta seção, baseada só em resumos de busca, trazia um dado errado sobre o `@smartcompanion` (versão 0.3.0 e 25 downloads, de um espelho desatualizado) e foi corrigida:
 
@@ -84,9 +84,9 @@ O usuário trouxe uma pesquisa que conclui que o problema não é manter o PWA v
 Pelo critério anterior ("se pausa também no navegador, é provável que o próprio player do YouTube pause com a página oculta"), o Capacitor perderia força. Mas **a tela bloqueada nunca foi medida no laboratório** (todos os testes de navegador foram troca de app), e o T04 foi com tela bloqueada. Duas explicações ainda em aberto:
 
 - 💭 Trocar de app e bloquear a tela são casos diferentes para o iOS, e o T04 só tocou porque bloqueou a tela. Nesse caso "usar pelo navegador com a tela bloqueada" pode continuar sendo uma saída, e o app nativo pode se comportar de outro jeito.
-- 💭 O iOS mudou desde 2026-10-25 (o Edge informa `iOS 27.0`; o Safari informa `18.7`, número que talvez seja limitado pelo próprio navegador). A versão real do aparelho não foi conferida.
+- 💭 O iOS mudou desde 2026-10-25. **A versão real do aparelho é 27.0.1** (usuário, 2026-11-02; o Edge informava 27.0 e o Safari 18.7, um número limitado), mas **não se sabe em que dia o aparelho foi atualizado**: se já estava no iOS 27 no T04, a diferença é outra (por exemplo, o vídeo usado ou a versão do Edge).
 
-**Resultado da tela bloqueada no Edge (2026-11-02, versão 408bb1684b06, `saída: tela bloqueada`):** o caso D do laboratório **pausou**, `vídeo avançou 0 s`. Com isso o vídeo do iframe pausou no navegador nas duas formas de sair (troca de app e tela bloqueada) e no app instalado; o T04 deixou de se reproduzir (💭 possível mudança do iOS, versão real não conferida). Pelo critério abaixo, o protótipo do Capacitor perde força. Falta o app de verdade no Edge com a tela bloqueada e o app instalado com a escolha de saída registrada.
+**Resultado da tela bloqueada no Edge (2026-11-02, versão 408bb1684b06, `saída: tela bloqueada`):** o caso D do laboratório **pausou**, `vídeo avançou 0 s`. Com isso o vídeo do iframe pausou no navegador nas duas formas de sair (troca de app e tela bloqueada) e no app instalado; o T04 deixou de se reproduzir (💭 possível mudança do iOS, versão real não conferida). Pelo critério abaixo, o protótipo do Capacitor perde força. **O app de verdade no Edge, depois de bloquear a tela, também pausou** (faixa "Você É Linda", versão 7248b2a63fe9, `avançou 0 s`), então o laboratório coincide com o app. Falta a versão real do iOS e o app instalado com a escolha de saída registrada.
 
 **Teste que decide (2 minutos cada):** o caso D do laboratório e uma faixa normal do app, no **Edge** e no **app instalado**, com a **tela bloqueada por 1 minuto** (o laboratório agora pede para escolher a saída e a registra no relatório). Conferir também a versão real do iOS em Ajustes, Geral, Sobre.
 
@@ -124,4 +124,4 @@ O casco do protótipo está em [`native/capacitor/`](../../../native/capacitor/R
 
 | Data | Decisão | PR |
 | --- | --- | --- |
-| — | Nenhuma ainda | — |
+| 2026-11-02 | **O protótipo do Capacitor não será testado agora** (decisão do usuário): não há Mac, e o uso principal do app é no celular, então o caminho de build com Mac não serve ao fluxo dele. O casco continua em `native/capacitor/` (nunca compilado) e o teste só volta se houver um Mac ou um serviço de build e um motivo novo (por exemplo, uma atualização do iOS que mude o comportamento do vídeo; repetir o caso D do laboratório depois de atualizar o iPhone). Alternativa sem Mac, opcional: rodar o caso D do laboratório em outros navegadores do iPhone (Chrome, Firefox, Brave), que são apps nativos com tela web | #134 |

@@ -119,5 +119,10 @@ test('o ambiente do relatório diz versão, se é o app instalado ou o navegador
   assert.equal(describeEnvironment({ version: 'abc123', standalone: false, userAgent: safariIos }), 'versão abc123 · NAVEGADOR · iOS 16.6 · Safari');
   assert.equal(describeEnvironment({ version: 'abc123', standalone: true, userAgent: pwaIos }), 'versão abc123 · APP INSTALADO (PWA) · iOS 17.5 · WebKit');
   assert.equal(describeEnvironment({ version: 'dev', standalone: false, userAgent: chromeAndroid }), 'versão dev · NAVEGADOR · Android 14 · Chrome');
+  // From iOS 18 up Safari and the installed app report a capped number (an iPhone on 27.0.1 said 18.7), Edge reports the real one
+  const safari187 = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.7 Mobile/15E148 Safari/604.1';
+  const edge270 = 'Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 EdgiOS/140.0 Mobile/15E148 Safari/605.1.15';
+  assert.match(describeEnvironment({ version: 'x', standalone: false, userAgent: safari187 }), /iOS 18\.7 \(o Safari limita o número; a versão real pode ser mais nova\) · Safari/);
+  assert.equal(describeEnvironment({ version: 'x', standalone: false, userAgent: edge270 }), 'versão x · NAVEGADOR · iOS 27.0 · Edge');
   assert.match(describeEnvironment({ version: 'x', standalone: false, userAgent: '' }), /sistema não identificado/);
 });
