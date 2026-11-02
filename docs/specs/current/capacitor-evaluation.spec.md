@@ -124,4 +124,4 @@ O casco do protótipo está em [`native/capacitor/`](../../../native/capacitor/R
 
 | Data | Decisão | PR |
 | --- | --- | --- |
-| — | Nenhuma ainda | — |
+| 2026-11-02 | **O protótipo do Capacitor não será testado agora** (decisão do usuário): não há Mac, e o uso principal do app é no celular, então o caminho de build com Mac não serve ao fluxo dele. O casco continua em `native/capacitor/` (nunca compilado) e o teste só volta se houver um Mac ou um serviço de build e um motivo novo (por exemplo, uma atualização do iOS que mude o comportamento do vídeo; repetir o caso D do laboratório depois de atualizar o iPhone). Alternativa sem Mac, opcional: rodar o caso D do laboratório em outros navegadores do iPhone (Chrome, Firefox, Brave), que são apps nativos com tela web | #134 |
