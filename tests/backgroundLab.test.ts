@@ -8,7 +8,6 @@ import {
   DEFAULT_VIDEO_ID,
   LAB_CASES,
   describeAdvance,
-  describeYouTubeError,
   SILENT_SECONDS,
   findLabCase,
   formatLabClock,
@@ -16,6 +15,7 @@ import {
   parseStreamUrl,
   parseVideoId
 } from '../src/utils/backgroundLab';
+import { describeYouTubeError } from '../src/utils/youtubeErrors';
 
 test('INV-PLAY-26: o laboratório isola um caso por vez: áudio nativo, áudio mudo, iframe visível ou oculto, e as combinações', () => {
   assert.deepEqual(

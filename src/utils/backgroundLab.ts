@@ -45,23 +45,6 @@ export const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ';
 /** Length of the silent file of case B and G: longer than any test, so the audio never wraps around and its clock stays honest. */
 export const SILENT_SECONDS = 600;
 
-/** What a YouTube player error code means, in words, for the report. */
-export function describeYouTubeError(code: number): string {
-  switch (code) {
-    case 2:
-      return 'pedido inválido (código de vídeo errado)';
-    case 5:
-      return 'erro do player HTML5';
-    case 100:
-      return 'vídeo não encontrado ou privado';
-    case 101:
-    case 150:
-      return 'o dono do vídeo não permite incorporá-lo em outro site (escolha outro vídeo)';
-    default:
-      return 'erro desconhecido';
-  }
-}
-
 export function findLabCase(id: string): LabCase | undefined {
   return LAB_CASES.find((entry) => entry.id === id);
 }

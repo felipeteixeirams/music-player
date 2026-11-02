@@ -356,6 +356,15 @@ export async function fakeYouTube(target: Page): Promise<void> {
           loadVideoById(id) {
             window.__yt.log.push('load:' + id);
             this.id = id; this.base = 0; this.loadedAt = performance.now(); window.__yt.loads.push(id); this.set(3);
+            // __ytErrors: { videoId: code } makes that video fail like the real player (150: embedding not allowed, 5: passing error)
+            const failure = window.__ytErrors && window.__ytErrors[id];
+            if (failure) {
+              if (!(failure.once && window.__ytFailed && window.__ytFailed[id])) {
+                window.__ytFailed = Object.assign(window.__ytFailed || {}, { [id]: true });
+                setTimeout(() => this.events.onError({ data: failure.code }), 60);
+                return;
+              }
+            }
             setTimeout(() => this.set(window.__ytMode === 'blocked' && !window.__ytAllow ? 5 : 1), 60);
           }
           cueVideoById(id) { this.id = id; this.base = 0; window.__yt.cues.push(id); this.set(5); }

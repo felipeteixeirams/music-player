@@ -5,13 +5,13 @@ import { sessionId } from '../utils/trace';
 import { describeEnvironment } from '../utils/playbackDiagnostics';
 import { generateSilentWavBlobUrl } from '../utils/audioUnlock';
 import { loadApi, type YouTubeApi } from '../utils/youtubeEngine';
+import { describeYouTubeError } from '../utils/youtubeErrors';
 import {
   DEFAULT_LAB_OPTIONS,
   DEFAULT_RADIO_URL,
   DEFAULT_VIDEO_ID,
   LAB_CASES,
   describeAdvance,
-  describeYouTubeError,
   SILENT_SECONDS,
   formatLabClock,
   formatLabReport,

@@ -19,6 +19,7 @@ import { useAuth } from './AuthContext';
 import { emitHistoryChanged, emitUserDataChanged, onUserDataApplied } from '../utils/userDataEvents';
 import { PlayedCounter } from '../utils/playedCounter';
 import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
+import { classifyYouTubeError } from '../utils/youtubeErrors';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
 import { moveQueueItem } from '../utils/queueOrder';
@@ -82,7 +83,8 @@ interface AudioContextType {
   updatePlaybackTime: (seconds: number) => void;
   setDuration: (seconds: number) => void;
   clearUserSeekRequest: () => void;
-  handleFallbackError: () => void;
+  /** The YouTube player refused the video (`code` is its error code; see `youtubeErrors.ts`). */
+  handleFallbackError: (code?: number) => void;
   /** The hidden YouTube player reports sound coming out. */
   engineStarted: () => void;
   /** The hidden YouTube player reports that the video is loaded (with its length, when known). */
@@ -1156,18 +1158,33 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [playbackStarted]);
 
   // The headless YouTube player failed (embedding blocked, unavailable video): use the preview if any
-  const handleFallbackError = useCallback(() => {
+  /** The track and video that already got their one second chance after a passing player error (code 5). */
+  const sameVideoRetryRef = useRef('');
+  const handleFallbackError = useCallback((code?: number) => {
     const track = currentTrackRef.current;
     const versions = versionsRef.current;
-    if (track && versions.trackId === track.id && versions.index + 1 < versions.ids.length) {
+    const failure = classifyYouTubeError(code);
+    const knownVersions = Boolean(track && versions.trackId === track.id);
+    const videoId = knownVersions ? versions.ids[versions.index] : undefined;
+    logPlayback(`o YouTube recusou o vídeo${videoId ? ` ${videoId}` : ''}: erro ${code ?? '?'} — ${failure.description}`);
+
+    // A hiccup of the player: the same video once more, and the video keeps its place in the shared cache
+    if (failure.retrySame && track && videoId && sameVideoRetryRef.current !== `${track.id}:${videoId}`) {
+      sameVideoRetryRef.current = `${track.id}:${videoId}`;
+      logPlayback('tentando o mesmo vídeo mais uma vez');
+      triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: videoId } }, true);
+      return;
+    }
+    if (failure.tryOtherVersions && track && knownVersions && versions.index + 1 < versions.ids.length) {
       // This video would not play (embedding blocked, removed): the next candidate, until they run out
-      reportBrokenVideo(track, versions.ids[versions.index]);
+      if (failure.denounce) reportBrokenVideo(track, versions.ids[versions.index]);
       const index = versions.index + 1;
       versionsRef.current = { ...versions, index };
+      logPlayback(`próxima versão (${index + 1} de ${versions.ids.length})`);
       triggerFallbackEngine({ ...track, sources: { ...track.sources, youtubeId: versions.ids[index] } }, true);
       return;
     }
-    if (track && versions.trackId === track.id && versions.ids[versions.index]) reportBrokenVideo(track, versions.ids[versions.index]);
+    if (failure.denounce && track && videoId) reportBrokenVideo(track, videoId);
     if (track?.sources.previewUrl) {
       void playPreview(track, true);
       return;
@@ -1175,7 +1192,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (skipUnplayableTrack()) return;
     setIsPlaying(false);
     setIsBuffering(false);
-    setPlaybackStatus({ error: 'Não foi possível reproduzir esta faixa.' });
+    setPlaybackStatus({ error: failure.kind === 'not-loaded' ? 'O player do YouTube não carregou. Confira a conexão e toque em reproduzir.' : 'Não foi possível reproduzir esta faixa.' });
   }, [playPreview, triggerFallbackEngine, skipUnplayableTrack]);
 
   // "Outra versão": the next video found for this track (wrapping around), remembered as the user's choice

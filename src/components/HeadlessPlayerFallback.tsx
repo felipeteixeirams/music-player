@@ -61,7 +61,7 @@ export const HeadlessPlayerFallback: React.FC = () => {
       ended: () => latest.current.playNext(),
       error: (code) => {
         console.warn(`Background playback failed (YouTube error ${code}), switching source`);
-        latest.current.handleFallbackError();
+        latest.current.handleFallbackError(code);
       },
       time: (seconds) => {
         latest.current.updatePlaybackTime(seconds);
