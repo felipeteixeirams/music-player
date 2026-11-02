@@ -5,7 +5,11 @@
  */
 
 /** `radio-later`: the radio starts on a later tap, once the video is playing (the order of the two is what the case tests). */
-export type LabAudio = 'radio' | 'radio-later' | 'silent' | null;
+/**
+ * `video-file`: our own `<video>` element playing a public MP4 (video and audio, no YouTube).
+ * `video-audio`: the same kind of element playing only audio (the radio stream): it has no video track.
+ */
+export type LabAudio = 'radio' | 'radio-later' | 'silent' | 'video-file' | 'video-audio' | null;
 export type LabFrame = 'visible' | 'hidden' | null;
 
 export interface LabCase {
@@ -24,7 +28,9 @@ export const LAB_CASES: readonly LabCase[] = [
   { id: 'D', label: 'D · YouTube oculto (como o app)', detail: 'Controle: oculto como no app (quase transparente, recortado). Já pausou 0 s depois de sair.', audio: null, frame: 'hidden' },
   { id: 'F', label: 'F · Rádio + YouTube oculto', detail: 'Um áudio nativo tocando som de verdade protege o iframe, ou um pausa o outro?', audio: 'radio', frame: 'hidden' },
   { id: 'G', label: 'G · Silêncio + YouTube oculto', detail: 'A combinação que falhou no app (o elemento mudo foi pausado pelo sistema).', audio: 'silent', frame: 'hidden' },
-  { id: 'H', label: 'H · YouTube oculto, depois a rádio', detail: 'Primeiro o vídeo (toque na tela até tocar); com ele tocando, toque na rádio. Qual pausa o outro? É o inverso do F.', audio: 'radio-later', frame: 'hidden' }
+  { id: 'H', label: 'H · YouTube oculto, depois a rádio', detail: 'Primeiro o vídeo (toque na tela até tocar); com ele tocando, toque na rádio. Qual pausa o outro? É o inverso do F.', audio: 'radio-later', frame: 'hidden' },
+  { id: 'J', label: 'J · `<video>` próprio (MP4 com vídeo e áudio)', detail: 'Um elemento de vídeo nosso, sem YouTube. Se tocar fora do app, a pausa do YouTube não é regra do iOS para vídeo; se pausar, é.', audio: 'video-file', frame: null },
+  { id: 'K', label: 'K · `<video>` próprio só com áudio (a rádio)', detail: 'O mesmo tipo de elemento tocando só áudio, sem faixa de vídeo: separa o tipo de elemento da faixa de vídeo.', audio: 'video-audio', frame: null }
 ] as const;
 
 export interface LabOptions {
@@ -37,6 +43,12 @@ export interface LabOptions {
 export const DEFAULT_LAB_OPTIONS: LabOptions = { audioSessionPlayback: false, mediaSession: false };
 
 /** SomaFM Groove Salad (public Icecast stream); the field in the lab accepts any other address. */
+/**
+ * Big Buck Bunny (Blender Foundation, CC BY) on archive.org: about 10 minutes, video and audio, 62 MB (the player
+ * fetches only what it plays). Not checked on the device: the field in the lab accepts any other MP4.
+ */
+export const DEFAULT_VIDEO_FILE_URL = 'https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4';
+
 export const DEFAULT_RADIO_URL = 'https://ice1.somafm.com/groovesalad-128-mp3';
 /**
  * A video that allows embedding anywhere (3:32, long enough for a 30 s test). The first choice, a live stream
