@@ -43,3 +43,22 @@ test('INV-UI-03: o que o download de prévia deixou no aparelho é removido uma 
   expect(await page.evaluate(() => localStorage.getItem('aurastream_liked_track_objects:ana'))).toBe('[]');
   expect(await page.evaluate(() => localStorage.getItem('aurastream_downloads_purged_v1'))).toBe('1');
 });
+
+test('INV-UI-02: sem rede o aviso não promete tocar do cache, e o gerenciador de cache não fala em offline nem em músicas guardadas', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+
+  await page.context().setOffline(true);
+  await expect(page.getByText('Sem conexão — as músicas voltam a tocar quando a rede voltar')).toBeVisible();
+  await expect(page.getByText(/Reproduzindo via cache/)).toHaveCount(0);
+  await page.context().setOffline(false);
+
+  await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+  await page.getByRole('button', { name: /Gerenciar cache local/ }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Capas e arquivos do app, para abrir mais rápido')).toBeVisible();
+  await expect(dialog.getByText('1 GB (Máximo)')).toBeVisible();
+  await expect(dialog.getByText(/offline/i)).toHaveCount(0);
+  await expect(dialog.getByText('As músicas nunca ficam guardadas.', { exact: false })).toBeVisible();
+});
