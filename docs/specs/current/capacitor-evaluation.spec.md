@@ -55,7 +55,7 @@ Marcas de evidência: ✅ medido por mim hoje; 🔎 conferido no código; 📖 f
 | PWA como está | Pausa no app instalado (medido); segue no navegador | Zero | Política do YouTube (player oculto) |
 | PWA com o experimento do áudio mudo | 💭 desconhecido (T30 com a chave) | Já está no código | Pode não funcionar; mesma política |
 | Capacitor com o iframe do YouTube | **Não confirmado** | Mac ou build na nuvem, US$ 99 por ano, algumas mudanças de origem | Pode não resolver nada; política do YouTube; revisão da Apple |
-| Capacitor com áudio nativo e arquivos próprios | Sim para o que tem arquivo (podcasts, rádios, Supabase Storage) | O mesmo, mais o armazenamento e a decisão sobre arquivos próprios | Direitos sobre os arquivos |
+| Capacitor com áudio nativo e arquivos próprios | Sim para o que tem arquivo (podcasts e rádios). **Arquivos próprios (Supabase Storage) foram descartados em 2026-11-02** | Só podcasts e rádios, que o PWA já toca em segundo plano | — |
 | Usar pelo navegador (Safari ou Edge) | Segue tocando (medido em 2026-10-25) | Zero | Menos "app"; sem tela inicial |
 
 ## Protótipo com critério de parada (se houver Mac ou build na nuvem)
