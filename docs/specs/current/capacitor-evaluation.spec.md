@@ -86,10 +86,12 @@ Pelo critério anterior ("se pausa também no navegador, é provável que o pró
 - 💭 Trocar de app e bloquear a tela são casos diferentes para o iOS, e o T04 só tocou porque bloqueou a tela. Nesse caso "usar pelo navegador com a tela bloqueada" pode continuar sendo uma saída, e o app nativo pode se comportar de outro jeito.
 - 💭 O iOS mudou desde 2026-10-25 (o Edge informa `iOS 27.0`; o Safari informa `18.7`, número que talvez seja limitado pelo próprio navegador). A versão real do aparelho não foi conferida.
 
+**Resultado da tela bloqueada no Edge (2026-11-02, versão 408bb1684b06, `saída: tela bloqueada`):** o caso D do laboratório **pausou**, `vídeo avançou 0 s`. Com isso o vídeo do iframe pausou no navegador nas duas formas de sair (troca de app e tela bloqueada) e no app instalado; o T04 deixou de se reproduzir (💭 possível mudança do iOS, versão real não conferida). Pelo critério abaixo, o protótipo do Capacitor perde força. Falta o app de verdade no Edge com a tela bloqueada e o app instalado com a escolha de saída registrada.
+
 **Teste que decide (2 minutos cada):** o caso D do laboratório e uma faixa normal do app, no **Edge** e no **app instalado**, com a **tela bloqueada por 1 minuto** (o laboratório agora pede para escolher a saída e a registra no relatório). Conferir também a versão real do iOS em Ajustes, Geral, Sobre.
 
 - Se tocar com a tela bloqueada no navegador (e pausar no app instalado), a regra depende do jeito de sair e do modo; o protótipo do Capacitor continua válido.
-- Se pausar com a tela bloqueada também, o T04 deixou de valer, e o Capacitor só vale se alguém quiser testar mesmo assim, por conta e risco.
+- Se pausar com a tela bloqueada também (**foi o que o laboratório mostrou no Edge**), o T04 deixou de valer, e o Capacitor só vale se alguém quiser testar mesmo assim, por conta e risco.
 
 ## Protótipo com critério de parada (se houver Mac ou build na nuvem)
 
