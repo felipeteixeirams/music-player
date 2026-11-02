@@ -1,6 +1,6 @@
 # Avaliação do Capacitor (app nativo para iPhone)
 
-Pesquisa de 2026-10-30, a pedido do usuário, depois de perguntar como apps como o YouTube e o OiTube tocam em segundo plano e em janela flutuante. Este documento é do master [Integrações musicais](../../masters/music-integrations.md) e complementa o item "Capacitor" de [Fontes de áudio e decisões](audio-sources-decisions.spec.md). **Não decide nada sozinho.**
+Pesquisa de 2026-10-30, a pedido do usuário, depois de perguntar como apps como o YouTube e o OiTube tocam em segundo plano e em janela flutuante. **Atualizada em 2026-11-02** com os resultados do laboratório de segundo plano (T32) e com uma pesquisa do usuário sobre plugins de áudio nativo (seção "Pesquisa de 2026-11-02"). Este documento é do master [Integrações musicais](../../masters/music-integrations.md) e complementa o item "Capacitor" de [Fontes de áudio e decisões](audio-sources-decisions.spec.md). **Não decide nada sozinho.**
 
 Marcas de evidência: ✅ medido por mim hoje; 🔎 conferido no código; 📖 fonte lida (link; quase todas são fóruns e blogs, não documentação da Apple); 💭 hipótese ou memória, sem prova.
 
@@ -11,7 +11,7 @@ Marcas de evidência: ✅ medido por mim hoje; 🔎 conferido no código; 📖 f
 3. **Para o player do YouTube dentro dessa tela web, não há confirmação.** Achei um relato de alguém que ativou a sessão de áudio e o modo de segundo plano e não conseguiu tocar o YouTube embutido em segundo plano, e uma fonte de fornecedor dizendo que o iOS pausa o JavaScript da tela web em segundo plano. Nesta mesma conversa eu disse que o Capacitor era o caminho que na prática dá o segundo plano: isso vale para o áudio nativo, **não está provado para o YouTube**.
 4. O Capacitor exige macOS com Xcode 26 ou um serviço de build na nuvem, e uma conta de desenvolvedor Apple paga (US$ 99 por ano) para distribuir pelo TestFlight.
 5. A política do YouTube sobre player em segundo plano (item 19 das decisões) vale do mesmo jeito dentro de um app nativo.
-6. O caminho de menor risco é um **protótipo curto com critério de parada**, depois de rodar o T30 e o experimento do áudio mudo no PWA.
+6. O caminho de menor risco é um **protótipo curto com critério de parada**. Os passos que antes vinham antes dele (T30 com o áudio mudo) **já foram feitos e falharam** (T32, 2026-11-02): no PWA instalado nada manteve o vídeo do YouTube em segundo plano. Falta só o **D no navegador**, que custa minutos e informa o protótipo (seção "O teste que vem antes do protótipo").
 
 ## O que é e o que o app já tem para isso
 
@@ -53,30 +53,59 @@ Marcas de evidência: ✅ medido por mim hoje; 🔎 conferido no código; 📖 f
 | Caminho | Segundo plano do YouTube | Custo e esforço | Risco |
 | --- | --- | --- | --- |
 | PWA como está | Pausa no app instalado (medido); segue no navegador | Zero | Política do YouTube (player oculto) |
-| PWA com o experimento do áudio mudo | 💭 desconhecido (T30 com a chave) | Já está no código | Pode não funcionar; mesma política |
+| PWA com o experimento do áudio mudo | ✅ **Refutado** em três medições (INV-PLAY-25), e o recurso foi removido. Também não funcionaram: iframe visível, `audioSession`, `mediaSession`, rádio em paralelo (T32, 2026-11-02) | — | — |
 | Capacitor com o iframe do YouTube | **Não confirmado** | Mac ou build na nuvem, US$ 99 por ano, algumas mudanças de origem | Pode não resolver nada; política do YouTube; revisão da Apple |
 | Capacitor com áudio nativo e arquivos próprios | Sim para o que tem arquivo (podcasts e rádios). **Arquivos próprios (Supabase Storage) foram descartados em 2026-11-02** | Só podcasts e rádios, que o PWA já toca em segundo plano | — |
 | Usar pelo navegador (Safari ou Edge) | Segue tocando (medido em 2026-10-25) | Zero | Menos "app"; sem tela inicial |
 
+## Pesquisa de 2026-11-02 (plugins de áudio nativo e o que eles resolvem)
+
+O usuário trouxe uma pesquisa que conclui que o problema não é manter o PWA vivo, e sim manter o **vídeo do YouTube** tocando dentro de um PWA instalado, e que sugere Capacitor com um plugin de áudio nativo. Conferência feita aqui:
+
+- ✅ **A premissa bate com as medições do T32** (2026-11-02, iPhone 11, iOS 18.7): o `<audio>` segue tocando fora do app e o vídeo do YouTube pausa no instante da saída, visível ou oculto, com ou sem `audioSession`, `mediaSession` e áudio nativo ao lado. Ver a [matriz de compatibilidade](compatibility-matrix.spec.md).
+- 📖 **O que a Apple exige para áudio em segundo plano em app nativo** (citado na pesquisa; a documentação da Apple não foi lida aqui): `AVAudioSession` com a categoria `playback`, o modo de fundo `audio` em `UIBackgroundModes` e o recurso "Background Modes" no projeto do Xcode. É capacidade de app nativo e não dá para pedir isso a um PWA.
+- 📖 **Plugins candidatos, conferidos no registro do npm e nos READMEs em 2026-11-02** (nada foi instalado nem testado; o iOS não foi rodado). Uma primeira versão desta seção, baseada só em resumos de busca, trazia um dado errado sobre o `@smartcompanion` (versão 0.3.0 e 25 downloads, de um espelho desatualizado) e foi corrigida:
+
+| Plugin | Registro do npm (2026-11-02) | O que o README diz |
+| --- | --- | --- |
+| `@smartcompanion/native-audio-player` | 2.0.0, publicado em 2026-10-29, criado em 2025-07-06, 10 versões, cerca de 940 downloads no mês, BSD-2-Clause, exige Capacitor 8 ou mais novo | iOS 15 ou mais novo; áudio nativo em segundo plano, controles na tela de bloqueio e na notificação, playlists, saída pelo fone de ouvido ou alto-falante; é preciso ligar "Audio" em Background Modes no Xcode; `http` puro é recusado pelo App Transport Security |
+| `@capgo/capacitor-native-audio` (nome atual; o antigo `@capgo/native-audio` parou na 8.4.2, 2026-04-20) | 8.4.38, publicado em 2026-10-19, criado em 2026-05-28 sob esse nome, 36 versões, cerca de 63 mil downloads no mês, MPL-2.0 | AVFoundation no iOS; arquivos locais, URLs `https` e HLS; "Tocando agora" com `MPNowPlayingInfoCenter` e `MPRemoteCommandCenter`; o recurso `backgroundPlayback` é **só de Android** (o README diz que o iOS já tem segundo plano pela `AVAudioSession`); ligar as notificações no iOS **interrompe** o áudio de outros apps (Spotify, Apple Music) |
+| `@mediagrid/capacitor-native-audio` | 3.0.0, publicado em 2026-01-23, criado em 2024-08-07, 13 versões, cerca de 6,9 mil downloads no mês, MIT, exige Capacitor 8 ou mais novo | "Tocar áudio por URL, nativo, junto com áudio em segundo plano"; o README completo não foi lido |
+| `capacitor-media-session` | 0.1.8, publicado em **2021-05-08**, cerca de 34 downloads no mês, exige **Capacitor 3** | **Abandonado e incompatível com o Capacitor 8**: descartado |
+| `@capacitor-community/native-audio` | 8.0.0, publicado em 2025-12-30, cerca de 47 mil downloads no mês, MIT | Pelos resumos de busca, voltado a efeitos sonoros curtos (o README não foi lido aqui); não é o plugin de segundo plano |
+
+- 💭 **O que esses plugins não resolvem para este projeto.** Eles tocam uma **URL de áudio**. A faixa do YouTube não entrega URL de áudio, e extrair ou baixar está descartado. O que tem URL (rádios, podcasts e a prévia de 30 s do Deezer) **já toca em segundo plano no PWA** (T32, casos A e B). Um plugin nativo traria controles da tela de bloqueio e mais robustez nesses casos, não o YouTube. Por isso o "experimento 2" da pesquisa (Capacitor com plugin de áudio) só vale se o Capacitor virar o caminho por outro motivo.
+- 📖 **O experimento que decide é o do iframe dentro do app nativo**, e a evidência externa não é animadora: um relato no [Apple Developer Forums](https://developer.apple.com/forums/thread/781787) de um `WKWebView` com YouTube que não manteve o áudio em segundo plano mesmo com o modo `audio` e sessão `playback` ativos (o registro de erros do relato aponta para permissões do WebKit); perguntas [sem resposta confirmada](https://reddit.birdcat.cafe/r/howdidtheycodeit/comments/1k36uy0/how_do_apps_like_musi_and_demus_enable_background) sobre como o Musi e o Demus fazem; e uma [pergunta antiga](https://kiwix.lema.org/stackoverflow.com_en_all_2023-11/questions/45897456/uiwebview-play-audio-when-app-goes-to-background) em que um comentário (não verificado) diz que tocar áudio do YouTube sem mostrar o vídeo fere os termos e pode levar à rejeição na App Store. Nada específico de Capacitor foi encontrado.
+
+## O teste que vem antes do protótipo: caso D no navegador
+
+O caso D do laboratório de segundo plano (YouTube oculto, ver INV-PLAY-26) ainda **não foi rodado no navegador** (Safari ou Edge). É de graça (minutos, sem código) e separa duas explicações:
+
+- Se o vídeo **toca em segundo plano no navegador** e pausa no app instalado, o script do YouTube não pausa sozinho quando a página fica oculta: o bloqueio é regra do modo "app instalado" do iOS. 💭 Isso aumenta a chance de um app nativo se comportar de outro jeito, porque quem configura a tela web e a sessão de áudio passa a ser o app.
+- Se **pausa também no navegador**, é provável que o próprio player do YouTube pause com a página oculta, e o Capacitor não ajudaria. 💭 Nesse caso o protótipo nem vale o custo.
+
 ## Protótipo com critério de parada (se houver Mac ou build na nuvem)
 
-Objetivo: responder em um dia se o iframe do YouTube sobrevive em segundo plano dentro do app nativo, antes de investir em qualquer adaptação.
+Objetivo: responder em um dia se o iframe do YouTube sobrevive em segundo plano dentro do app nativo, antes de investir em qualquer adaptação. **Só o experimento do iframe**; sem plugin de áudio, sem mexer em fontes.
 
-1. Capacitor com uma tela que abre o endereço de produção, o modo "Audio, AirPlay e Picture in Picture" ligado e a sessão de áudio em "playback".
-2. Instalar no aparelho e repetir o **T30** (trocar de aplicativo por 1 minuto e bloquear a tela por 1 minuto) com uma faixa do YouTube, um episódio de podcast e uma rádio, copiando o Diagnóstico (agora com as linhas do estado do player).
-3. **Parar** se a faixa do YouTube pausar: o Capacitor não resolve o YouTube, e o ganho passa a ser só áudio nativo (que o PWA já faz). **Continuar** se tocar: aí vem a decisão de política (item 19) antes de qualquer adaptação.
+1. Capacitor com uma tela que abre o endereço de produção (`server.url`), o modo "Audio, AirPlay e Picture in Picture" ligado e a sessão de áudio em "playback".
+2. Instalar no aparelho e usar o **Laboratório de segundo plano** (casos D e C, roteiro T32) dentro do app nativo, com um vídeo incorporável, e repetir com uma rádio (caso A) como controle. Medir: saída por 30 s, depois **tela bloqueada por 5 minutos**, copiando o relatório do laboratório.
+3. **Parar** se o vídeo pausar: o Capacitor não resolve o YouTube, e o ganho passa a ser só áudio nativo (que o PWA já faz). **Continuar** se tocar por 5 minutos com a tela bloqueada: aí vem a decisão de política (item 19) antes de qualquer adaptação, e a revisão da App Store (regra 4.2 e a política do YouTube sobre player "não exibido").
+4. Registrar o resultado na [matriz de compatibilidade](compatibility-matrix.spec.md) com uma coluna ou linha "app nativo (Capacitor)".
 
 ## Recomendação
 
-1. Antes de qualquer protótipo: rodar o T30 no PWA, com e sem a chave do áudio mudo. É de graça e pode resolver ou, pelo menos, medir o problema.
-2. Só se o T30 mostrar que o PWA não dá e o grupo quiser mesmo o YouTube em segundo plano: fazer o protótipo acima. Hoje **não vale** assumir US$ 99 por ano e um Mac (ou serviço de build) por uma promessa que a pesquisa não sustenta para o YouTube.
-3. Se o objetivo for "app de verdade" para podcasts, rádios e arquivos próprios, o PWA já toca isso em segundo plano; o Capacitor traria push mais estável e a presença na tela inicial como app, não o áudio.
+1. **Rodar o caso D no navegador** (Safari ou Edge): é a única coisa que falta do T32 e informa se o protótipo vale a pena.
+2. Só se o D tocar em segundo plano no navegador e o grupo quiser mesmo o YouTube em segundo plano: fazer o protótipo acima, **só do iframe**. Hoje **não vale** assumir US$ 99 por ano e um Mac (ou serviço de build) por uma promessa que a pesquisa não sustenta para o YouTube.
+3. **Não escolher plugin de áudio agora.** Se um dia o Capacitor virar o caminho por outro motivo, os candidatos vivos são o `@smartcompanion/native-audio-player` (mais focado em segundo plano e tela de bloqueio, mais novo e com bem menos uso), o `@capgo/capacitor-native-audio` (mais usado, MPL-2.0, mas atenção ao recurso de interromper outros apps no iOS) e o `@mediagrid/capacitor-native-audio`; escolher instalando cada um num app em branco e testando no iPhone. O `capacitor-media-session` está abandonado.
+4. Se o objetivo for "app de verdade" para podcasts e rádios, o PWA já toca isso em segundo plano; o Capacitor traria push mais estável e a presença na tela inicial como app, não o áudio.
 
 ## Perguntas para o usuário
 
 - Há um Mac, ou prefere um serviço de build na nuvem? Aceita a conta de desenvolvedor de US$ 99 por ano?
 - Quantas pessoas do grupo usam iPhone e quantas Android? (O Android não foi avaliado aqui.)
-- Importa mais o YouTube em segundo plano ou ter áudio próprio (podcasts, rádios e arquivos) que já funciona?
+- Importa mais o YouTube em segundo plano ou o áudio nativo (podcasts e rádios) que já funciona? (Arquivos próprios foram descartados.)
+- Você roda o caso D no navegador (Safari ou Edge)? É o passo que decide se o protótipo compensa.
 
 ## Registro de decisões
 
