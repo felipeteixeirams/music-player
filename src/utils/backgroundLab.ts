@@ -4,7 +4,8 @@
  * The cases are data, so a report names the case exactly and the tests can check the matrix.
  */
 
-export type LabAudio = 'radio' | 'silent' | null;
+/** `radio-later`: the radio starts on a later tap, once the video is playing (the order of the two is what the case tests). */
+export type LabAudio = 'radio' | 'radio-later' | 'silent' | null;
 export type LabFrame = 'visible' | 'hidden' | null;
 
 export interface LabCase {
@@ -22,7 +23,8 @@ export const LAB_CASES: readonly LabCase[] = [
   { id: 'C', label: 'C · YouTube visível', detail: 'O vídeo aparece na tela (320 x 180). O iframe visível se comporta diferente do oculto?', audio: null, frame: 'visible' },
   { id: 'D', label: 'D · YouTube oculto (como o app)', detail: 'Controle: oculto como no app (quase transparente, recortado). Já pausou 0 s depois de sair.', audio: null, frame: 'hidden' },
   { id: 'F', label: 'F · Rádio + YouTube oculto', detail: 'Um áudio nativo tocando som de verdade protege o iframe, ou um pausa o outro?', audio: 'radio', frame: 'hidden' },
-  { id: 'G', label: 'G · Silêncio + YouTube oculto', detail: 'A combinação que falhou no app (o elemento mudo foi pausado pelo sistema).', audio: 'silent', frame: 'hidden' }
+  { id: 'G', label: 'G · Silêncio + YouTube oculto', detail: 'A combinação que falhou no app (o elemento mudo foi pausado pelo sistema).', audio: 'silent', frame: 'hidden' },
+  { id: 'H', label: 'H · YouTube oculto, depois a rádio', detail: 'Primeiro o vídeo (toque na tela até tocar); com ele tocando, toque na rádio. Qual pausa o outro? É o inverso do F.', audio: 'radio-later', frame: 'hidden' }
 ] as const;
 
 export interface LabOptions {

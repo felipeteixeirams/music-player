@@ -61,6 +61,9 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [problem, setProblem] = useState('');
+  const [lateRadio, setLateRadio] = useState(false);
+  /** The case and options as they were when the case started: the report must not follow later changes on the screen. */
+  const [reported, setReported] = useState<{ labCase: LabCase; options: LabOptions }>({ labCase: LAB_CASES[0], options: DEFAULT_LAB_OPTIONS });
   const run = useRef<Running | null>(null);
   const frameHost = useRef<HTMLDivElement | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -182,12 +185,44 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     return () => types.forEach((type) => document.removeEventListener(type, onTouch, true));
   }, [running, log]);
 
+  /** Creates the audio element of a case and starts it (inside a tap: the first tap of the case, or the button of case H). */
+  const attachAudio = (current: Running, kind: 'radio' | 'silent', radio: string | null) => {
+    const audio = new Audio();
+    current.audio = audio;
+    audio.preload = 'auto';
+    if (kind === 'silent') {
+      current.silentUrl = generateSilentWavBlobUrl(SILENT_SECONDS);
+      audio.src = current.silentUrl;
+      audio.loop = true;
+    } else {
+      audio.src = radio as string;
+    }
+    for (const name of ['playing', 'pause', 'waiting', 'stalled', 'ended', 'error', 'emptied', 'suspend'] as const) {
+      audio.addEventListener(name, () => log(`áudio: evento ${name} (${audio.paused ? 'pausado' : 'tocando'}, ${audio.currentTime.toFixed(1)} s, readyState ${audio.readyState})`));
+    }
+    log(`áudio: play() pedido${current.videoStarted ? ' com o vídeo tocando' : ''}`);
+    audio.play().then(
+      () => log('áudio: play() aceito'),
+      (error: unknown) => log(`áudio: play() recusado (${error instanceof Error ? error.name : String(error)})`)
+    );
+  };
+
+  const startLateRadio = () => {
+    const current = run.current;
+    const radio = parseStreamUrl(radioText);
+    if (!current || current.audio || !radio) return;
+    attachAudio(current, 'radio', radio);
+    setLateRadio(true);
+  };
+
   const start = (labCase: LabCase) => {
     stop();
     setProblem('');
+    setLateRadio(false);
+    setReported({ labCase, options: { ...options } });
     const radio = parseStreamUrl(radioText);
     const video = parseVideoId(videoText);
-    if (labCase.audio === 'radio' && !radio) return setProblem('Endereço da rádio inválido.');
+    if ((labCase.audio === 'radio' || labCase.audio === 'radio-later') && !radio) return setProblem('Endereço da rádio inválido.');
     if (labCase.frame && !video) return setProblem('Vídeo inválido: cole o código de 11 caracteres ou o endereço do YouTube.');
     // The app's own player would be a second thing playing: stop it so the case is the only one
     if (isPlaying) togglePlayPause();
@@ -216,25 +251,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       log('mediaSession: metadados publicados e playbackState = playing');
     }
 
-    if (labCase.audio) {
-      const audio = new Audio();
-      current.audio = audio;
-      audio.preload = 'auto';
-      if (labCase.audio === 'silent') {
-        current.silentUrl = generateSilentWavBlobUrl(SILENT_SECONDS);
-        audio.src = current.silentUrl;
-        audio.loop = true;
-      } else {
-        audio.src = radio as string;
-      }
-      for (const name of ['playing', 'pause', 'waiting', 'stalled', 'ended', 'error', 'emptied', 'suspend'] as const) {
-        audio.addEventListener(name, () => log(`áudio: evento ${name} (${audio.paused ? 'pausado' : 'tocando'}, ${audio.currentTime.toFixed(1)} s, readyState ${audio.readyState})`));
-      }
-      audio.play().then(
-        () => log('áudio: play() aceito'),
-        (error: unknown) => log(`áudio: play() recusado (${error instanceof Error ? error.name : String(error)})`)
-      );
-    }
+    if (labCase.audio === 'radio' || labCase.audio === 'silent') attachAudio(current, labCase.audio, radio);
 
     if (labCase.frame && video) {
       const params = new URLSearchParams({ enablejsapi: '1', origin: window.location.origin, playsinline: '1', controls: '0', disablekb: '1', fs: '0', modestbranding: '1', rel: '0', autoplay: '1' });
@@ -293,8 +310,8 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
   const report = formatLabReport(
     currentEnvironment(),
-    selected,
-    options,
+    reported.labCase,
+    reported.options,
     [`rádio: ${radioText.trim()}`, `vídeo: ${videoText.trim()}`],
     lines
   );
@@ -384,6 +401,11 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             Parar
           </button>
         </div>
+        {running && selected.audio === 'radio-later' && !lateRadio && (
+          <button onClick={startLateRadio} className="w-full rounded-xl bg-fill-tertiary py-2 text-[15px] font-semibold text-accent">
+            Tocar a rádio agora (com o vídeo tocando)
+          </button>
+        )}
         {running && selected.frame && (
           <button onClick={retryVideo} className="w-full rounded-xl bg-fill-tertiary py-2 text-[15px] font-semibold text-accent">
             O vídeo não começou: tocar de novo
