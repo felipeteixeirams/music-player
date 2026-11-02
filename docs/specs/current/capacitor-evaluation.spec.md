@@ -93,6 +93,10 @@ Objetivo: responder em um dia se o iframe do YouTube sobrevive em segundo plano 
 3. **Parar** se o vídeo pausar: o Capacitor não resolve o YouTube, e o ganho passa a ser só áudio nativo (que o PWA já faz). **Continuar** se tocar por 5 minutos com a tela bloqueada: aí vem a decisão de política (item 19) antes de qualquer adaptação, e a revisão da App Store (regra 4.2 e a política do YouTube sobre player "não exibido").
 4. Registrar o resultado na [matriz de compatibilidade](compatibility-matrix.spec.md) com uma coluna ou linha "app nativo (Capacitor)".
 
+## Casco no repositório (2026-11-02)
+
+O casco do protótipo está em [`native/capacitor/`](../../../native/capacitor/README.md): Capacitor 8.6, a tela nativa abre o endereço de produção (`server.url`), projeto iOS gerado por `npx cap add ios` com o modo de fundo `audio` no `Info.plist` e a sessão `AVAudioSession` em `playback` no `AppDelegate.swift`. Ele é isolado do app web (próprio `package.json`, fora do `npm ci` da raiz e do `tsc`) e traz o passo a passo para o Mac e o roteiro de teste com o Laboratório. **Foi gerado no Linux e nunca compilado nem rodado**: pode precisar de ajustes no Xcode. 🔎 Conferido no código do Capacitor 8.6.0: o `WKWebView` já usa `allowsInlineMediaPlayback = true` e `mediaTypesRequiringUserActionForPlayback = []`. O resultado do teste ainda não existe.
+
 ## Recomendação
 
 1. **Rodar o caso D no navegador** (Safari ou Edge): é a única coisa que falta do T32 e informa se o protótipo vale a pena.

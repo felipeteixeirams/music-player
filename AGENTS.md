@@ -27,7 +27,7 @@ Um branch existe para conduzir um único trabalho e deve ser mergeado e excluíd
 
 ## Dependências
 
-O gerenciador é o npm, e `package-lock.json` é o único lockfile. `npm ci` deve funcionar sem `--force` nem `--legacy-peer-deps`. Antes de adicionar um pacote, confirme que algum código vai importá-lo; remova o que deixar de ser usado.
+O gerenciador é o npm, e `package-lock.json` é o único lockfile. `npm ci` deve funcionar sem `--force` nem `--legacy-peer-deps`. **Exceção documentada (2026-11-02):** `native/capacitor/` é um protótipo isolado do Capacitor (casco nativo para testar o segundo plano no iPhone) com o próprio `package.json` e `package-lock.json`; não entra no `npm ci` da raiz, não é importado pelo app web e é excluído do `tsc` (`tsconfig.json`). Pode ser apagado inteiro se o protótipo for descartado. Ver o [README do casco](native/capacitor/README.md) e a [avaliação do Capacitor](docs/specs/current/capacitor-evaluation.spec.md). Antes de adicionar um pacote, confirme que algum código vai importá-lo; remova o que deixar de ser usado.
 
 Decisão de 2026-10-25: os pacotes abaixo vieram do template do Google AI Studio, nunca foram importados no projeto e foram removidos. Não os adicione de novo sem uma necessidade concreta e registrada aqui.
 
