@@ -128,4 +128,5 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 ## Navegação para a especificação
 
 - [Esquema, RLS e cota por usuário](../specs/current/user-data-schema.spec.md)
+- [Playlists colaborativas (esboço, nada implementado)](../specs/current/collaborative-playlists.spec.md): papéis, convite por código, tabelas separadas das playlists pessoais, RLS por membro, sincronização por operação, fases e perguntas abertas.
 - [Matriz de compatibilidade](../specs/current/compatibility-matrix.spec.md) (login e sincronização por ambiente)
