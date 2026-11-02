@@ -8,6 +8,8 @@ import {
   DEFAULT_VIDEO_ID,
   LAB_CASES,
   describeAdvance,
+  describeYouTubeError,
+  SILENT_SECONDS,
   findLabCase,
   formatLabClock,
   formatLabReport,
@@ -59,6 +61,15 @@ test('INV-PLAY-26: o relatório do laboratório diz ambiente, caso, opções e a
     '01:05.4 VOLTOU depois de 30 s'
   ]);
   assert.equal(formatLabClock(-5), '00:00.0');
+});
+
+test('INV-PLAY-26: o erro 150 do YouTube aparece no relatório como "o dono não permite incorporar", e o vídeo padrão é outro', () => {
+  assert.match(describeYouTubeError(150), /não permite incorporá-lo/);
+  assert.match(describeYouTubeError(101), /não permite incorporá-lo/);
+  assert.match(describeYouTubeError(100), /não encontrado/);
+  assert.match(describeYouTubeError(999), /desconhecido/);
+  assert.notEqual(DEFAULT_VIDEO_ID, '5qap5aO4i9A', 'esse vídeo respondeu erro 150 no aparelho (2026-11-02)');
+  assert.ok(SILENT_SECONDS >= 300, 'o arquivo mudo não dá a volta durante um teste');
 });
 
 test('INV-PLAY-26: describeAdvance mostra quanto o contador andou, ou ? quando falta uma leitura', () => {
