@@ -378,6 +378,47 @@ test('INV-PLAY-21: uma duração do player muito menor que a do catálogo não v
   await expect(page.getByTestId('playback-log')).toContainText(/duração do player ignorada|barra com a duração do catálogo/);
 });
 
+test.describe('erros do player do YouTube', () => {
+  const SECOND = 'BBBBBBBBBBB';
+
+  async function playWithErrors(page: Page, errors: Record<string, { code: number; once?: boolean }>, reports: string[]) {
+    await page.addInitScript((value) => {
+      (window as any).__ytErrors = value;
+    }, errors);
+    await fakeYouTube(page);
+    await stubApi(page, { videoIds: [FIRST, SECOND], reports, avoids: [] });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as any).__yt?.created ?? 0), { timeout: 8000 }).toBe(1);
+    await topHit(page).click();
+  }
+
+  const diagnostics = async (page: Page) => {
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
+    return page.getByTestId('playback-log');
+  };
+
+  test('INV-PLAY-27: vídeo que não pode ser incorporado (erro 150) é denunciado, passa para a próxima versão e o Diagnóstico diz o motivo', async ({ page }) => {
+    const reports: string[] = [];
+    await playWithErrors(page, { [FIRST]: { code: 150 } }, reports);
+    await expect.poll(() => loadedVideo(page)).toBe(SECOND);
+    expect(reports).toEqual([FIRST]);
+    const log = await diagnostics(page);
+    await expect(log).toContainText(`o YouTube recusou o vídeo ${FIRST}: erro 150 — o dono do vídeo não permite incorporá-lo`);
+    await expect(log).toContainText('próxima versão (2 de 2)');
+  });
+
+  test('INV-PLAY-27: erro passageiro do player (5) tenta o mesmo vídeo de novo, sem denunciá-lo', async ({ page }) => {
+    const reports: string[] = [];
+    await playWithErrors(page, { [FIRST]: { code: 5, once: true } }, reports);
+    await expect.poll(() => page.evaluate(() => (window as any).__yt.loads.filter((id: string) => id === 'AAAAAAAAAAA').length)).toBe(2);
+    expect(reports).toEqual([]);
+    expect(await loadedVideo(page)).toBe(FIRST);
+    await expect(await diagnostics(page)).toContainText('tentando o mesmo vídeo mais uma vez');
+  });
+});
+
 test.describe('"Não é esta música"', () => {
   const SECOND = 'BBBBBBBBBBB';
   const OTHER = 'CCCCCCCCCCC';

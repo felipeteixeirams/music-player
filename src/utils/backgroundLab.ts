@@ -36,8 +36,14 @@ export const DEFAULT_LAB_OPTIONS: LabOptions = { audioSessionPlayback: false, me
 
 /** SomaFM Groove Salad (public Icecast stream); the field in the lab accepts any other address. */
 export const DEFAULT_RADIO_URL = 'https://ice1.somafm.com/groovesalad-128-mp3';
-/** A live YouTube stream (no end, no length): the case never finishes by itself. */
-export const DEFAULT_VIDEO_ID = '5qap5aO4i9A';
+/**
+ * A video that allows embedding anywhere (3:32, long enough for a 30 s test). The first choice, a live stream
+ * (`5qap5aO4i9A`), answered error 150 in the app on 2026-11-02: its owner does not allow embedding.
+ */
+export const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ';
+
+/** Length of the silent file of case B and G: longer than any test, so the audio never wraps around and its clock stays honest. */
+export const SILENT_SECONDS = 600;
 
 export function findLabCase(id: string): LabCase | undefined {
   return LAB_CASES.find((entry) => entry.id === id);

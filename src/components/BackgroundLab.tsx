@@ -3,14 +3,16 @@ import { Copy } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { sessionId } from '../utils/trace';
 import { describeEnvironment } from '../utils/playbackDiagnostics';
-import { getSilentAudioUrl } from '../utils/audioUnlock';
+import { generateSilentWavBlobUrl } from '../utils/audioUnlock';
 import { loadApi, type YouTubeApi } from '../utils/youtubeEngine';
+import { describeYouTubeError } from '../utils/youtubeErrors';
 import {
   DEFAULT_LAB_OPTIONS,
   DEFAULT_RADIO_URL,
   DEFAULT_VIDEO_ID,
   LAB_CASES,
   describeAdvance,
+  SILENT_SECONDS,
   formatLabClock,
   formatLabReport,
   parseStreamUrl,
@@ -37,6 +39,8 @@ interface Running {
   audio: HTMLAudioElement | null;
   iframe: HTMLIFrameElement | null;
   player: YouTubeApi | null;
+  /** Blob address of the silent file, released when the case stops. */
+  silentUrl: string;
 }
 
 /**
@@ -58,7 +62,9 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const log = useCallback((text: string) => {
-    const startedAt = run.current?.startedAt ?? performance.now();
+    // What arrives after Stop (the element's own `emptied`, for one) is not part of the case
+    const startedAt = run.current?.startedAt;
+    if (startedAt === undefined) return;
     setLines((previous) => [...previous.slice(-400), { at: performance.now() - startedAt, text }]);
   }, []);
 
@@ -106,6 +112,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       // the frame may be gone already
     }
     current.iframe?.remove();
+    if (current.silentUrl.startsWith('blob:')) URL.revokeObjectURL(current.silentUrl);
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
     setRunning(false);
   }, []);
@@ -122,7 +129,11 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         const times = readTimes();
         left = { at: Date.now(), ...times };
         log(`SAIU DO APP — ${describeState()}`);
-        [1500, 4000].forEach((ms) => timers.current.push(setTimeout(() => log(`${ms / 1000} s fora — ${describeState()}`), ms)));
+        // How late the page's own clock ran tells whether the system froze the page (a frozen page answers only after it is back)
+        [1500, 4000, 15000].forEach((ms) => {
+          const due = performance.now() + ms;
+          timers.current.push(setTimeout(() => log(`${ms / 1000} s fora (relógio da página atrasado ${Math.max(0, Math.round(performance.now() - due))} ms) — ${describeState()}`), ms));
+        });
         return;
       }
       if (!left) return;
@@ -155,7 +166,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     // The app's own player would be a second thing playing: stop it so the case is the only one
     if (isPlaying) togglePlayPause();
 
-    const current: Running = { labCase, startedAt: performance.now(), audio: null, iframe: null, player: null };
+    const current: Running = { labCase, startedAt: performance.now(), audio: null, iframe: null, player: null, silentUrl: '' };
     run.current = current;
     setLines([]);
     setRunning(true);
@@ -184,7 +195,8 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
       current.audio = audio;
       audio.preload = 'auto';
       if (labCase.audio === 'silent') {
-        audio.src = getSilentAudioUrl();
+        current.silentUrl = generateSilentWavBlobUrl(SILENT_SECONDS);
+        audio.src = current.silentUrl;
         audio.loop = true;
       } else {
         audio.src = radio as string;
@@ -227,7 +239,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 current.player?.playVideo();
               },
               onStateChange: (event) => log(`vídeo: ${YT_STATES[event.data] ?? event.data} (${current.player?.getCurrentTime().toFixed(1) ?? '?'} s)`),
-              onError: (event) => log(`vídeo: erro ${event.data}`)
+              onError: (event) => log(`vídeo: erro ${event.data} — ${describeYouTubeError(event.data)}`)
             }
           });
         })
