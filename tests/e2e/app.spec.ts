@@ -597,11 +597,40 @@ test.describe('painel de administrador', () => {
     await expect(page.getByTestId('admin-youtube')).toContainText('Suspensa (quota)');
     await expect(page.getByTestId('admin-searches')).toHaveText('12');
     await expect(page.getByTestId('admin-cache')).toHaveText('120');
-    await expect(panel.getByText('ana@example.com')).toBeVisible();
+    // The same e-mail also appears in the daily-use section (INV-ADMIN-03): the faixas count is in this one
+    await expect(panel.getByRole('region', { name: 'Uso por pessoa' }).getByText('ana@example.com')).toBeVisible();
     await expect(panel.getByText('9 de 30')).toBeVisible();
     await expect(panel.getByText('Aviso: service-key')).toBeVisible();
     await page.getByRole('button', { name: 'Fechar administração' }).click();
     await expect(panel).toBeHidden();
+  });
+
+  test('INV-ADMIN-03: o administrador vê o uso diário por pessoa (dias ativos, sequência e última vez); quem não é administrador não vê nada disso', async ({ page }) => {
+    await stubApi(page, { admin: true });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Abrir ajustes' }).click();
+    await page.getByRole('button', { name: 'Painel de administrador' }).click();
+    const panel = page.getByRole('dialog', { name: 'Administração' });
+    const section = panel.getByRole('region', { name: 'Uso diário (abriu o app)' });
+    const rows = section.getByTestId('admin-activity-row');
+    await expect(rows).toHaveCount(2);
+    // The first row is the most active person (ana), the second one felipe; the e-mail is the row label
+    await expect(section.getByText('ana@example.com')).toBeVisible();
+    await expect(rows.first()).toHaveText('6/7 · 21/30 dias · sequência 4 · último 2026-10-29');
+    await expect(rows.nth(1)).toHaveText('2/7 · 5/30 dias · sequência 0 · último 2026-10-27');
+  });
+
+  test('INV-ADMIN-03: abrir o app logado grava a linha do dia (uma por pessoa e dia)', async ({ page }) => {
+    await stubApi(page);
+    const write = page.waitForRequest((request) => request.method() === 'POST' && request.url().includes('/rest/v1/app_days'));
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+    const request = await write;
+    expect(request.url()).toContain('on_conflict=user_id,day');
+    expect((await request.allHeaders())['prefer'] ?? '').toContain('ignore-duplicates');
+    const body = JSON.parse(request.postData() ?? '[]') as { user_id: string; day: string }[];
+    expect(body).toHaveLength(1);
+    expect(body[0].day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   test('INV-PLAY-26: o laboratório de segundo plano roda um caso, registra a saída e a volta do app e fecha parando tudo', async ({ page }) => {

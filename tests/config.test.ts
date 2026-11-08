@@ -102,7 +102,7 @@ function services(options: { settings?: object | number; rest?: object | number 
   return { fetchImpl, calls };
 }
 const PATHS = Object.fromEntries(
-  ['/favorites', '/playlists', '/playlist_tracks', '/video_choices', '/play_history', '/video_cache', '/usage_daily', '/rpc/consume_resolve', '/rpc/refund_resolve', '/podcast_follows', '/podcast_progress'].map((p) => [p, {}])
+  ['/favorites', '/playlists', '/playlist_tracks', '/video_choices', '/play_history', '/video_cache', '/usage_daily', '/rpc/consume_resolve', '/rpc/refund_resolve', '/podcast_follows', '/podcast_progress', '/app_days'].map((p) => [p, {}])
 );
 const ids = (findings: { id: string; level: string }[], levelName: string) => findings.filter((f) => f.level === levelName).map((f) => f.id);
 

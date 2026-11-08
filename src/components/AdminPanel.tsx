@@ -78,6 +78,23 @@ export const AdminPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               ))}
             </Block>
 
+            <Block title="Uso diário (abriu o app)">
+              {data.activity?.people == null ? (
+                <Row label="Dados" value="ainda não gravados (rode a migração 0005_app_days.sql no Supabase)" testId="admin-activity-empty" />
+              ) : data.activity.people.length === 0 ? (
+                <Row label="Ninguém abriu o app nos últimos 30 dias" value="" />
+              ) : (
+                data.activity.people.map((person) => (
+                  <Row
+                    key={person.email}
+                    label={person.email}
+                    value={`${person.days7}/7 · ${person.days30}/${data.activity?.window ?? 30} dias · sequência ${person.streak} · último ${person.last ?? '—'}`}
+                    testId="admin-activity-row"
+                  />
+                ))
+              )}
+            </Block>
+
             <Block title="Cache compartilhado">
               <Row label="Faixas com vídeo guardado" value={data.cache.tracks ?? '—'} testId="admin-cache" />
             </Block>

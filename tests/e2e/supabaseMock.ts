@@ -80,6 +80,7 @@ interface UserStore {
   play_history: Map<string, Row>;
   podcast_follows: Map<string, Row>;
   podcast_progress: Map<string, Row>;
+  app_days: Map<string, Row>;
 }
 const KEYS: Record<keyof UserStore, string[]> = {
   favorites: ['track_id'],
@@ -88,14 +89,15 @@ const KEYS: Record<keyof UserStore, string[]> = {
   video_choices: ['track_id'],
   play_history: ['id'],
   podcast_follows: ['show_id'],
-  podcast_progress: ['episode_id']
+  podcast_progress: ['episode_id'],
+  app_days: ['day']
 };
 let nextHistoryId = 1;
 const stores = new Map<string, UserStore>();
 const storeOf = (userId: string): UserStore => {
   let store = stores.get(userId);
   if (!store) {
-    store = { favorites: new Map(), playlists: new Map(), playlist_tracks: new Map(), video_choices: new Map(), play_history: new Map(), podcast_follows: new Map(), podcast_progress: new Map() };
+    store = { favorites: new Map(), playlists: new Map(), playlist_tracks: new Map(), video_choices: new Map(), play_history: new Map(), podcast_follows: new Map(), podcast_progress: new Map(), app_days: new Map() };
     stores.set(userId, store);
   }
   return store;
@@ -108,7 +110,8 @@ const SORTS: Record<keyof UserStore, string[]> = {
   video_choices: ['track_id'],
   play_history: ['played_at', 'id'],
   podcast_follows: ['created_at', 'show_id'],
-  podcast_progress: ['updated_at', 'episode_id']
+  podcast_progress: ['updated_at', 'episode_id'],
+  app_days: ['day']
 };
 
 function sortRows(table: keyof UserStore, rows: Row[]): Row[] {

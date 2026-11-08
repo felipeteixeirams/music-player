@@ -170,6 +170,14 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
         youtube: { search: 'suspended', reason: 'quota', until: Date.parse('2026-10-29T07:00:00Z'), searchesToday: 12, unitsUpperBound: 1200 },
         limits: { dailyNewTracks: 30 },
         people: { counted: 2, accounts: 3, perPerson: [{ email: 'ana@example.com', used: 9 }, { email: 'felipe@example.com', used: 3 }] },
+        activity: {
+          window: 30,
+          today: '2026-10-29',
+          people: [
+            { email: 'ana@example.com', days7: 6, days30: 21, last: '2026-10-29', streak: 4 },
+            { email: 'felipe@example.com', days7: 2, days30: 5, last: '2026-10-27', streak: 0 }
+          ]
+        },
         cache: { tracks: 120 },
         config: [{ id: 'service-key', level: 'warn', message: 'chave de serviço ausente' }],
         database: 'ok'
