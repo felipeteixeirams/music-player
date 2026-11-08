@@ -70,13 +70,14 @@ async function searchCollections(query: string, fetchImpl?: FetchLike): Promise<
  */
 export async function searchCatalog(
   query: string,
-  options: { index?: number; limit?: number; fetchImpl?: FetchLike } = {}
+  options: { index?: number; limit?: number; fetchImpl?: FetchLike; collections?: boolean } = {}
 ): Promise<CatalogSearchResult> {
-  const { index = 0, limit, fetchImpl } = options;
+  const { index = 0, limit, fetchImpl, collections = true } = options;
 
   let deezerError: unknown = null;
   // The collections are looked up while the tracks are, with a deadline, so a slow source cannot hold the answer
-  const albumsPromise: Promise<AlbumSummary[]> = index === 0 ? searchCollections(query, fetchImpl) : Promise.resolve([]);
+  // Callers that only want tracks (the smart playlist) skip the album and playlist lookup
+  const albumsPromise: Promise<AlbumSummary[]> = index === 0 && collections ? searchCollections(query, fetchImpl) : Promise.resolve([]);
   const tracksFirst = searchDeezerPage(query, { index, limit, style: 'Deezer', fetchImpl });
   tracksFirst.catch(() => undefined);
   const albums = await albumsPromise;

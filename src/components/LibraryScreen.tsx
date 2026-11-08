@@ -9,7 +9,6 @@ import { RemoteImage } from './RemoteImage';
 import { usePodcastFollows } from '../hooks/usePodcastFollows';
 import { ShowRow } from './PodcastsHome';
 import type { PodcastShowSummary } from '../types/music';
-import { SmartPlaylistSheet } from './SmartPlaylistSheet';
 
 interface LibraryScreenProps {
   view: LibraryView | null;
@@ -65,10 +64,9 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; placeholder?: Reac
 
 /** The Library tab: a menu of sections, as in Apple Music, and the screen of each one. */
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, recent, onClearHistory, onPlay, onOpenShow }) => {
-  const { playlists, createNew, createWithTracks, rename, remove, removeTrack } = usePlaylists();
+  const { playlists, createNew, rename, remove, removeTrack, openSmartPlaylist } = usePlaylists();
   const follows = usePodcastFollows();
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'clear' | null>(null);
-  const [showSmart, setShowSmart] = useState(false);
 
   if (view === null) {
     return (
@@ -97,16 +95,20 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
         </button>
 
         <button
-          onClick={() => setShowSmart(true)}
-          className="relative w-full min-h-[52px] flex items-center gap-3 py-1.5 text-left active:bg-fill-tertiary transition-colors after:absolute after:bottom-[0.5px] after:left-[3.75rem] after:right-0 after:h-[0.5px] after:bg-separator"
+          type="button"
+          onClick={openSmartPlaylist}
+          className="ai-aurora group relative my-2 w-full overflow-hidden rounded-[20px] p-4 text-left text-white shadow-lg shadow-accent/20 transition-transform active:scale-[0.98]"
         >
-          <span className="w-12 h-12 shrink-0 rounded-cover bg-accent/15 text-accent flex items-center justify-center">
-            <Sparkles className="w-6 h-6" />
+          <span className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20">
+              <Sparkles className="ai-spark h-6 w-6" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[17px] font-semibold">Criar com IA</span>
+              <span className="block text-[13px] text-white/80">Descreva o que quer ouvir e monte a playlist em segundos</span>
+            </span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-white/70" aria-hidden="true" />
           </span>
-          <div className="min-w-0 flex-1">
-            <span className="text-[17px] text-accent font-medium block">Playlist Inteligente</span>
-            <span className="text-[12px] text-label-secondary block">Encomenda em linguagem natural com IA</span>
-          </div>
         </button>
 
         {playlists.map((playlist) => (
@@ -140,14 +142,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
           />
         )}
 
-        <SmartPlaylistSheet
-          isOpen={showSmart}
-          onClose={() => setShowSmart(false)}
-          onSave={(name, newTracks) => {
-            const id = createWithTracks(name, newTracks);
-            if (id) onNavigate({ kind: 'playlist', id });
-          }}
-        />
       </div>
     );
   }

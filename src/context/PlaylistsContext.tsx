@@ -32,6 +32,10 @@ interface PlaylistsContextType {
   /** The track the sheet is open for; null when it is closed. */
   sheetTrack: Track | null;
   closeAddToPlaylist: () => void;
+  /** Opens "Criar com IA" (the playlist made from a description), from the library or the home screen. */
+  openSmartPlaylist: () => void;
+  smartOpen: boolean;
+  closeSmartPlaylist: () => void;
 }
 
 const PlaylistsContext = createContext<PlaylistsContextType | null>(null);
@@ -43,6 +47,9 @@ export const PlaylistsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const { storage } = useAuth();
   const [playlists, setPlaylists] = useState<Playlist[]>(() => loadPlaylists(storage));
   const [sheetTrack, setSheetTrack] = useState<Track | null>(null);
+  const [smartOpen, setSmartOpen] = useState(false);
+  const openSmartPlaylist = useCallback(() => setSmartOpen(true), []);
+  const closeSmartPlaylist = useCallback(() => setSmartOpen(false), []);
 
   useEffect(() => {
     savePlaylists(storage, playlists);
@@ -94,8 +101,8 @@ export const PlaylistsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const closeAddToPlaylist = useCallback(() => setSheetTrack(null), []);
 
   const value = useMemo(
-    () => ({ playlists, createNew, createWithTracks, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist }),
-    [playlists, createNew, createWithTracks, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist]
+    () => ({ playlists, createNew, createWithTracks, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist, openSmartPlaylist, smartOpen, closeSmartPlaylist }),
+    [playlists, createNew, createWithTracks, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist, openSmartPlaylist, smartOpen, closeSmartPlaylist]
   );
 
   return <PlaylistsContext.Provider value={value}>{children}</PlaylistsContext.Provider>;

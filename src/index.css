@@ -186,3 +186,44 @@ input[type='range']::-moz-range-thumb {
 /* Hairline that separates a bar from the content: half a point, as on iOS */
 .hairline-top { box-shadow: inset 0 0.5px 0 var(--color-separator); }
 .hairline-bottom { box-shadow: inset 0 -0.5px 0 var(--color-separator); }
+
+/* "Criar com IA": a slow, aurora-like drift of the gradient and a gentle shimmer on its spark icon. Off when the person
+   asks the system to reduce motion. */
+.ai-aurora {
+  background: linear-gradient(120deg, #2a2452 0%, #6d5cff 28%, var(--color-accent) 52%, #2a2452 76%, #6d5cff 100%);
+  background-size: 250% 250%;
+  animation: ai-aurora 14s ease-in-out infinite;
+}
+
+.ai-spark {
+  animation: ai-spark 3.2s ease-in-out infinite;
+}
+
+@keyframes ai-aurora {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes ai-spark {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-aurora,
+  .ai-spark {
+    animation: none;
+  }
+}

@@ -282,7 +282,7 @@ test.describe('playlists', () => {
 
     await page.getByRole('button', { name: 'Nova playlist' }).click();
     await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Estrada');
-    await page.getByRole('button', { name: 'Criar' }).click();
+    await page.getByRole('button', { name: 'Criar', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Estrada' })).toBeVisible();
     await expect(page.getByText('Esta playlist está vazia')).toBeVisible();
 
@@ -318,7 +318,7 @@ test.describe('playlists', () => {
 
     await page.getByRole('button', { name: 'Nova playlist' }).click();
     await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Treino');
-    await page.getByRole('button', { name: 'Criar' }).click();
+    await page.getByRole('button', { name: 'Criar', exact: true }).click();
     await expect(page.getByRole('button', { name: /Treino/ })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Pronto' }).click();
 
@@ -333,7 +333,7 @@ test.describe('playlists', () => {
     await page.getByRole('button', { name: `Adicionar ${TOP_HITS[0].title} a uma playlist`, exact: true }).click();
     await page.getByRole('button', { name: 'Nova playlist' }).click();
     await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Casa');
-    await page.getByRole('button', { name: 'Criar' }).click();
+    await page.getByRole('button', { name: 'Criar', exact: true }).click();
     // Tapping a playlist that already has the track takes it out
     await page.getByRole('button', { name: /Casa/ }).click();
     await expect(page.getByRole('button', { name: /Casa/ })).toHaveAttribute('aria-pressed', 'false');
@@ -697,7 +697,7 @@ test.describe('player expandido', () => {
     // New playlist from the sheet puts the song in it right away
     await sheet.getByRole('button', { name: 'Nova playlist' }).click();
     await page.getByRole('textbox', { name: 'Nome da playlist' }).fill('Treino');
-    await page.getByRole('button', { name: 'Criar' }).click();
+    await page.getByRole('button', { name: 'Criar', exact: true }).click();
     await expect(sheet.getByRole('button', { name: /Treino/ })).toHaveAttribute('aria-pressed', 'true');
     await sheet.getByRole('button', { name: 'Pronto' }).click();
     // Saved now: the button says so, and the next tap manages instead of toggling

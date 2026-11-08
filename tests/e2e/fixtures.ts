@@ -292,11 +292,32 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       return json(route, { videoIds: options.videoIds ?? [] });
     }
     if (url.pathname === '/api/smart-playlist') {
-      const tracks = [
+      // "Adicionar mais" asks with `exclude`: the stub answers with new tracks only (the server never repeats the list)
+      const body = JSON.parse(route.request().postData() ?? '{}') as { exclude?: { id: string }[]; targetCount?: number };
+      const excluded = new Set((body.exclude ?? []).map((item) => item.id));
+      const pool = [
         track(801, 'Bohemian Rhapsody', 'Queen', 'A Night at the Opera'),
         track(802, 'Hotel California', 'Eagles', 'Hotel California'),
-        track(803, 'Stairway to Heaven', 'Led Zeppelin', 'Led Zeppelin IV')
+        track(803, 'Stairway to Heaven', 'Led Zeppelin', 'Led Zeppelin IV'),
+        track(804, 'Sweet Child O Mine', 'Guns N Roses', 'Appetite for Destruction'),
+        track(805, 'Smoke on the Water', 'Deep Purple', 'Machine Head'),
+        track(806, 'Back in Black', 'AC/DC', 'Back in Black'),
+        track(807, 'Born to Run', 'Bruce Springsteen', 'Born to Run'),
+        track(808, 'Hey Jude', 'The Beatles', 'Hey Jude'),
+        track(809, 'Imagine', 'John Lennon', 'Imagine'),
+        track(810, 'Layla', 'Derek and the Dominos', 'Layla'),
+        track(811, 'Hells Bells', 'AC/DC', 'Back in Black'),
+        track(812, 'Paradise City', 'Guns N Roses', 'Appetite for Destruction'),
+        track(813, 'Dreams', 'Fleetwood Mac', 'Rumours'),
+        track(814, 'Money', 'Pink Floyd', 'The Dark Side of the Moon'),
+        track(815, 'Sultans of Swing', 'Dire Straits', 'Dire Straits'),
+        track(816, 'Under Pressure', 'Queen', 'Hot Space'),
+        track(817, 'Rebel Rebel', 'David Bowie', 'Diamond Dogs'),
+        track(818, 'Africa', 'Toto', 'Toto IV'),
+        track(819, 'Livin on a Prayer', 'Bon Jovi', 'Slippery When Wet'),
+        track(820, 'Jump', 'Van Halen', '1984')
       ];
+      const tracks = pool.filter((t) => !excluded.has(t.id)).slice(0, body.targetCount ?? 10);
       return reply(route, {
         title: 'Seleção Rock Clássico',
         description: 'Playlist personalizada com os maiores hinos do rock',

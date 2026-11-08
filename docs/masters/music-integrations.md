@@ -181,9 +181,14 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-PLAY-11:** uma prévia que o navegador recusa (ela só toca quando não há faixa completa) vai para o relatório ("a prévia foi recusada pelo navegador"), e a tela não finge que ela toca.
 - **INV-SMART-01:** toda faixa de uma playlist inteligente é uma música individual existente e verificada no catálogo (Deezer ou iTunes) com previewUrl e metadados reais.
 - **INV-SMART-02:** conteúdos do tipo podcast, episódios falados ou playlists pré-fabricadas de terceiros são estritamente excluídos da curadoria e dos resultados.
-- **INV-SMART-03:** a lista gerada respeita o teto solicitado ($\le 30$) e garante diversidade limitando a no máximo 2 faixas do mesmo artista.
+- **INV-SMART-03:** a lista gerada respeita o teto solicitado ($\le 30$, padrão de 10). Para pedidos gerais, garante diversidade com no máximo 2 faixas do mesmo artista; um pedido sobre um artista específico (o modelo devolve `artistFocus`) não tem esse limite, para que "as melhores músicas de um artista" sejam possíveis. Origem do limite: evitar que um pedido genérico vire uma lista de um artista só (decisão do usuário, 2026-11-08, opção 2).
 - **INV-SMART-04:** a montagem passa obrigatoriamente pelo motor de validação de conformidade com o pedido antes de ser entregue ao usuário.
 - **INV-SMART-05:** a playlist inteligente salva pelo usuário utiliza o pipeline padrão de `UserDataSnapshot`, persistindo em `PlaylistsContext` e sincronizando com o Supabase.
+- **INV-SMART-06:** "Adicionar 5 músicas" nunca repete as faixas já na lista nem as removidas nesta tela: a exclusão vale por id e por título e artista (`resolveAndValidateCandidates`, campo `exclude`).
+- **INV-SMART-07:** as buscas do catálogo para montar a lista rodam em paralelo (até 4 ao mesmo tempo, sem a busca de álbuns e playlists) e o resultado segue a ordem dos candidatos, como numa busca por vez.
+- **INV-SMART-08:** o nome da playlist é único entre as playlists criadas pela própria pessoa, comparando como foi digitado (sem ignorar maiúsculas; espaços nas pontas não contam). Playlists de outras pessoas não entram na conta (`isPlaylistNameTaken`).
+- **INV-SMART-09:** o cartão "Criar playlist com IA" em "Escolhidos para você" e o botão "Criar com IA" na Biblioteca abrem a mesma folha, montada no próprio pedido.
+- **INV-SMART-10:** o padrão é de 10 faixas; a folha não oferece outra quantidade (a ampliação adiciona 5).
 
 ## Atualização deste master
 
