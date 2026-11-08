@@ -2,7 +2,9 @@ type FetchLike = typeof fetch;
 
 const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 8000;
-const ALLOWED_HOST_SUFFIXES = ['.dzcdn.net', '.mzstatic.com', '.itunes.apple.com'];
+import { COVER_HOST_SUFFIXES } from '../src/utils/coverHosts';
+
+const ALLOWED_HOST_SUFFIXES = [...COVER_HOST_SUFFIXES, '.itunes.apple.com'];
 
 export class AudioProxyError extends Error {
   constructor(readonly status: number, message: string) {
@@ -45,8 +47,8 @@ export async function fetchAllowedAudio(
 }
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-/** The catalog's cover CDNs (Deezer and Apple). The same list is in `src/utils/imageProxy.ts`; a test keeps them equal. */
-export const IMAGE_HOST_SUFFIXES = ['.dzcdn.net', '.mzstatic.com'];
+/** The catalog's cover CDNs (Deezer and Apple), from the list shared with the app. */
+export const IMAGE_HOST_SUFFIXES: readonly string[] = COVER_HOST_SUFFIXES;
 
 /** Only catalog cover CDNs, so this route never becomes an open proxy. */
 export function isAllowedImageUrl(value: unknown): value is string {

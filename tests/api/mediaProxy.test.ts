@@ -63,7 +63,7 @@ const image = (bytes = 8, type = 'image/jpeg', headers: Record<string, string> =
   new Response(Buffer.alloc(bytes), { headers: { 'content-type': type, ...headers } });
 
 test('INV-MEDIA-01: a lista de hosts de capa do servidor e a do app são a mesma', () => {
-  assert.deepEqual([...IMAGE_HOST_SUFFIXES].sort(), [...PROXIABLE_HOST_SUFFIXES].sort());
+  assert.equal(IMAGE_HOST_SUFFIXES, PROXIABLE_HOST_SUFFIXES, 'uma lista só, compartilhada entre servidor e app');
 });
 
 test('INV-MEDIA-01: isAllowedImageUrl só aceita https dos CDNs de capa do catálogo', () => {

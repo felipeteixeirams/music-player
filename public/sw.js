@@ -11,6 +11,13 @@ async function trimCache(cache, limit) {
   const keys = await cache.keys();
   await Promise.all(keys.slice(0, Math.max(0, keys.length - limit)).map((key) => cache.delete(key)));
 }
+
+// Stores an answer and keeps the cache within its limit
+async function putAndTrim(cacheName, request, response, limit) {
+  const cache = await caches.open(cacheName);
+  await cache.put(request, response);
+  await trimCache(cache, limit);
+}
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -66,7 +73,7 @@ self.addEventListener('fetch', (event) => {
         try {
           const response = await fetch(event.request);
           if (response && response.status === 200) {
-            cache.put(event.request, response.clone()).then(() => trimCache(cache, COVER_CACHE_LIMIT)).catch(() => {});
+            putAndTrim(COVER_CACHE_NAME, event.request, response.clone(), COVER_CACHE_LIMIT).catch(() => {});
           }
           return response;
         } catch (err) {
@@ -83,7 +90,7 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         if (response && response.status === 200 && event.request.method === 'GET') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone).then(() => trimCache(cache, SHELL_CACHE_LIMIT))).catch(() => {});
+          putAndTrim(CACHE_NAME, event.request, clone, SHELL_CACHE_LIMIT).catch(() => {});
         }
         return response;
       })
