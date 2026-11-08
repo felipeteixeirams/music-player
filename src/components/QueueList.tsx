@@ -49,6 +49,7 @@ export const QueueList: React.FC = () => {
                     alt=""
                     referrerPolicy="no-referrer"
                     className="h-12 w-12 shrink-0 rounded-md bg-elevated-2 object-cover"
+                    sizes="48px"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.visibility = 'hidden';
                     }}

@@ -97,6 +97,8 @@ Leia [Contratos, mappers e testes](../specs/current/music-integration-contracts.
 - matriz de testes e critérios de aceite;
 - limitações da validação já executada.
 
+Leia [Auditoria de desempenho](../specs/current/performance-audit.spec.md) para o que pesa no app (JavaScript, capas, telas carregadas na abertura, re-renderizações), o que foi medido, o que não foi (o iPhone) e o plano por custo e ganho.
+
 Leia [Fontes de áudio, descobertas e decisões](../specs/current/audio-sources-decisions.spec.md) para saber de onde vem o áudio, por que o iOS o pausa em segundo plano, o que foi medido no aparelho, as opções avaliadas (extração de stream, Spotify, Apple Music, Capacitor, arquivos próprios, rádios) com a decisão de cada uma, e as frentes em aberto.
 
 Leia a [avaliação do Capacitor](../specs/current/capacitor-evaluation.spec.md) para saber o que um app nativo para iPhone resolve (o áudio nativo em segundo plano) e o que não está provado (o player do YouTube em segundo plano), com os requisitos, o custo e um protótipo com critério de parada.
@@ -189,6 +191,15 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-SMART-08:** o nome da playlist é único entre as playlists criadas pela própria pessoa, comparando como foi digitado (sem ignorar maiúsculas; espaços nas pontas não contam). Playlists de outras pessoas não entram na conta (`isPlaylistNameTaken`).
 - **INV-SMART-09:** o cartão "Criar playlist com IA" em "Escolhidos para você" e o botão "Criar com IA" na Biblioteca abrem a mesma folha, montada no próprio pedido.
 - **INV-SMART-10:** o padrão é de 10 faixas; a folha não oferece outra quantidade (a ampliação adiciona 5).
+
+## Desempenho: o que o app baixa e como as capas carregam
+
+Diagnóstico, medições e o plano em [Auditoria de desempenho](../specs/current/performance-audit.spec.md). Invariantes que não podem quebrar:
+
+- **INV-PERF-01:** as capas da Deezer pedem o menor tamanho que cobre a tela (56, 120, 250 ou 500 px, via `srcset` em `RemoteImage` com `sizes`); endereços que não são da Deezer ficam como vieram (`deezerCoverAtSize`).
+- **INV-PERF-02:** a medição de travadas (`stallWatch`) só conta os quadros do primeiro minuto com a página visível, e custa nada depois disso.
+- **INV-PERF-03:** o JavaScript do build comprimido cabe no orçamento de `scripts/check-bundle.mjs`; passar dele é decisão consciente (subir o número na mesma mudança).
+- **INV-PERF-04:** `/assets/*` (nomes com hash) tem cache de um ano e imutável; a casca, `sw.js` e `version.json` pedem revalidação. As caches do service worker têm limite (capas e casca separadas), para o aparelho não acumular lixo.
 
 ## Atualização deste master
 

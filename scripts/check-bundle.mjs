@@ -3,6 +3,7 @@
 // variables, the values come from the environment.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 
 function* files(dir) {
   for (const name of readdirSync(dir)) {
@@ -31,13 +32,32 @@ export function scan(dir, secretNames, publicNames, env = process.env) {
   return problems;
 }
 
+/**
+ * The size budget for the JavaScript a visitor downloads (compressed, all the chunks together). Growing past it is a
+ * decision to make on purpose: raise the number here in the same change (performance-audit, item 7).
+ */
+export const JS_GZIP_BUDGET_KB = 190;
+
+export function budget(dir, maxKb = JS_GZIP_BUDGET_KB) {
+  const assets = join(dir, 'assets');
+  const total = readdirSync(assets)
+    .filter((name) => name.endsWith('.js'))
+    .reduce((sum, name) => sum + gzipSync(readFileSync(join(assets, name))).length, 0);
+  const kb = total / 1024;
+  return kb > maxKb ? [`JavaScript do build com ${kb.toFixed(1)} kB comprimido: passou do orçamento de ${maxKb} kB (scripts/check-bundle.mjs)`] : [];
+}
+
 const split = (value) => (value ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const problems = scan(process.argv[2] ?? 'dist', split(process.env.CANARY_SECRET_VARS), split(process.env.CANARY_PUBLIC_VARS));
+  const dir = process.argv[2] ?? 'dist';
+  const problems = [
+    ...scan(dir, split(process.env.CANARY_SECRET_VARS), split(process.env.CANARY_PUBLIC_VARS)),
+    ...budget(dir),
+  ];
   if (problems.length > 0) {
     for (const problem of problems) console.error(`::error title=Build::${problem}`);
     process.exit(1);
   }
-  console.log('✅ Nenhum segredo no build, e as configurações públicas estão nele.');
+  console.log('✅ Nenhum segredo no build, as configurações públicas estão nele, e o JavaScript cabe no orçamento.');
 }

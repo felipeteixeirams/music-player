@@ -62,3 +62,23 @@ export function recordRescuedImage(url: string): void {
 export function coverSrc(value: string | undefined): string | undefined {
   return viaProxy && isProxiableImageUrl(value) ? proxiedImageUrl(value) : value;
 }
+
+/** The sizes the catalog's cover CDN (Deezer) serves, in pixels: a list row takes the smallest one that still looks sharp. */
+export const DEEZER_COVER_SIZES = [56, 120, 250, 500] as const;
+const DEEZER_COVER_SIZE_IN_PATH = /\/(\d+)x\1-/;
+
+/**
+ * The same Deezer cover at another size, or undefined when the address is not a Deezer cover in the known form (Apple's
+ * covers and anything else keep the one address they have).
+ */
+export function deezerCoverAtSize(value: string | undefined, size: number): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || !url.hostname.endsWith('.dzcdn.net') || !DEEZER_COVER_SIZE_IN_PATH.test(url.pathname)) return undefined;
+    url.pathname = url.pathname.replace(DEEZER_COVER_SIZE_IN_PATH, `/${size}x${size}-`);
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}

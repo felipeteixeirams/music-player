@@ -2,6 +2,7 @@ import React, { useState, useSyncExternalStore } from 'react';
 import { Activity, Copy } from 'lucide-react';
 import { sessionId } from '../utils/trace';
 import { clearPlaybackLog, describeEnvironment, formatPlaybackLog, getPlaybackLog, subscribePlaybackLog } from '../utils/playbackDiagnostics';
+import { stallLine } from '../utils/stallWatch';
 
 /** The running build and whether this is the installed app or a browser tab: the first thing a report needs. */
 function currentEnvironment(): string {
@@ -19,7 +20,7 @@ export const PlaybackDiagnostics: React.FC = () => {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(`${currentEnvironment()}\n${formatPlaybackLog(entries)}`);
+      await navigator.clipboard.writeText(`${currentEnvironment()}\n${stallLine()}\n${formatPlaybackLog(entries)}`);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -37,6 +38,9 @@ export const PlaybackDiagnostics: React.FC = () => {
         <div className="mt-2 space-y-2">
           <p data-testid="playback-environment" className="text-[11px] font-semibold leading-4 text-label">
             {currentEnvironment()}
+          </p>
+          <p data-testid="playback-stalls" className="text-[11px] leading-4 text-label-secondary">
+            {stallLine()}
           </p>
           <pre
             data-testid="playback-log"

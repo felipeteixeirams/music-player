@@ -36,6 +36,57 @@ interface ExpandedPlayerProps {
   onNavigateToAlbum?: (albumTitle: string, artistName: string, coverUrl?: string) => void;
 }
 
+/**
+ * The slider and the two times: the only part of the player that follows the clock (about 4 times a second). It
+ * subscribes to the clock itself, so the rest of the player does not render again on every tick.
+ */
+const PlaybackProgress: React.FC<{
+  isScrubbing: boolean;
+  scrubTime: number;
+  onScrubStart: () => void;
+  onScrubChange: (seconds: number) => void;
+  onScrubCommit: () => void;
+}> = ({ isScrubbing, scrubTime, onScrubStart, onScrubChange, onScrubCommit }) => {
+  const { currentTime, duration } = usePlaybackTime();
+  const displayTime = isScrubbing ? scrubTime : currentTime;
+  const progressPercent = calculateProgress(displayTime, duration);
+
+  return (
+    <>
+      <div className="relative flex items-center">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="0.1"
+          value={progressPercent}
+          onChange={(e) => onScrubChange(progressToSeconds(parseFloat(e.target.value), duration))}
+          onMouseDown={onScrubStart}
+          onTouchStart={onScrubStart}
+          onMouseUp={onScrubCommit}
+          onTouchEnd={onScrubCommit}
+          aria-label="Linha do tempo da música"
+          className="w-full h-1 rounded-full appearance-none cursor-pointer accent-white focus:outline-none"
+          style={{
+            background: `linear-gradient(to right, #fff 0%, #fff ${progressPercent}%, rgba(255, 255, 255, 0.3) ${progressPercent}%, rgba(255, 255, 255, 0.3) 100%)`
+          }}
+        />
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-label-secondary tabular-nums">
+        <span>{formatTime(displayTime)}</span>
+        <span>{formatRemainingTime(displayTime, duration)}</span>
+      </div>
+    </>
+  );
+};
+
+/** The lyrics view, which highlights the line being sung: the only other part that follows the clock. */
+const SyncedLyrics: React.FC<Omit<React.ComponentProps<typeof LyricsView>, 'currentTime'>> = (props) => {
+  const { currentTime } = usePlaybackTime();
+  return <LyricsView {...props} currentTime={currentTime} />;
+};
+
 export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
   onNavigateToArtist,
   onNavigateToAlbum
@@ -67,7 +118,6 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
     cycleSpeed,
     skipBy
   } = useAudio();
-  const { currentTime, duration } = usePlaybackTime();
   const { openAddToPlaylist, playlists } = usePlaylists();
   const follows = usePodcastFollows();
 
@@ -126,8 +176,6 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
 
   if (!isExpanded || !currentTrack) return null;
 
-  const displayTime = isScrubbing ? scrubTime : currentTime;
-  const progressPercent = calculateProgress(displayTime, duration);
   const liked = isLiked(currentTrack.id);
   // A radio (live broadcast or endless station mix) has no timeline, shuffle, repeat or way back
   const isRadio = isLive || Boolean(radioStation);
@@ -170,11 +218,6 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
       {saved ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
     </button>
   );
-
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setScrubTime(progressToSeconds(val, duration));
-  };
 
   const handleSliderCommit = () => {
     seekTo(scrubTime);
@@ -321,7 +364,7 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
             </div>
             <div className="relative min-h-0 flex-1">
               {activeView === 'lyrics' ? (
-                <LyricsView lines={syncedLyrics} synced={lyricsSynced} currentTime={currentTime} onSeek={seekTo} />
+                <SyncedLyrics lines={syncedLyrics} synced={lyricsSynced} onSeek={seekTo} />
               ) : (
                 <QueueList />
               )}
@@ -369,30 +412,13 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           </div>
         ) : (
         <div className="space-y-1.5 my-2">
-          <div className="relative flex items-center">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="0.1"
-              value={progressPercent}
-              onChange={handleSliderChange}
-              onMouseDown={() => setIsScrubbing(true)}
-              onTouchStart={() => setIsScrubbing(true)}
-              onMouseUp={handleSliderCommit}
-              onTouchEnd={handleSliderCommit}
-              aria-label="Linha do tempo da música"
-              className="w-full h-1 rounded-full appearance-none cursor-pointer accent-white focus:outline-none"
-              style={{
-                background: `linear-gradient(to right, #fff 0%, #fff ${progressPercent}%, rgba(255, 255, 255, 0.3) ${progressPercent}%, rgba(255, 255, 255, 0.3) 100%)`
-              }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-label-secondary tabular-nums">
-            <span>{formatTime(displayTime)}</span>
-            <span>{formatRemainingTime(displayTime, duration)}</span>
-          </div>
+          <PlaybackProgress
+            isScrubbing={isScrubbing}
+            scrubTime={scrubTime}
+            onScrubStart={() => setIsScrubbing(true)}
+            onScrubChange={setScrubTime}
+            onScrubCommit={handleSliderCommit}
+          />
         </div>
         )}
 
