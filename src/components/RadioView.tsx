@@ -21,6 +21,7 @@ export const RadioView: React.FC = () => {
   const [styleId, setStyleId] = useState<string | null>(null);
   const [styleStations, setStyleStations] = useState<LiveStation[]>([]);
   const [styleState, setStyleState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [selectedRegion, setSelectedRegion] = useState<string>('all');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -84,28 +85,67 @@ export const RadioView: React.FC = () => {
           <h2 id="live-heading" className="text-[22px] font-bold text-label tracking-tight">Ao vivo</h2>
           <p className="text-[13px] text-label-secondary mt-0.5">Você ouve o que está no ar agora, como no rádio.</p>
         </div>
-        {LIVE_RADIO_GROUPS.map((group) => (
-          <div key={group.id} role="group" aria-label={`Ao vivo: ${group.name}`}>
-            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-label-secondary mb-1.5">{group.name}</h3>
-            <div className="grid grid-cols-3 gap-3">
-              {group.stations.map((station: LiveStation) => {
-                const isCurrent = isLive && currentTrack?.id === `live-${station.id}`;
-                return (
-                  <StationTile
-                    key={station.id}
-                    name={station.name}
-                    seed={station.id}
-                    label={isCurrent ? (isPlaying ? 'No ar agora' : 'Pausada') : station.location}
-                    isCurrent={isCurrent}
-                    isPlaying={isPlaying}
-                    ariaLabel={`Ouvir ${station.name} ao vivo`}
-                    onClick={() => startLiveRadio(station)}
-                  />
-                );
-              })}
+        {/* Region filter pills */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 pt-1" role="group" aria-label="Filtrar rádios por região">
+          {[
+            { id: 'all', name: 'Todas as regiões' },
+            { id: 'SP', name: 'São Paulo (SP)' },
+            { id: 'RJ', name: 'Rio de Janeiro (RJ)' },
+            { id: 'MG', name: 'Minas Gerais (MG)' },
+            { id: 'MS', name: 'Mato Grosso do Sul (MS)' },
+            { id: 'Outras', name: 'Outras / Brasil' }
+          ].map((region) => (
+            <button
+              key={region.id}
+              onClick={() => setSelectedRegion(region.id)}
+              aria-pressed={selectedRegion === region.id}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium active:scale-95 transition-colors ${
+                selectedRegion === region.id ? 'bg-accent text-white shadow-sm' : 'bg-fill-tertiary text-label hover:bg-fill-secondary'
+              }`}
+            >
+              {region.name}
+            </button>
+          ))}
+        </div>
+
+        {LIVE_RADIO_GROUPS.map((group) => {
+          const filteredStations = group.stations.filter((station) => {
+            if (selectedRegion === 'all') return true;
+            if (selectedRegion === 'SP') return station.location.includes('SP');
+            if (selectedRegion === 'RJ') return station.location.includes('RJ');
+            if (selectedRegion === 'MG') return station.location.includes('MG');
+            if (selectedRegion === 'MS') return station.location.includes('MS') || station.location.includes('Corumbá');
+            if (selectedRegion === 'Outras') {
+              return !station.location.includes('SP') && !station.location.includes('RJ') && !station.location.includes('MG') && !station.location.includes('MS') && !station.location.includes('Corumbá');
+            }
+            return true;
+          });
+
+          if (filteredStations.length === 0) return null;
+
+          return (
+            <div key={group.id} role="group" aria-label={`Ao vivo: ${group.name}`}>
+              <h3 className="text-[13px] font-semibold uppercase tracking-wider text-label-secondary mb-1.5">{group.name}</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {filteredStations.map((station: LiveStation) => {
+                  const isCurrent = isLive && currentTrack?.id === `live-${station.id}`;
+                  return (
+                    <StationTile
+                      key={station.id}
+                      name={station.name}
+                      seed={station.id}
+                      label={isCurrent ? (isPlaying ? 'No ar agora' : 'Pausada') : station.location}
+                      isCurrent={isCurrent}
+                      isPlaying={isPlaying}
+                      ariaLabel={`Ouvir ${station.name} ao vivo`}
+                      onClick={() => startLiveRadio(station)}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {styles.length > 0 && (

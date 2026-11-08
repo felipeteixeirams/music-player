@@ -75,6 +75,14 @@ export const LIVE_RADIO_GROUPS: LiveRadioGroup[] = [
       { id: 'itatiaia', name: 'Itatiaia', location: 'Belo Horizonte, MG', streamUrl: 'https://8903.brasilstream.com.br/stream' },
       { id: 'radio-globo', name: 'Rádio Globo', location: 'Rio de Janeiro, RJ', streamUrl: 'https://26583.live.streamtheworld.com:443/RADIO_GLOBO_RJAAC.aac?dist=radioscombr' }
     ]
+  },
+  {
+    id: 'mato-grosso-do-sul',
+    name: 'Mato Grosso do Sul e Pantanal',
+    stations: [
+      { id: 'radio-corumba-fm', name: 'Rádio Corumbá FM', location: 'Corumbá, MS', streamUrl: 'https://stream.zeno.fm/exz39q72zceuv' },
+      { id: 'difusora-corumba', name: 'Difusora Pantanal', location: 'Corumbá, MS', streamUrl: 'https://stream.zeno.fm/1q52q72zceuv' }
+    ]
   }
 ];
 
