@@ -64,6 +64,9 @@ function fakeAdmin(limitFails = false) {
     async listUsers() {
       return {};
     },
+    async activitySince() {
+      return {};
+    },
     async usedToday(userId) {
       return used.get(userId) ?? 0;
     }

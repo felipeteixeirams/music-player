@@ -2,6 +2,7 @@ import type { AuthUser } from './_auth.js';
 import { cachedDeepConfig, checkStaticConfig, type Finding } from './_config.js';
 import { breakerFor, DEFAULT_DAILY_NEW_TRACKS } from './_resolveEndpoint.js';
 import { adminConfigFromEnv, createAdmin, saoPauloDay, type Admin } from './_supabaseAdmin.js';
+import { ACTIVITY_WINDOW_DAYS, dayBefore, summarizeDays } from './_appDays.js';
 import type { YoutubeBreaker } from './_youtubeBreaker.js';
 
 type Env = Record<string, string | undefined>;
@@ -57,13 +58,21 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
 
   const now = deps.now();
   const day = saoPauloDay(now);
-  const [breaker, findings, usage, users, cached] = await Promise.all([
+  const [breaker, findings, usage, users, cached, opened] = await Promise.all([
     deps.breaker.check().catch(() => null),
     deps.findings().catch(() => [] as Finding[]),
     deps.admin?.usageByDay(day).catch(() => null) ?? null,
     deps.admin?.listUsers().catch(() => null) ?? null,
-    deps.admin?.cacheCount().catch(() => null) ?? null
+    deps.admin?.cacheCount().catch(() => null) ?? null,
+    // Wrapped so a missing method or a missing table never fails the whole panel
+    (async () => deps.admin?.activitySince(dayBefore(day, ACTIVITY_WINDOW_DAYS - 1)) ?? null)().catch(() => null)
   ]);
+  // Daily use: who opened the app and how often (INV-ADMIN-03). `opened` is null when the table is not there yet.
+  const activity = opened
+    ? Object.entries(opened)
+        .map(([id, days]) => ({ email: users?.[id] || 'conta sem e-mail', ...summarizeDays(days, day) }))
+        .sort((a, b) => b.days30 - a.days30 || b.days7 - a.days7)
+    : null;
   const perPerson = Object.entries(usage ?? {})
     .map(([id, used]) => ({ email: users?.[id] || 'conta sem e-mail', used }))
     .sort((a, b) => b.used - a.used);
@@ -82,6 +91,7 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
       },
       limits: { dailyNewTracks: deps.dailyLimit },
       people: { counted: perPerson.length, accounts: users ? Object.keys(users).length : null, perPerson },
+      activity: { window: ACTIVITY_WINDOW_DAYS, today: day, people: activity },
       cache: { tracks: cached },
       config: findings.map(({ id, level, message }) => ({ id, level, message })),
       database: deps.admin ? 'ok' : 'off'

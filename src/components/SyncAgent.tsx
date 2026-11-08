@@ -10,6 +10,7 @@ import { PodcastProgressSync } from '../utils/podcastProgressSync';
 import { subscribeProgress } from '../utils/podcastProgress';
 import { createRemote } from '../utils/userDataRemote';
 import { UserDataSync } from '../utils/userDataSync';
+import { recordAppOpen } from '../utils/appDaysRemote';
 
 /** Keeps this device's favorites, playlists, picks and play history in step with the signed-in user's account. Renders nothing. */
 export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> = ({ userId, storage }) => {
@@ -21,6 +22,8 @@ export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> =
       const session = await getSession();
       return session ? { id: userId, token: session.access_token } : null;
     };
+    // One row per day the app is opened (INV-ADMIN-03); a failure here changes nothing for the person
+    void recordAppOpen(config, getUser);
     const sync = new UserDataSync({ storage, remote: createRemote(config, getUser), onApplied: emitUserDataApplied });
     const history = new PlayHistorySync({ storage, remote: createHistoryRemote(config, getUser), onApplied: emitHistoryApplied });
     const progress = new PodcastProgressSync({ storage, remote: createProgressRemote(config, getUser) });

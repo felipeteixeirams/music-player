@@ -12,6 +12,7 @@ Arquivo proprietário: `supabase/migrations/0001_init.sql`. Testes: `tests/db/sc
 | `play_history` | usuário | últimas 500 reproduções |
 | `video_cache` | compartilhada | até 5 `video_ids` por faixa; só `service_role` |
 | `usage_daily` | usuário | resoluções do dia; o dono só lê |
+| `app_days` | usuário (só insere a própria linha) | uma linha por dia em que a pessoa abriu o app logado (dia de São Paulo); o painel de administrador lê com a chave de serviço (INV-ADMIN-03, migração `0005_app_days.sql`) |
 
 ## Garantias (cobertas por teste)
 

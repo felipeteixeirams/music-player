@@ -37,6 +37,8 @@ export interface Admin {
   cacheCount(): Promise<number>;
   /** The accounts (id -> e-mail), from the auth admin API. */
   listUsers(): Promise<Record<string, string>>;
+  /** The days each person opened the app since `fromDay` (INV-ADMIN-03): user id -> days, newest first. */
+  activitySince(fromDay: string): Promise<Record<string, string[]>>;
 }
 
 /** Today's date in São Paulo, the day the quota counts in (same as the SQL function). */
@@ -126,6 +128,15 @@ export function createAdmin(config: AdminConfig, fetchImpl: typeof fetch = fetch
       if (!response.ok) throw new Error(`Supabase HTTP ${response.status} em /auth/v1/admin/users`);
       const data = (await response.json()) as { users?: { id: string; email?: string | null }[] };
       return Object.fromEntries((data.users ?? []).map((user) => [user.id, user.email ?? '']));
+    },
+    async activitySince(fromDay) {
+      const rows = (await (await call(`/app_days?select=user_id,day&day=gte.${eq(fromDay)}&order=day.desc&limit=20000`)).json()) as {
+        user_id: string;
+        day: string;
+      }[];
+      const byUser: Record<string, string[]> = {};
+      for (const row of rows) (byUser[row.user_id] ??= []).push(row.day);
+      return byUser;
     },
     async usedToday(userId, now) {
       const rows = (await (

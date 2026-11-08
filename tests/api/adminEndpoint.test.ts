@@ -10,6 +10,7 @@ const ENV = { ADMIN_EMAILS: ' felipe@example.com , outra@example.com ' };
 function deps(overrides: Partial<AdminDeps> = {}): AdminDeps {
   const admin = {
     usageByDay: async () => ({ 'u-me': 3, 'u-other': 9 }),
+    activitySince: async () => ({ 'u-me': ['2026-10-29', '2026-10-28', '2026-10-26'], 'u-other': ['2026-10-29'] }),
     cacheCount: async () => 120,
     listUsers: async () => ({ 'u-me': 'felipe@example.com', 'u-other': 'ana@example.com', 'u-idle': 'idle@example.com' })
   } as unknown as Admin;
@@ -74,4 +75,20 @@ test('INV-ADMIN-02: com o disjuntor aberto o painel diz "suspended" com o motivo
   const failing = await adminEndpoint({}, ME, deps({ admin: broken }));
   assert.equal(failing.status, 200);
   assert.equal((failing.body as { cache: { tracks: null } }).cache.tracks, null);
+});
+
+test('INV-ADMIN-03: o painel traz o uso diário por pessoa, ordenado por dias ativos, e só para o administrador', async () => {
+  const data = (await adminEndpoint({}, ME, deps())).body as { activity: { window: number; today: string; people: { email: string; days7: number; days30: number; last: string; streak: number }[] } };
+  assert.equal(data.activity.window, 30);
+  assert.equal(data.activity.today, '2026-10-29');
+  // felipe: 29, 28 e 26 de outubro (sequência 2, pois o dia 27 falta); ana: só o dia 29; idle não abriu o app nesta janela
+  assert.deepEqual(data.activity.people.map((p) => [p.email, p.days30, p.streak, p.last]), [['felipe@example.com', 3, 2, '2026-10-29'], ['ana@example.com', 1, 1, '2026-10-29']]);
+  const denied = await adminEndpoint({}, OTHER, deps());
+  assert.equal(denied.status, 403);
+  assert.equal(JSON.stringify(denied.body).includes('2026'), false, 'nada de uso no corpo para quem não é administrador');
+});
+
+test('INV-ADMIN-03: sem a tabela de uso (migração não aplicada) o painel responde com activity.people nulo, sem falhar', async () => {
+  const data = (await adminEndpoint({}, ME, deps({ admin: { ...deps().admin!, activitySince: async () => { throw new Error('404'); } } as unknown as Admin }))).body as { activity: { people: null } };
+  assert.equal(data.activity.people, null);
 });
