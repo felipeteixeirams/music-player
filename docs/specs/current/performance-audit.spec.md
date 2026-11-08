@@ -15,6 +15,9 @@ Pertence ao master [Integrações musicais e reprodução](../../masters/music-i
 | JavaScript carregado na abertura | 595 KB (bloco principal de 609 KB; 173 KB comprimido) | ✅ build. Um único bloco, sem divisão por tela |
 | Primeira pintura (FCP) | 232 ms | ✅ desktop |
 | Tarefas longas (> 50 ms) na abertura e em 6 s de reprodução | 0 | ✅ desktop; não representa o iPhone |
+| Cabeçalho de cache do JS e do CSS na produção | `public, max-age=0, must-revalidate` (sem cache de longo prazo, embora o nome tenha hash) | ✅ `curl` na produção, 2026-11-08 |
+| Revalidação do JS a cada abertura | 304 em 0,43 s (uma ida e volta, a partir do ambiente de teste) | ✅ produção |
+| JS transferido (brotli) | 175,7 kB | ✅ produção |
 | Capa de 500 px (a usada hoje nas listas) | 34,7 kB | ✅ Deezer |
 | Capa de 250 px | 12,1 kB (−65%) | ✅ Deezer |
 | Capa de 120 px | 4,0 kB | ✅ Deezer |
@@ -61,16 +64,30 @@ Pertence ao master [Integrações musicais e reprodução](../../masters/music-i
 - 🔎 Sem fontes web nem bibliotecas de animação no cliente; as animações são CSS.
 - 🔎 O polling do player (250 ms) é o necessário para a barra de progresso.
 
-## Plano sugerido (do mais barato para o mais caro)
+## Reavaliação: como deixar o impacto no uso em zero (2026-11-08)
 
-| Ordem | Item | Esforço | Ganho esperado |
+Critério: uma melhora só entra se o app continuar igual ou ficar mais rápido, sem texto novo de espera, sem pedir atualização e sem perder qualidade visível. A primeira versão do plano não cumpria isso em três pontos, e uma medição nova mudou a ordem.
+
+| # | Achado | Reavaliação | Abordagem de impacto zero |
 | --- | --- | --- | --- |
-| 1 | Capas por tamanho (250 px nas listas, 120 px nas miniaturas) | Pequeno (um componente e os pontos de uso) | Grande em dados e no tempo das listas |
-| 2 | `ExpandedPlayer`: não re-renderizar fechado | Pequeno | Menos trabalho na reprodução |
-| 3 | Telas sob demanda (`React.lazy`) com retry e aviso de atualização | Médio | Menos JavaScript na abertura |
-| 4 | Medição no aparelho (tarefas longas e tempo até a Início) | Pequeno | Confirma ou descarta 2 e 3 |
-| 5 | Substituir `auth-js` por camada mínima | Grande (segurança) | O maior bloco de biblioteca |
-| 6 | Mover `express` para dev | Pequeno | Instalação de produção menor |
+| A | **Novo, medido:** o JS e o CSS saem da Vercel com `max-age=0, must-revalidate`; o navegador revalida os dois a cada abertura (304 em 0,43 s) | Maior ganho para quem volta ao app, e nenhum risco | `headers` no `vercel.json`: `/assets/(.*)` com `public, max-age=31536000, immutable`. Os arquivos têm hash no nome e nunca mudam; `index.html`, `sw.js` e `version.json` seguem sem cache. A abertura deixa de esperar essa ida e volta. |
+| B | O app é deployado várias vezes por dia e cada deploy muda o bloco único de 610 kB | Quem abre depois de um deploy baixa tudo de novo (175 kB com brotli), mesmo que só 1 linha tenha mudado | `build.rollupOptions.output.manualChunks` separando `react`/`react-dom`, `@supabase/auth-js` e `lucide-react` em blocos próprios. O código é o mesmo e roda igual; com o cache longo de A, um deploy passa a baixar só o bloco da aplicação. Reduz também o risco de bloco antigo ausente, porque os blocos de biblioteca mudam pouco. |
+| 1 | Capas de 500 px nas listas | Confirmado (34,7 kB contra 12,1 kB em 250 px). Trocar por um tamanho fixo menor poderia deixar a miniatura mais borrada no iPhone (tela 3x) | `srcset` + `sizes` em `RemoteImage`: o navegador escolhe o **menor tamanho que ainda cobre** a largura exibida vezes a densidade da tela (56, 120, 250, 500 px do Deezer). Em uma linha de 44 px a 3x são 132 px, então escolhe 250 px; nada fica mais borrado do que hoje. O player e a página do álbum seguem em 500 px. Mais `decoding="async"` e `<link rel="preconnect">` para o CDN de capas. |
+| 2 | Telas que pouca gente usa no bloco inicial | **Rebaixado.** O ganho estimado (20 a 50 ms de execução no iPhone, 💭) é pequeno perto do risco (primeira abertura de uma tela com espera; bloco ausente depois de um deploy). Com A e B, quem volta não baixa nada disso de novo | Só se a medição no aparelho mostrar que o tempo de execução do JS pesa. Nesse caso: `React.lazy` **com pré-carregamento em tempo ocioso** logo depois da Início aparecer (como o AGENTS pede para `import()` dinâmico), para a tela já estar no aparelho quando o toque chegar, mais uma tentativa de novo e o aviso de atualização se o bloco faltar. `LoginScreen` fica de fora: quem não está logado precisa dele na hora. |
+| 3 | `ExpandedPlayer` re-renderiza 4 vezes por segundo fechado | Mantido | Invólucro que só checa `isExpanded` e `currentTrack` e renderiza o componente com o relógio apenas quando aberto. Comportamento idêntico. |
+| 4 | `@supabase/auth-js` é o maior bloco de biblioteca | **Descartado como troca.** Com A e B ele é baixado uma vez e fica em cache por meses; o que resta é o tempo de execução, pequeno. Trocar por código próprio põe em risco a parte de segurança da entrada (um 401 não pode deslogar por engano) por um ganho que A e B já entregam | Não substituir. Reavaliar só se a medição no aparelho apontar a execução desse bloco. |
+| 5 | `express` em `dependencies` | Mantido, sem efeito no navegador | Mover para `devDependencies` (só `server.ts` o usa). |
+| 6 | Sem medida no aparelho | A lacuna que decide o resto | Linha no Diagnóstico com tarefas longas e o tempo até a Início, para provar no iPhone que nada piorou e orientar o item 2. |
+| 7 | Nada impede o app de crescer de novo | Risco de voltar ao ponto de partida | Orçamento no CI (`scripts/check-bundle.mjs`): falha se o bloco da aplicação passar de um limite, para um aumento ser decisão consciente. |
+
+Também sem custo para o uso, e a confirmar: `<link rel="preconnect" href="https://www.youtube.com">` (o script do player é pedido na abertura; economiza a conexão segura antes do toque, o que ajuda o primeiro toque; 💭 100 a 300 ms em rede móvel, não medido).
+
+### Ordem
+
+1. **A** e **B** (configuração, sem mudar código de tela).
+2. **1** (capas por tamanho, com `srcset`), **3** e **5**.
+3. **6** e **7** (medir e travar).
+4. **2** e **4** só se a medição no aparelho pedir.
 
 ## Medição no aparelho (passo 4)
 
@@ -78,6 +95,5 @@ Antes de implementar 2 e 3, medir no iPhone com o próprio Diagnóstico: registr
 
 ## Decisões para o usuário
 
-1. Aprova o plano em ordem (1 e 2 já, 3 depois da medição)?
-2. Aceita que a telas sob demanda pedem uma atualização do app de vez em quando, com aviso?
-3. Quer avaliar a troca de `auth-js` (item 5), com o risco de segurança que isso traz?
+1. Aprova a ordem acima (A e B primeiro: só configuração)?
+2. Confirma que as telas sob demanda (item 2) e a troca do `auth-js` (item 4) ficam de fora até a medição no aparelho pedir?
