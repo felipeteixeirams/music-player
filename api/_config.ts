@@ -114,6 +114,12 @@ export function checkStaticConfig(env: Env = process.env): Finding[] {
     out.push(finding('youtube-key', 'warn', 'Falta YOUTUBE_API_KEY: a busca do vídeo da faixa usa a busca web não oficial, mais frágil.'));
   } else out.push(finding('youtube-key', 'ok', 'Chave do YouTube presente.'));
 
+  // The smart playlists' key: without it they answer with the reserve generator (a warning, never an error)
+  const gemini = env.GEMINI_API_KEY?.trim();
+  if (!gemini) out.push(finding('gemini-key', 'warn', 'Falta GEMINI_API_KEY: as playlists inteligentes usam o gerador de reserva, menos preciso.'));
+  else if (/^MY_/i.test(gemini)) out.push(finding('gemini-key', 'warn', 'GEMINI_API_KEY tem o valor de exemplo do .env.example, não uma chave: as playlists inteligentes usam o gerador de reserva.'));
+  else out.push(finding('gemini-key', 'ok', 'Chave do Gemini presente (playlists inteligentes).'));
+
   if (env.DAILY_NEW_TRACKS !== undefined) {
     const n = Number(env.DAILY_NEW_TRACKS);
     if (!Number.isInteger(n) || n < 1) out.push(finding('daily-limit', 'warn', 'DAILY_NEW_TRACKS deveria ser um número inteiro maior que 0; vale o padrão (30).'));
