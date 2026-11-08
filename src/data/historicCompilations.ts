@@ -1,10 +1,11 @@
 import type { Track } from '../types/music';
 
 /**
- * Coletâneas históricas lançadas em CD no Brasil (especialmente pela Som Livre nos anos 90 e 2000).
- * Como os contratos originais eram apenas para prensagem de mídia física (Various Artists),
- * essas compilações não existem como um "álbum" unificado no catálogo internacional do Deezer/iTunes.
- * Este módulo provê a reconstrução fiel dessas seleções clássicas com faixas individuais e metadados completos.
+ * Coletâneas históricas lançadas em CD no Brasil (principalmente pela Som Livre, nos anos 90 e 2000). Essas compilações
+ * não existem como álbum no catálogo do Deezer e do iTunes, então a lista de faixas é mantida aqui.
+ * ATENÇÃO: a lista foi montada de memória, com faixas e artistas que batem com discos reais, e ainda não foi conferida
+ * com o encarte de cada CD. Para tocar, cada faixa é buscada pelo título e artista (o id `historic-*` é só uma chave);
+ * as capas são endereços fixos do CDN da Deezer.
  */
 
 export interface HistoricCompilation {

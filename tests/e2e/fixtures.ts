@@ -176,7 +176,13 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
           people: [
             { email: 'ana@example.com', days7: 6, days30: 21, last: '2026-10-29', streak: 4 },
             { email: 'felipe@example.com', days7: 2, days30: 5, last: '2026-10-27', streak: 0 }
-          ]
+          ],
+          // The last 14 days, oldest first: ana and felipe opened the app on the 27th, 28th and 29th
+          dailyCounts: Array.from({ length: 14 }, (_, i) => {
+            const day = new Date(Date.parse('2026-10-29T12:00:00Z') - (13 - i) * 86_400_000).toISOString().slice(0, 10);
+            const count = day >= '2026-10-27' ? 2 : 0;
+            return { day, count };
+          })
         },
         cache: { tracks: 120 },
         config: [{ id: 'service-key', level: 'warn', message: 'chave de serviço ausente' }],

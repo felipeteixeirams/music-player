@@ -45,3 +45,24 @@ test('historic compilation recognition works for Good Times and Classic Metal', 
   await searchInput.fill('classic metal');
   await expect(page.getByRole('heading', { name: /Classic Metal/i })).toBeVisible();
 });
+
+test('salvar a mesma coletânea de novo não cria outra playlist com o mesmo nome', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/');
+  await nav(page, 'Buscar').click();
+  const searchInput = page.getByRole('searchbox', { name: 'Buscar' });
+  await searchInput.fill('love metal');
+  await page.getByRole('button', { name: /Salvar Playlist/i }).click();
+  await expect(page.getByText('Salvo na Biblioteca!')).toBeVisible();
+
+  // A new visit (the same account, after a reload): the card offers saving again, the name is already taken
+  await page.reload();
+  await nav(page, 'Buscar').click();
+  await page.getByRole('searchbox', { name: 'Buscar' }).fill('love metal');
+  await page.getByRole('button', { name: /Salvar Playlist/i }).click();
+  await expect(page.getByText('Salvo na Biblioteca!')).toBeVisible();
+
+  await nav(page, 'Biblioteca').click();
+  await page.getByRole('button', { name: /^Playlists/ }).click();
+  await expect(page.getByText('Lovy Metal (Som Livre)')).toHaveCount(1);
+});

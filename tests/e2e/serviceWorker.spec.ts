@@ -37,7 +37,8 @@ test('INV-PERF-04: capas vão para a cache de capas, não para a da casca', asyn
   await waitForWorker(page);
   // icon.svg is served by the app itself, and the worker treats .svg as a cover
   await page.evaluate(() => fetch('/icon.svg?cover=1').then((response) => response.text()));
-  expect(await cacheKeys(page, COVERS)).toContain('/icon.svg?cover=1');
+  // The worker writes after answering (waitUntil), so the test waits for the entry to appear
+  await expect.poll(async () => (await cacheKeys(page, COVERS)).includes('/icon.svg?cover=1')).toBe(true);
   expect(await cacheKeys(page, SHELL)).not.toContain('/icon.svg?cover=1');
 });
 

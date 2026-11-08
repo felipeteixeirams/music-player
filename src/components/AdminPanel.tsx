@@ -85,9 +85,10 @@ export const AdminPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <span>Usuários ativos por dia (últimos 14 dias)</span>
                     <span className="font-semibold text-accent">{data.activity.today}</span>
                   </div>
-                  <div className="flex items-end gap-1.5 h-20 pt-2 pb-1">
-                    {data.activity.dailyCounts.map((item, idx) => {
-                      const max = Math.max(...(data.activity?.dailyCounts?.map((d) => d.count) ?? [1]), 1);
+                  <div className="flex items-end gap-1.5 h-20 pt-2 pb-1" data-testid="admin-activity-chart">
+                    {(() => {
+                      const max = Math.max(...data.activity.dailyCounts.map((d) => d.count), 1);
+                      return data.activity.dailyCounts.map((item) => {
                       const heightPercent = item.count > 0 ? Math.max(15, Math.round((item.count / max) * 100)) : 6;
                       const dayLabel = item.day.slice(8); // DD
                       const isToday = item.day === data.activity?.today;
@@ -112,7 +113,8 @@ export const AdminPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                           </span>
                         </div>
                       );
-                    })}
+                      });
+                    })()}
                   </div>
                 </div>
               )}

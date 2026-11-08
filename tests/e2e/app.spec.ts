@@ -611,13 +611,19 @@ test.describe('painel de administrador', () => {
     await page.getByRole('button', { name: 'Abrir ajustes' }).click();
     await page.getByRole('button', { name: 'Painel de administrador' }).click();
     const panel = page.getByRole('dialog', { name: 'Administração' });
-    const section = panel.getByRole('region', { name: 'Uso diário (abriu o app)' });
+    const section = panel.getByRole('region', { name: 'Frequência e Usuários Ativos' });
+    // The chart: 14 days, today labelled, and the bar of a day says how many people opened the app
+    await expect(section.getByTestId('admin-activity-chart').locator('[title]')).toHaveCount(14);
+    await expect(section.getByTestId('admin-activity-chart').locator('[title="2026-10-29: 2 usuário(s)"]')).toHaveCount(1);
     const rows = section.getByTestId('admin-activity-row');
     await expect(rows).toHaveCount(2);
     // The first row is the most active person (ana), the second one felipe; the e-mail is the row label
     await expect(section.getByText('ana@example.com')).toBeVisible();
-    await expect(rows.first()).toHaveText('6/7 · 21/30 dias · sequência 4 · último 2026-10-29');
-    await expect(rows.nth(1)).toHaveText('2/7 · 5/30 dias · sequência 0 · último 2026-10-27');
+    // The row as the panel writes it now: days in the week and the month, and the streak (or the last day when there is none)
+    await expect(rows.first()).toContainText('6/7 dias na semana · 21/30 no mês');
+    await expect(rows.first()).toContainText('4 dias seguidos');
+    await expect(rows.nth(1)).toContainText('2/7 dias na semana · 5/30 no mês');
+    await expect(rows.nth(1)).toContainText('Último: 2026-10-27');
   });
 
   test('INV-ADMIN-03: abrir o app logado grava a linha do dia (uma por pessoa e dia)', async ({ page }) => {
