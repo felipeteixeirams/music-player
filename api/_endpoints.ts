@@ -4,7 +4,7 @@ import { buildDeezerFeed, fetchAlbumPage, fetchDeezerPlaylistAsAlbum, fetchArtis
 import { fetchItunesAlbumPage } from './_itunes.js';
 import { findRadioStation } from './_radios.js';
 import { PodcastError, searchShows, showWithEpisodes } from './_podcasts.js';
-import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick } from './_radioBrowser.js';
+import { fetchLiveStations, findLiveStyle, isStationUuid, LIVE_STYLES, reportStationClick, searchLiveStations } from './_radioBrowser.js';
 
 /** What an endpoint answers, independent of the HTTP framework (Vercel handlers and the Express server share it). */
 export interface EndpointResult {
@@ -151,10 +151,10 @@ async function albumEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<En
  * a fresh batch of its tracks (never cached: every call is a new shuffle, which is what keeps the radio going).
  */
 export async function radioEndpoint(
-  query: { id?: unknown; live?: unknown; click?: unknown },
+  query: { id?: unknown; live?: unknown; click?: unknown; q?: unknown },
   fetchImpl: typeof fetch = fetch
 ): Promise<EndpointResult> {
-  if (query.live !== undefined) return liveRadioEndpoint(query.live, fetchImpl);
+  if (query.live !== undefined || query.q !== undefined) return liveRadioEndpoint(query.live, query, fetchImpl);
   if (query.click !== undefined) return radioClickEndpoint(query.click, fetchImpl);
 
   const hasId = Array.isArray(query.id) ? query.id.length > 0 : query.id !== undefined;
@@ -189,8 +189,20 @@ export async function radioEndpoint(
  * its most listened-to working stations. A style outside the list is refused, so the route cannot be made to
  * search the directory for anything else.
  */
-async function liveRadioEndpoint(live: unknown, fetchImpl: typeof fetch): Promise<EndpointResult> {
+async function liveRadioEndpoint(live: unknown, query: { q?: unknown }, fetchImpl: typeof fetch): Promise<EndpointResult> {
   const value = Array.isArray(live) ? live[0] : live;
+  const qVal = Array.isArray(query.q) ? query.q[0] : query.q;
+  if (qVal !== undefined && typeof qVal === 'string' && qVal.trim()) {
+    try {
+      const stations = await searchLiveStations(qVal.trim(), fetchImpl);
+      console.log(`[LiveRadioSearch] ✅ "${qVal.trim()}" → ${stations.length} emissora(s)`);
+      return { status: 200, body: { stations } };
+    } catch (err: any) {
+      console.warn(`[LiveRadioSearch] ⚠️ falhou: ${err?.message || err}`);
+      return failure(502, 'Não foi possível buscar as rádios agora');
+    }
+  }
+
   if (value === '' || value === true) {
     return {
       status: 200,

@@ -81,7 +81,10 @@ export const LIVE_RADIO_GROUPS: LiveRadioGroup[] = [
     name: 'Mato Grosso do Sul e Pantanal',
     stations: [
       { id: 'radio-corumba-fm', name: 'Rádio Corumbá FM', location: 'Corumbá, MS', streamUrl: 'https://stream.zeno.fm/exz39q72zceuv' },
-      { id: 'difusora-corumba', name: 'Difusora Pantanal', location: 'Corumbá, MS', streamUrl: 'https://stream.zeno.fm/1q52q72zceuv' }
+      { id: 'difusora-corumba', name: 'Difusora Pantanal', location: 'Corumbá, MS', streamUrl: 'https://stream.zeno.fm/1q52q72zceuv' },
+      { id: 'capital-95-fm', name: 'Capital 95 FM', location: 'Campo Grande, MS', streamUrl: 'https://stm2.conectastream.com.br:8322/stream' },
+      { id: 'cidade-97-fm', name: 'FM Cidade 97', location: 'Campo Grande, MS', streamUrl: 'https://stream.zeno.fm/2q52q72zceuv' },
+      { id: 'jota-fm', name: 'Jota FM', location: 'Dourados, MS', streamUrl: 'https://stream.zeno.fm/3q52q72zceuv' }
     ]
   }
 ];

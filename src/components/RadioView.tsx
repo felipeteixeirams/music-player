@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Search, X } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import type { LiveStation, RadioGenre, RadioStation } from '../types/music';
 import { LIVE_RADIO_GROUPS } from '../data/liveRadios';
 import { fetchLiveStations, fetchLiveStyles, fetchRadioGenres, reportLiveStationPlayed, type LiveStyleInfo } from '../utils/catalogClient';
 import { StationTile } from './StationTile';
+import { apiFetch } from '../utils/apiFetch';
 
 /** Stations by genre. Tapping one starts a radio: the queue renews itself, so the music does not stop. */
 export const RadioView: React.FC = () => {
@@ -22,6 +23,38 @@ export const RadioView: React.FC = () => {
   const [styleStations, setStyleStations] = useState<LiveStation[]>([]);
   const [styleState, setStyleState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<LiveStation[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const controller = new AbortController();
+    setSearchLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await apiFetch(`/api/radio?q=${encodeURIComponent(searchQuery.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!controller.signal.aborted) {
+            setSearchResults(data.stations ?? []);
+          }
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!controller.signal.aborted) setSearchLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,6 +118,58 @@ export const RadioView: React.FC = () => {
           <h2 id="live-heading" className="text-[22px] font-bold text-label tracking-tight">Ao vivo</h2>
           <p className="text-[13px] text-label-secondary mt-0.5">Você ouve o que está no ar agora, como no rádio.</p>
         </div>
+        {/* Global Radio Search (International & Local via radio-browser.info) */}
+        <div className="relative pt-1">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar rádio no mundo (ex: BBC, Jazz New York, Corumbá)..."
+            className="w-full h-11 px-4 pl-10 rounded-2xl bg-fill-tertiary border border-white/10 text-[14px] text-label placeholder-label-tertiary focus:outline-none focus:border-accent transition-colors"
+          />
+          <Search className="w-4 h-4 text-label-secondary absolute left-3.5 top-4.5" />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-4 w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-label-secondary hover:text-label"
+              aria-label="Limpar busca"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
+        {searchLoading && (
+          <div className="flex items-center gap-2 text-xs text-label-secondary py-1" role="status">
+            <Loader2 className="w-4 h-4 animate-spin text-accent" />
+            <span>Buscando rádios globais...</span>
+          </div>
+        )}
+
+        {searchResults.length > 0 && (
+          <div role="region" aria-label="Resultados da busca global" className="space-y-2 pt-1 pb-3 border-b border-white/10">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-accent mb-1.5">Resultados da busca global</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {searchResults.map((station) => {
+                const isCurrent = isLive && currentTrack?.id === `live-${station.id}`;
+                return (
+                  <StationTile
+                    key={station.id}
+                    name={station.name}
+                    seed={station.id}
+                    label={isCurrent ? (isPlaying ? 'No ar agora' : 'Pausada') : station.location}
+                    isCurrent={isCurrent}
+                    isPlaying={isPlaying}
+                    ariaLabel={`Ouvir ${station.name} ao vivo`}
+                    onClick={() => playLive(station)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Region filter pills */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 pt-1" role="group" aria-label="Filtrar rádios por região">
           {[

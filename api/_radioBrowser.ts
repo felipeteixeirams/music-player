@@ -129,3 +129,17 @@ export const isStationUuid = (value: unknown): value is string => typeof value =
 export async function reportStationClick(uuid: string, fetchImpl: FetchImpl = fetch): Promise<void> {
   await fromMirrors(`/json/url/${uuid}`, fetchImpl);
 }
+
+export async function searchLiveStations(queryTerm: string, fetchImpl: FetchImpl = fetch): Promise<LiveStationResult[]> {
+  const cleanTerm = clean(queryTerm, 50);
+  if (!cleanTerm) return [];
+  const params = new URLSearchParams({
+    name: cleanTerm,
+    hidebroken: 'true',
+    order: 'clickcount',
+    reverse: 'true',
+    limit: '20'
+  });
+  return toLiveStations(await fromMirrors(`/json/stations/search?${params}`, fetchImpl));
+}
+
