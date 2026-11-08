@@ -97,6 +97,8 @@ Leia [Contratos, mappers e testes](../specs/current/music-integration-contracts.
 - matriz de testes e critérios de aceite;
 - limitações da validação já executada.
 
+Leia [Auditoria de desempenho](../specs/current/performance-audit.spec.md) para o que pesa no app (JavaScript, capas, telas carregadas na abertura, re-renderizações), o que foi medido, o que não foi (o iPhone) e o plano por custo e ganho.
+
 Leia [Fontes de áudio, descobertas e decisões](../specs/current/audio-sources-decisions.spec.md) para saber de onde vem o áudio, por que o iOS o pausa em segundo plano, o que foi medido no aparelho, as opções avaliadas (extração de stream, Spotify, Apple Music, Capacitor, arquivos próprios, rádios) com a decisão de cada uma, e as frentes em aberto.
 
 Leia a [avaliação do Capacitor](../specs/current/capacitor-evaluation.spec.md) para saber o que um app nativo para iPhone resolve (o áudio nativo em segundo plano) e o que não está provado (o player do YouTube em segundo plano), com os requisitos, o custo e um protótipo com critério de parada.
