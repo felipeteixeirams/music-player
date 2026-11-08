@@ -29,11 +29,11 @@ Um branch existe para conduzir um único trabalho e deve ser mergeado e excluíd
 
 O gerenciador é o npm, e `package-lock.json` é o único lockfile. `npm ci` deve funcionar sem `--force` nem `--legacy-peer-deps`. **Exceção documentada (2026-11-02):** `native/capacitor/` é um protótipo isolado do Capacitor (casco nativo para testar o segundo plano no iPhone) com o próprio `package.json` e `package-lock.json`; não entra no `npm ci` da raiz, não é importado pelo app web e é excluído do `tsc` (`tsconfig.json`). Pode ser apagado inteiro se o protótipo for descartado. Ver o [README do casco](native/capacitor/README.md) e a [avaliação do Capacitor](docs/specs/current/capacitor-evaluation.spec.md). Antes de adicionar um pacote, confirme que algum código vai importá-lo; remova o que deixar de ser usado.
 
-Decisão de 2026-10-25: os pacotes abaixo vieram do template do Google AI Studio, nunca foram importados no projeto e foram removidos. Não os adicione de novo sem uma necessidade concreta e registrada aqui.
+Decisão de 2026-10-25: os pacotes abaixo vieram do template do Google AI Studio, nunca foram importados no projeto e foram removidos. Não os adicione de novo sem uma necessidade concreta e registrada aqui. Exceção registrada em 2026-11-08: `@google/genai` voltou com uso real (ver a linha dele na tabela).
 
 | Pacote | Por que não é necessário |
 | --- | --- |
-| `@google/genai` | O app não chama a API Gemini. Busca, feed e reprodução usam Deezer, iTunes e YouTube. `GEMINI_API_KEY` no `.env.example` e a capacidade em `metadata.json` são sobras do template. |
+| `@google/genai` | **Registrado em 2026-11-08, com uso:** as playlists inteligentes (`api/_smartPlaylist.ts`, rota `api/smart-playlist`, [especificação](docs/specs/current/smart-playlists.spec.md)) interpretam o pedido em linguagem natural com a API do Gemini, no servidor, usando `GEMINI_API_KEY`; sem a chave, um gerador de reserva responde. Fora dessa funcionalidade o app não chama a API Gemini: busca, feed e reprodução usam Deezer, iTunes e YouTube. Não use o pacote em outro lugar sem registrar aqui. |
 | `dotenv` | Nenhum código lê `.env`. Em produção as variáveis vêm da Vercel (`YOUTUBE_API_KEY`) e, no AI Studio, dos Secrets da plataforma. |
 | `motion` | Nenhuma animação usa a biblioteca; as transições são CSS/Tailwind. |
 | `autoprefixer` | O Tailwind v4 roda pelo plugin do Vite (`@tailwindcss/vite`) e não há `postcss.config`. |
