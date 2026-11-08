@@ -50,7 +50,6 @@ export interface EnvironmentInfo {
  */
 export function describeEnvironment({ version, standalone, userAgent, session }: EnvironmentInfo): string {
   const ios = /OS (\d+)[_.](\d+)/.exec(userAgent);
-  const system = ios ? `iOS ${ios[1]}.${ios[2]}` : /Android (\d+)/.exec(userAgent) ? `Android ${/Android (\d+)/.exec(userAgent)![1]}` : 'sistema não identificado';
   const browser = /EdgiOS|EdgA|Edg\//.test(userAgent)
     ? 'Edge'
     : /CriOS|Chrome\//.test(userAgent)
@@ -60,5 +59,9 @@ export function describeEnvironment({ version, standalone, userAgent, session }:
     : /Version\/[\d.]+.*Safari/.test(userAgent)
     ? 'Safari'
     : 'WebKit';
+  // Measured 2026-11-02: an iPhone on iOS 27.0.1 reported "iOS 18.7" from Safari and the installed app, and "iOS 27.0"
+  // from Edge. The number Safari (and the installed app) report is capped, so from 18 up it may be older than the real one.
+  const capped = ios && Number(ios[1]) >= 18 && (browser === 'Safari' || browser === 'WebKit') ? ' (o Safari limita o número; a versão real pode ser mais nova)' : '';
+  const system = ios ? `iOS ${ios[1]}.${ios[2]}${capped}` : /Android (\d+)/.exec(userAgent) ? `Android ${/Android (\d+)/.exec(userAgent)![1]}` : 'sistema não identificado';
   return `versão ${version} · ${standalone ? 'APP INSTALADO (PWA)' : 'NAVEGADOR'} · ${system} · ${browser}${session ? ` · sessão ${session}` : ''}`;
 }
