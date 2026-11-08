@@ -365,6 +365,8 @@ Só para o administrador: Ajustes > Administração > Laboratório de segundo pl
 
 **Escolha em "Como você vai sair do app" antes de iniciar** (troca de app ou tela bloqueada) e saia desse jeito: o relatório registra a escolha na linha `saída:`, porque trocar de app e bloquear a tela podem se comportar de forma diferente (o T04 foi com a tela bloqueada). Faça cada caso nos dois jeitos.
 
+**Casos J e K (de quem é a pausa do iframe):** o J toca um `<video>` nosso com um MP4 público (62 MB por padrão, baixado aos poucos: prefira o Wi-Fi) e o K o mesmo tipo de elemento só com áudio (a rádio). Faça com a tela bloqueada, no app instalado e no Edge, e compare com o D. Se o J **seguir tocando** e o D pausar, a pausa do YouTube não é regra do iOS para vídeo; se o J **pausar**, é.
+
 Como ler: no relatório, `áudio avançou X s` / `vídeo avançou Y s` perto do tempo fora quer dizer que tocou o tempo todo; 0.0 s, que o sistema pausou. A ordem das linhas mostra quem pausou primeiro (`áudio: evento pause` contra `vídeo: pausado`).
 
 ## Frentes em aberto (fora dos testes)

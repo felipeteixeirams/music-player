@@ -9,6 +9,7 @@ import { describeYouTubeError } from '../utils/youtubeErrors';
 import {
   DEFAULT_LAB_OPTIONS,
   DEFAULT_RADIO_URL,
+  DEFAULT_VIDEO_FILE_URL,
   DEFAULT_VIDEO_ID,
   LAB_CASES,
   LAB_EXITS,
@@ -39,7 +40,8 @@ const audioSession = (): AudioSessionLike | undefined => (navigator as unknown a
 interface Running {
   labCase: LabCase;
   startedAt: number;
-  audio: HTMLAudioElement | null;
+  /** The audio element of the case: an `<audio>`, or our own `<video>` in cases J and K. */
+  audio: HTMLMediaElement | null;
   iframe: HTMLIFrameElement | null;
   player: YouTubeApi | null;
   /** Blob address of the silent file, released when the case stops. */
@@ -57,6 +59,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   const { isPlaying, togglePlayPause } = useAudio();
   const [options, setOptions] = useState<LabOptions>(DEFAULT_LAB_OPTIONS);
   const [radioText, setRadioText] = useState(DEFAULT_RADIO_URL);
+  const [videoFileText, setVideoFileText] = useState(DEFAULT_VIDEO_FILE_URL);
   const [videoText, setVideoText] = useState(DEFAULT_VIDEO_ID);
   const [selected, setSelected] = useState<LabCase>(LAB_CASES[0]);
   const [lines, setLines] = useState<LabLine[]>([]);
@@ -116,6 +119,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     current.audio?.pause();
     current.audio?.removeAttribute('src');
     current.audio?.load();
+    current.audio?.remove();
     try {
       current.player?.stopVideo();
     } catch {
@@ -189,16 +193,26 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
   }, [running, log]);
 
   /** Creates the audio element of a case and starts it (inside a tap: the first tap of the case, or the button of case H). */
-  const attachAudio = (current: Running, kind: 'radio' | 'silent', radio: string | null) => {
-    const audio = new Audio();
+  const attachAudio = (current: Running, kind: 'radio' | 'silent' | 'video-file' | 'video-audio', source: string | null) => {
+    // Cases J and K use a `<video>` element of our own (inline, in the page); the others an `<audio>`
+    const audio: HTMLMediaElement = kind === 'video-file' || kind === 'video-audio' ? document.createElement('video') : new Audio();
     current.audio = audio;
     audio.preload = 'auto';
+    if (audio instanceof HTMLVideoElement) {
+      audio.playsInline = true;
+      audio.setAttribute('playsinline', '');
+      audio.width = 320;
+      audio.height = 180;
+      audio.style.borderRadius = '12px';
+      audio.style.maxWidth = '100%';
+      frameHost.current?.appendChild(audio);
+    }
     if (kind === 'silent') {
       current.silentUrl = generateSilentWavBlobUrl(SILENT_SECONDS);
       audio.src = current.silentUrl;
       audio.loop = true;
     } else {
-      audio.src = radio as string;
+      audio.src = source as string;
     }
     for (const name of ['playing', 'pause', 'waiting', 'stalled', 'ended', 'error', 'emptied', 'suspend'] as const) {
       audio.addEventListener(name, () => log(`áudio: evento ${name} (${audio.paused ? 'pausado' : 'tocando'}, ${audio.currentTime.toFixed(1)} s, readyState ${audio.readyState})`));
@@ -227,7 +241,9 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     setReported({ labCase, options: { ...options }, exitMode });
     const radio = parseStreamUrl(radioText);
     const video = parseVideoId(videoText);
-    if ((labCase.audio === 'radio' || labCase.audio === 'radio-later') && !radio) return setProblem('Endereço da rádio inválido.');
+    const videoFile = parseStreamUrl(videoFileText);
+    if ((labCase.audio === 'radio' || labCase.audio === 'radio-later' || labCase.audio === 'video-audio') && !radio) return setProblem('Endereço da rádio inválido.');
+    if (labCase.audio === 'video-file' && !videoFile) return setProblem('Endereço do MP4 inválido (use http ou https).');
     if (labCase.frame && !video) return setProblem('Vídeo inválido: cole o código de 11 caracteres ou o endereço do YouTube.');
     // The app's own player would be a second thing playing: stop it so the case is the only one
     if (isPlaying) togglePlayPause();
@@ -257,6 +273,8 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     }
 
     if (labCase.audio === 'radio' || labCase.audio === 'silent') attachAudio(current, labCase.audio, radio);
+    if (labCase.audio === 'video-file') attachAudio(current, 'video-file', videoFile);
+    if (labCase.audio === 'video-audio') attachAudio(current, 'video-audio', radio);
 
     if (labCase.frame && video) {
       const params = new URLSearchParams({ enablejsapi: '1', origin: window.location.origin, playsinline: '1', controls: '0', disablekb: '1', fs: '0', modestbranding: '1', rel: '0', autoplay: '1' });
@@ -317,7 +335,7 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     currentEnvironment(),
     reported.labCase,
     reported.options,
-    [`saída: ${LAB_EXITS.find((entry) => entry.id === reported.exitMode)?.report ?? 'não informada'}`, `rádio: ${radioText.trim()}`, `vídeo: ${videoText.trim()}`],
+    [`saída: ${LAB_EXITS.find((entry) => entry.id === reported.exitMode)?.report ?? 'não informada'}`, `rádio: ${radioText.trim()}`, `vídeo: ${videoText.trim()}`, `MP4: ${videoFileText.trim()}`],
     lines
   );
 
@@ -388,6 +406,10 @@ export const BackgroundLab: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             <label className="block text-[12px] text-label-secondary">
               Rádio (endereço do stream)
               <input value={radioText} onChange={(event) => setRadioText(event.target.value)} className="mt-1 w-full rounded-lg bg-fill-tertiary px-3 py-2 text-[14px] text-label" />
+            </label>
+            <label className="block text-[12px] text-label-secondary">
+              MP4 público com vídeo e áudio (caso J)
+              <input value={videoFileText} onChange={(event) => setVideoFileText(event.target.value)} className="mt-1 w-full rounded-lg bg-fill-tertiary px-3 py-2 text-[14px] text-label" />
             </label>
             <label className="block text-[12px] text-label-secondary">
               Vídeo do YouTube (código ou endereço)

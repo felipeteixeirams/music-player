@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   DEFAULT_LAB_OPTIONS,
   DEFAULT_RADIO_URL,
+  DEFAULT_VIDEO_FILE_URL,
   DEFAULT_VIDEO_ID,
   LAB_CASES,
   LAB_EXITS,
@@ -29,7 +30,9 @@ test('INV-PLAY-26: o laboratório isola um caso por vez: áudio nativo, áudio m
       ['D', null, 'hidden'],
       ['F', 'radio', 'hidden'],
       ['G', 'silent', 'hidden'],
-      ['H', 'radio-later', 'hidden']
+      ['H', 'radio-later', 'hidden'],
+      ['J', 'video-file', null],
+      ['K', 'video-audio', null]
     ]
   );
   assert.equal(new Set(LAB_CASES.map((entry) => entry.id)).size, LAB_CASES.length, 'ids únicos');
@@ -105,4 +108,11 @@ test('INV-PLAY-26: o relatório distingue sair trocando de app e bloqueando a te
   assert.deepEqual(LAB_EXITS.map((entry) => entry.id), ['home', 'lock']);
   assert.match(LAB_EXITS[0].report, /sem bloquear a tela/);
   assert.match(LAB_EXITS[1].report, /tela bloqueada/);
+});
+
+test('INV-PLAY-26: os casos J e K usam um <video> nosso (com e sem faixa de vídeo), e o MP4 padrão é um endereço https aceito pelo campo', () => {
+  assert.equal(findLabCase('J')?.audio, 'video-file');
+  assert.equal(findLabCase('K')?.audio, 'video-audio');
+  assert.equal(parseStreamUrl(DEFAULT_VIDEO_FILE_URL), DEFAULT_VIDEO_FILE_URL);
+  assert.ok(DEFAULT_VIDEO_FILE_URL.endsWith('.mp4'));
 });

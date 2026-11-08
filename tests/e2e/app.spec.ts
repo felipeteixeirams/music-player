@@ -666,6 +666,17 @@ test.describe('painel de administrador', () => {
     await expect(report).toContainText(/VOLTOU depois de \d+ s — áudio avançou/);
 
     await lab.getByRole('button', { name: 'Parar' }).click();
+
+    // Case J: our own <video> element (no YouTube); an address that does not load shows up as an event in the report
+    await lab.getByRole('button', { name: /^J · / }).click();
+    await lab.getByRole('button', { name: 'Trocar de app (tela inicial)' }).click();
+    await lab.getByRole('button', { name: 'Iniciar caso J' }).click();
+    await expect(report).toContainText('caso J iniciado no toque');
+    await expect(report).toContainText(/áudio: (play\(\) pedido|evento )/);
+    await expect(lab.locator('video')).toHaveCount(1);
+    await lab.getByRole('button', { name: 'Parar' }).click();
+    await expect(lab.locator('video')).toHaveCount(0);
+
     await page.getByRole('button', { name: 'Fechar laboratório' }).click();
     await expect(lab).toBeHidden();
   });
