@@ -73,13 +73,16 @@ export function installTraceLogging(): void {
   if (installed) return;
   installed = true;
 
-  // Suppress DEP0169 (url.parse deprecation) emitted by serverless platform wrappers so Vercel doesn't mark it as an error in logs
+  // Node writes each warning to stderr, and the platform files stderr as an error. Adding a listener does not stop that
+  // (checked on Node 22: the line still came out), so this takes over the printing: each warning is one warn line, with
+  // the first frames of its stack, which show the call that made it (the way to find where a deprecated call comes from).
   if (typeof process !== 'undefined' && typeof process.on === 'function') {
+    process.removeAllListeners('warning');
     process.on('warning', (warning) => {
-      if (warning.name === 'DeprecationWarning' && warning.message.includes('url.parse')) {
-        return;
-      }
-      console.warn(`[Node] ${warning.name}: ${warning.message}`);
+      const frames = (warning.stack ?? '').split('\n').slice(1, 4).map((line) => line.trim()).filter(Boolean);
+      const code = (warning as Error & { code?: string }).code ? ` ${(warning as Error & { code?: string }).code}` : '';
+      const where = frames.length > 0 ? ` @ ${frames.join(' | ')}` : '';
+      console.warn(`[Node] ${warning.name}${code}: ${warning.message.split('\n')[0]}${where}`);
     });
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Plus, Check, ChevronDown, ChevronUp, Disc3, Sparkles } from 'lucide-react';
 import type { HistoricCompilation } from '../data/historicCompilations';
 import type { Track } from '../types/music';
@@ -6,6 +6,7 @@ import { usePlaylists } from '../context/PlaylistsContext';
 import { useAudio } from '../context/AudioContext';
 import { prefetchResolved, formatTime } from '../utils/audioEngine';
 import { RemoteImage } from './RemoteImage';
+import { isPlaylistNameTaken } from '../utils/playlists';
 
 interface HistoricCompilationCardProps {
   compilation: HistoricCompilation;
@@ -16,10 +17,13 @@ export const HistoricCompilationCard: React.FC<HistoricCompilationCardProps> = (
   compilation,
   onPlay
 }) => {
-  const { createWithTracks } = usePlaylists();
+  const { createWithTracks, playlists } = usePlaylists();
   const { currentTrack, isPlaying } = useAudio();
   const [expanded, setExpanded] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  // The "saved" note goes away after 3 s; a timer left over from an unmounted card must not touch the state
+  const savedTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   useEffect(() => {
     // Aquece o cache de resolução dos primeiros vídeos da coletânea
@@ -34,13 +38,20 @@ export const HistoricCompilationCard: React.FC<HistoricCompilationCardProps> = (
     }
   };
 
+  const showSaved = () => {
+    setSavedSuccess(true);
+    window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
   const handleSaveToLibrary = () => {
     const playlistName = `${compilation.title} (${compilation.label})`;
-    const id = createWithTracks(playlistName, compilation.tracks);
-    if (id) {
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
+    // Saving the same compilation twice would make two playlists with one name: the second press only shows the note
+    if (isPlaylistNameTaken(playlists, playlistName)) {
+      showSaved();
+      return;
     }
+    if (createWithTracks(playlistName, compilation.tracks)) showSaved();
   };
 
   return (
