@@ -1,11 +1,12 @@
+import { COVER_HOST_SUFFIXES } from './coverHosts';
+
 /**
  * Covers normally load straight from the catalog's CDN. On a network that blocks that domain but not ours, they load
  * through `/api/media?kind=image` instead: the first covers that fail directly and load through the proxy switch the
  * whole device to the proxy (remembered), so nothing needs configuring.
  */
 
-/** The same list as `IMAGE_HOST_SUFFIXES` in `api/_mediaProxy.ts`; a test keeps them equal. */
-export const PROXIABLE_HOST_SUFFIXES = ['.dzcdn.net', '.mzstatic.com'];
+export const PROXIABLE_HOST_SUFFIXES: readonly string[] = COVER_HOST_SUFFIXES;
 
 export const IMAGES_BLOCKED_KEY = 'aurastream_images_via_proxy';
 /** Covers that failed directly and loaded through the proxy before the whole device is switched to it. */

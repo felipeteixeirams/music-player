@@ -36,6 +36,18 @@ interface ExpandedPlayerProps {
   onNavigateToAlbum?: (albumTitle: string, artistName: string, coverUrl?: string) => void;
 }
 
+/** One line of the "Mais opções" menu. */
+const MenuItem: React.FC<{ icon: React.ReactNode; label: string; onSelect: () => void }> = ({ icon, label, onSelect }) => (
+  <button
+    role="menuitem"
+    onClick={onSelect}
+    className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label active:bg-fill-tertiary"
+  >
+    {icon}
+    {label}
+  </button>
+);
+
 /**
  * The slider and the two times: the only part of the player that follows the clock (about 4 times a second). It
  * subscribes to the clock itself, so the rest of the player does not render again on every tick.
@@ -278,30 +290,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
                   <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} aria-hidden="true" />
                   <div role="menu" aria-label="Mais opções" className="absolute right-0 top-12 z-30 w-60 overflow-hidden rounded-sheet material-thick py-1 shadow-2xl animate-in fade-in">
                     {versionCount > 1 && (
-                      <button
-                        role="menuitem"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          switchVersion();
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label active:bg-fill-tertiary"
-                      >
-                        <Replace className="h-4 w-4 text-label-secondary" aria-hidden="true" />
-                        Tocar outra versão
-                      </button>
+                      <MenuItem icon={<Replace className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="Tocar outra versão" onSelect={() => { setMenuOpen(false); switchVersion(); }} />
                     )}
                     {versionCount > 0 && (
-                      <button
-                        role="menuitem"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          markWrongVersion();
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label active:bg-fill-tertiary"
-                      >
-                        <SearchX className="h-4 w-4 text-label-secondary" aria-hidden="true" />
-                        Não é esta música
-                      </button>
+                      <MenuItem icon={<SearchX className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="Não é esta música" onSelect={() => { setMenuOpen(false); markWrongVersion(); }} />
                     )}
                   </div>
                 </>

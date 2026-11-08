@@ -14,16 +14,16 @@ export const RemoteImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttri
   // A new address starts over: the proxy is for the one that failed
   useEffect(() => setRetriedViaProxy(false), [src]);
   const proxied = (viaProxyDevice || retriedViaProxy) && isProxiableImageUrl(src);
-  const addressFor = (value: string) => (proxied ? proxiedImageUrl(value) : coverSrc(value));
+  const addressFor = (value: string | undefined) => (proxied && value ? proxiedImageUrl(value) : coverSrc(value));
   const sized = rest.sizes ? DEEZER_COVER_SIZES.map((width) => ({ width, url: deezerCoverAtSize(src, width) })) : [];
-  const srcSet = sized.length > 0 && sized.every((copy) => copy.url) ? sized.map((copy) => `${addressFor(copy.url as string)} ${copy.width}w`).join(', ') : undefined;
+  const srcSet = sized.length > 0 && sized.every((copy) => copy.url) ? sized.map((copy) => `${addressFor(copy.url)} ${copy.width}w`).join(', ') : undefined;
 
   return (
     <img
       ref={ref}
       {...rest}
       referrerPolicy="no-referrer"
-      src={proxied ? proxiedImageUrl(src as string) : coverSrc(src)}
+      src={addressFor(src)}
       srcSet={srcSet}
       onError={(event) => {
         if (!proxied && isProxiableImageUrl(src)) {
