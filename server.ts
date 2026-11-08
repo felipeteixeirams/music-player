@@ -9,6 +9,7 @@ import { reportStartupOnce } from './api/_config';
 import { authorizeReport, authorizeRequest, POLICIES, type GuardPolicy } from './api/_guard';
 import { adminEndpoint } from './api/_adminEndpoint';
 import { reportEndpoint } from './api/_reportEndpoint';
+import { smartPlaylistEndpoint } from './api/_smartPlaylist';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +86,13 @@ app.get('/api/radio', async (req, res) => {
 // One page of search results from the catalog
 app.get('/api/search', async (req, res) => {
   const { status, body } = await searchEndpoint(req.query);
+  return res.status(status).json(body);
+});
+
+// Endpoint: POST /api/smart-playlist
+// Generates an AI-curated playlist from natural language, validated against catalog
+app.post('/api/smart-playlist', async (req, res) => {
+  const { status, body } = await smartPlaylistEndpoint(req.body);
   return res.status(status).json(body);
 });
 

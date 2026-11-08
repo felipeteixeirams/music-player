@@ -233,7 +233,8 @@ const DOCUMENTED_VARS = [
   'YOUTUBE_API_KEY',
   'DAILY_NEW_TRACKS',
   'ADMIN_EMAILS',
-  'CONFIG_REPORT'
+  'CONFIG_REPORT',
+  'GEMINI_API_KEY'
 ];
 
 function sources(dir: string): string[] {

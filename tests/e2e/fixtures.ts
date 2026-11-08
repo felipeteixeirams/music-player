@@ -283,6 +283,32 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
       if (options.quotaExceeded) return json(route, { videoIds: [], quota: { used: 30, limit: 30, exceeded: true } });
       return json(route, { videoIds: options.videoIds ?? [] });
     }
+    if (url.pathname === '/api/smart-playlist') {
+      const tracks = [
+        track(801, 'Bohemian Rhapsody', 'Queen', 'A Night at the Opera'),
+        track(802, 'Hotel California', 'Eagles', 'Hotel California'),
+        track(803, 'Stairway to Heaven', 'Led Zeppelin', 'Led Zeppelin IV')
+      ];
+      return reply(route, {
+        title: 'Seleção Rock Clássico',
+        description: 'Playlist personalizada com os maiores hinos do rock',
+        prompt: 'Rock Clássico',
+        tracks,
+        validation: {
+          passed: true,
+          criteriaMet: [
+            'Faixas musicais individuais verificadas no catálogo',
+            'Exclusão estrita de podcasts e listas prontas',
+            'Máximo de 2 faixas por artista respeitado',
+            'Quantidade atendida: 3 faixas'
+          ],
+          confidenceScore: 98,
+          varietyScore: 100,
+          deliveredCount: 3,
+          excludedTypes: ['podcast', 'curated_playlist', 'audiobook']
+        }
+      });
+    }
     return route.continue();
   });
 

@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano de implementação para a reformulação da tela de Podcasts no menu Buscar com seções ricas ('Não perca estes episódios', 'Novidades de podcast' e 'Categorias' com cards interativos), paginação e carregamento sob demanda.",
-  "updatedAt":  "2026-10-31T16:47:59.043909666Z",
+  "summary":  "Atualização do plano de implementação das Playlists Inteligentes incorporando as regras obrigatórias de exclusão estrita de podcasts e de listas prontas, garantindo faixas musicais individuais existentes e verificadas nas integrações de catálogo do app (Deezer e iTunes).",
+  "updatedAt":  "2026-11-07T23:10:24.060976003Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

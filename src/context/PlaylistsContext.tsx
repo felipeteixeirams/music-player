@@ -20,6 +20,8 @@ interface PlaylistsContextType {
   playlists: Playlist[];
   /** Creates a playlist (with `firstTrack` in it, if given) and returns its id; null at the limit. */
   createNew: (name: string, firstTrack?: Track) => string | null;
+  /** Creates a playlist populated with an array of tracks (e.g. smart AI playlist). */
+  createWithTracks: (name: string, tracks: Track[]) => string | null;
   rename: (id: string, name: string) => void;
   remove: (id: string) => void;
   /** Adds the track to the playlist, or takes it out when it is already there. */
@@ -64,6 +66,20 @@ export const PlaylistsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [playlists.length]
   );
 
+  const createWithTracks = useCallback(
+    (name: string, tracks: Track[]): string | null => {
+      if (playlists.length >= MAX_PLAYLISTS) return null;
+      const id = newId();
+      setPlaylists((current) => {
+        const next = createPlaylist(current, name, id, Date.now());
+        if (!next) return current;
+        return next.map((p) => (p.id === id ? { ...p, tracks } : p));
+      });
+      return id;
+    },
+    [playlists.length]
+  );
+
   const rename = useCallback((id: string, name: string) => setPlaylists((c) => renamePlaylist(c, id, name)), []);
   const remove = useCallback((id: string) => setPlaylists((c) => deletePlaylist(c, id)), []);
   const removeTrack = useCallback((id: string, trackId: string) => setPlaylists((c) => removeTrackFromPlaylist(c, id, trackId)), []);
@@ -78,8 +94,8 @@ export const PlaylistsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const closeAddToPlaylist = useCallback(() => setSheetTrack(null), []);
 
   const value = useMemo(
-    () => ({ playlists, createNew, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist }),
-    [playlists, createNew, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist]
+    () => ({ playlists, createNew, createWithTracks, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist }),
+    [playlists, createNew, createWithTracks, rename, remove, toggleTrack, removeTrack, openAddToPlaylist, sheetTrack, closeAddToPlaylist]
   );
 
   return <PlaylistsContext.Provider value={value}>{children}</PlaylistsContext.Provider>;

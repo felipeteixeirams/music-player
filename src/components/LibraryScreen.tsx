@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Podcast, Trash2 } from 'lucide-react';
+import { ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Podcast, Sparkles, Trash2 } from 'lucide-react';
 import type { Track } from '../types/music';
 import { groupByAlbum, groupByArtist, tracksOf, type LibraryGroup, type LibraryView } from '../utils/library';
 import { TrackList } from './TrackList';
@@ -9,6 +9,7 @@ import { RemoteImage } from './RemoteImage';
 import { usePodcastFollows } from '../hooks/usePodcastFollows';
 import { ShowRow } from './PodcastsHome';
 import type { PodcastShowSummary } from '../types/music';
+import { SmartPlaylistSheet } from './SmartPlaylistSheet';
 
 interface LibraryScreenProps {
   view: LibraryView | null;
@@ -64,9 +65,10 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; placeholder?: Reac
 
 /** The Library tab: a menu of sections, as in Apple Music, and the screen of each one. */
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, recent, onClearHistory, onPlay, onOpenShow }) => {
-  const { playlists, createNew, rename, remove, removeTrack } = usePlaylists();
+  const { playlists, createNew, createWithTracks, rename, remove, removeTrack } = usePlaylists();
   const follows = usePodcastFollows();
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'clear' | null>(null);
+  const [showSmart, setShowSmart] = useState(false);
 
   if (view === null) {
     return (
@@ -92,6 +94,19 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
             <Plus className="w-6 h-6" />
           </span>
           <span className="text-[17px] text-accent">Nova playlist</span>
+        </button>
+
+        <button
+          onClick={() => setShowSmart(true)}
+          className="relative w-full min-h-[52px] flex items-center gap-3 py-1.5 text-left active:bg-fill-tertiary transition-colors after:absolute after:bottom-[0.5px] after:left-[3.75rem] after:right-0 after:h-[0.5px] after:bg-separator"
+        >
+          <span className="w-12 h-12 shrink-0 rounded-cover bg-accent/15 text-accent flex items-center justify-center">
+            <Sparkles className="w-6 h-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <span className="text-[17px] text-accent font-medium block">Playlist Inteligente</span>
+            <span className="text-[12px] text-label-secondary block">Encomenda em linguagem natural com IA</span>
+          </div>
         </button>
 
         {playlists.map((playlist) => (
@@ -124,6 +139,15 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
             }}
           />
         )}
+
+        <SmartPlaylistSheet
+          isOpen={showSmart}
+          onClose={() => setShowSmart(false)}
+          onSave={(name, newTracks) => {
+            const id = createWithTracks(name, newTracks);
+            if (id) onNavigate({ kind: 'playlist', id });
+          }}
+        />
       </div>
     );
   }

@@ -44,7 +44,7 @@ O player do YouTube é `src/utils/youtubeEngine.ts` (API de iframe do próprio Y
 
 ## Funções da Vercel
 
-Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 9: `admin`, `category`, `feed`, `health`, `media`, `radio`, `report`, `resolve` e `search`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
+Todo arquivo `.ts` em `api/` cujo nome não começa com `_` vira uma função serverless, e o plano Hobby aceita no máximo 12 por deploy; passar disso faz o deploy falhar. Por isso `api/` guarda só endpoints (hoje 10: `admin`, `category`, `feed`, `health`, `media`, `radio`, `report`, `resolve`, `search` e `smart-playlist`), helpers levam o prefixo `_` e os testes ficam em `tests/` (os de `api/` em `tests/api/`). `tests/vercel-functions.test.ts` falha se um teste entrar em `api/` ou se o total passar de 12. Antes de criar um endpoint novo, avalie se ele cabe em uma rota existente.
 
 ## Interface em PWA no iPhone
 
