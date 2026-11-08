@@ -33,6 +33,8 @@ Descreve como o app separa o contexto de cada pessoa (login, favoritos, playlist
 
 ## Verificação da configuração (pipeline e inicialização)
 
+- **INV-CONFIG-01:** a chave do Gemini é verificada pela presença e pelo conteúdo, nunca pelo uso: ausente, vazia ou com o valor de exemplo (`MY_…`) dá aviso `gemini-key` (o gerador de reserva responde); uma chave qualquer dá `ok`. Não é erro, e a chave não é testada contra a API do Gemini. Origem: a funcionalidade de playlists inteligentes passou a depender da variável (2026-11-08).
+
 Tudo que o app precisa do ambiente é verificado em quatro momentos, pelo mesmo código (`api/_config.ts`):
 
 1. **Ao iniciar** (a primeira chamada de cada instância na Vercel, ou o `server.ts` subindo): linhas `[Config] ✅|⚠️|❌ <id>: <mensagem>` no log, só em produção (ou com `CONFIG_REPORT=1`). As mensagens dizem o que falta pelo **nome** da variável, nunca pelo valor. Depois do resumo das variáveis vem o dos serviços, quando o Supabase responde, **exceto na Vercel**: lá a partida não consulta o Supabase (a consulta em segundo plano era congelada entre pedidos e virava um aviso falso "Sem resposta do Supabase" em partidas a frio, com tudo funcionando) e o log diz que os serviços são conferidos por `/api/health?deep=1`, que o pós-deploy chama.
@@ -51,6 +53,7 @@ Tudo que o app precisa do ambiente é verificado em quatro momentos, pelo mesmo 
 | `service-key-public` | erro | A chave de serviço também está numa variável que vai ao navegador (`VITE_*`/`DATABASE_VITE_*`): remova e gere uma nova no Supabase. |
 | `youtube-key` | aviso | Falta `YOUTUBE_API_KEY`: a busca de vídeo usa a busca web não oficial. |
 | `daily-limit` | aviso | `DAILY_NEW_TRACKS` não é um inteiro maior que 0; vale o padrão (30). |
+| `gemini-key` | aviso | Falta `GEMINI_API_KEY` (ou está vazia, ou com o valor de exemplo `MY_…` do `.env.example`): as playlists inteligentes usam o gerador de reserva, menos preciso. Não é erro: a funcionalidade continua. A chave não é testada contra o Gemini (isso gastaria uso a cada verificação). |
 | `auth-settings` | erro/aviso | O Supabase recusou a chave pública (de outro projeto?) ou não respondeu. |
 | `signup-open` | erro | O cadastro aberto está ligado: desligue em Authentication > Sign In / Providers. |
 | `email-login` | erro | O login por e-mail está desligado no Supabase. |

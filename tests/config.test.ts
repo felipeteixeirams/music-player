@@ -26,7 +26,8 @@ const GOOD = {
   DATABASE_VITE_SUPABASE_URL: URL_OK,
   DATABASE_VITE_SUPABASE_ANON_KEY: jwt('anon'),
   DATABASE_SUPABASE_SERVICE_ROLE_KEY: jwt('service_role'),
-  YOUTUBE_API_KEY: 'yt'
+  YOUTUBE_API_KEY: 'yt',
+  GEMINI_API_KEY: 'AIzaSyEXEMPLO0123456789abcdef'
 };
 const level = (env: Record<string, string | undefined>, id: string) => checkStaticConfig(env).find((f) => f.id === id)?.level;
 
@@ -280,4 +281,11 @@ test('migração de podcasts ausente é só um aviso (o app funciona sem ela); p
 
   const present = await checkDeepConfig(GOOD, services({ settings: { disable_signup: true, external: { email: true } }, rest: { paths: PATHS } }).fetchImpl);
   assert.equal(present.find((f) => f.id === 'migrations-podcasts')?.level, 'ok');
+});
+
+test('INV-CONFIG-01: a chave do Gemini é verificada: ausente ou vazia, ou com o valor de exemplo, é aviso; uma chave é ok (não é erro: há o gerador de reserva)', () => {
+  assert.equal(level({}, 'gemini-key'), 'warn');
+  assert.equal(level({ GEMINI_API_KEY: '   ' }, 'gemini-key'), 'warn');
+  assert.equal(level({ GEMINI_API_KEY: 'MY_GEMINI_API_KEY' }, 'gemini-key'), 'warn');
+  assert.equal(level({ GEMINI_API_KEY: 'AIzaSyEXEMPLO0123456789abcdef' }, 'gemini-key'), 'ok');
 });
