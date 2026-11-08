@@ -30,6 +30,8 @@ Decisões do usuário, aplicadas nesta versão:
 | 5 | Limite de 2 faixas por artista só em pedidos gerais; pedido sobre um artista não tem limite (INV-SMART-03). |
 | 6 | Cartão "Criar playlist com IA" em "Escolhidos para você" e botão "Criar com IA" na Biblioteca, com a mesma folha (INV-SMART-09). |
 
+Visual: os cartões de entrada (Início e Biblioteca) têm um fundo em aurora que se move devagar, com um brilho suave no ícone de faísca; com "reduzir movimento" ativado no aparelho, ficam parados (CSS em `src/index.css`).
+
 Mudanças de tela: a entrada tem o campo de texto, três exemplos e um botão; o carregamento é uma linha só; o resultado tem um botão principal ("Salvar na Biblioteca") e o de adicionar 5. As três regras da versão anterior saíram da tela. Ao salvar, a playlist abre na Biblioteca.
 
 ## O que existe hoje (e o que isso impõe)

@@ -48,11 +48,10 @@ export const PersonalCards: React.FC<{ mixes: PersonalMix[]; onOpen: (mix: Perso
           onClick={openSmartPlaylist}
           data-testid="home-create-ai"
           aria-label="Criar playlist com IA: descreva o que quer ouvir"
-          className="relative aspect-[3/4] w-[72vw] max-w-[272px] shrink-0 snap-start overflow-hidden rounded-[20px] text-left text-white shadow-xl shadow-black/25 transition-transform active:scale-[0.98]"
-          style={{ background: 'linear-gradient(160deg, #6d5cff 0%, #2a2452 100%)' }}
+          className="ai-aurora relative aspect-[3/4] w-[72vw] max-w-[272px] shrink-0 snap-start overflow-hidden rounded-[20px] text-left text-white shadow-xl shadow-black/25 transition-transform active:scale-[0.98]"
         >
           <span className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
-            <Sparkles className="h-6 w-6" aria-hidden="true" />
+            <Sparkles className="ai-spark h-6 w-6" aria-hidden="true" />
           </span>
           <span className="absolute inset-x-4 bottom-4 block">
             <span className="block text-[15px] text-white/70">Playlist com IA</span>

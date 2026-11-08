@@ -97,11 +97,11 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
         <button
           type="button"
           onClick={openSmartPlaylist}
-          className="group relative my-2 w-full overflow-hidden rounded-[20px] bg-gradient-to-br from-accent to-accent/60 p-4 text-left text-white shadow-lg shadow-accent/20 transition-transform active:scale-[0.98]"
+          className="ai-aurora group relative my-2 w-full overflow-hidden rounded-[20px] p-4 text-left text-white shadow-lg shadow-accent/20 transition-transform active:scale-[0.98]"
         >
           <span className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20">
-              <Sparkles className="h-6 w-6" aria-hidden="true" />
+              <Sparkles className="ai-spark h-6 w-6" aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[17px] font-semibold">Criar com IA</span>
