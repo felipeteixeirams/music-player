@@ -5,18 +5,40 @@ const CACHE_NAME = 'aurastream-v1';
 const COVER_CACHE_NAME = 'aurastream-covers-v1';
 const COVER_CACHE_LIMIT = 400;
 const SHELL_CACHE_LIMIT = 120;
-const KEPT_CACHES = [CACHE_NAME, COVER_CACHE_NAME];
+const KEPT_CACHES = [CACHE_NAME, COVER_CACHE_NAME, 'aurastream-order-v1'];
 
-async function trimCache(cache, limit) {
-  const keys = await cache.keys();
-  await Promise.all(keys.slice(0, Math.max(0, keys.length - limit)).map((key) => cache.delete(key)));
+// The order each capped cache was written in. The Cache API lists entries in no reliable order, so the order is kept
+// here (one list per cache, in its own cache): the oldest entries are the ones that go.
+const ORDER_CACHE_NAME = 'aurastream-order-v1';
+
+async function readOrder(cacheName, cache) {
+  const order = await caches.open(ORDER_CACHE_NAME);
+  const saved = await order.match(`/__order__/${cacheName}`);
+  if (saved) return saved.json();
+  // Written before the order was kept: the entries already there count as the oldest
+  return (await cache.keys()).map((request) => request.url);
 }
 
-// Stores an answer and keeps the cache within its limit
-async function putAndTrim(cacheName, request, response, limit) {
-  const cache = await caches.open(cacheName);
-  await cache.put(request, response);
-  await trimCache(cache, limit);
+async function writeOrder(cacheName, list) {
+  const order = await caches.open(ORDER_CACHE_NAME);
+  await order.put(`/__order__/${cacheName}`, new Response(JSON.stringify(list)));
+}
+
+// Stores an answer and keeps the cache within its limit. One write at a time: when several covers arrive together, a
+// trim that ran between the others' writes would count too few entries and leave the cache over its limit.
+let writes = Promise.resolve();
+function putAndTrim(cacheName, request, response, limit) {
+  const write = writes.then(async () => {
+    const cache = await caches.open(cacheName);
+    const order = (await readOrder(cacheName, cache)).filter((url) => url !== request.url);
+    order.push(request.url);
+    await cache.put(request, response);
+    const oldest = order.splice(0, Math.max(0, order.length - limit));
+    await Promise.all(oldest.map((url) => cache.delete(url)));
+    await writeOrder(cacheName, order);
+  });
+  writes = write.catch(() => {});
+  return write;
 }
 const STATIC_ASSETS = [
   '/',
@@ -73,7 +95,8 @@ self.addEventListener('fetch', (event) => {
         try {
           const response = await fetch(event.request);
           if (response && response.status === 200) {
-            putAndTrim(COVER_CACHE_NAME, event.request, response.clone(), COVER_CACHE_LIMIT).catch(() => {});
+            // waitUntil keeps the write going after the answer is sent, so the answer is not delayed
+            event.waitUntil(putAndTrim(COVER_CACHE_NAME, event.request, response.clone(), COVER_CACHE_LIMIT).catch(() => {}));
           }
           return response;
         } catch (err) {
@@ -90,7 +113,7 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         if (response && response.status === 200 && event.request.method === 'GET') {
           const clone = response.clone();
-          putAndTrim(CACHE_NAME, event.request, clone, SHELL_CACHE_LIMIT).catch(() => {});
+          event.waitUntil(putAndTrim(CACHE_NAME, event.request, clone, SHELL_CACHE_LIMIT).catch(() => {}));
         }
         return response;
       })
