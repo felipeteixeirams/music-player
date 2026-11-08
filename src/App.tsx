@@ -31,6 +31,7 @@ import { useScrollChrome } from './hooks/useScrollChrome';
 import { usePlayHistory } from './hooks/usePlayHistory';
 import type { QueueSource } from './utils/queueSource';
 import { youtubeEngine } from './utils/youtubeEngine';
+import { startStallWatch } from './utils/stallWatch';
 import { CATEGORIES, getCategoryById } from './data/musicCatalog';
 import { Globe, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import { FeedResponse, Track } from './types/music';
@@ -118,6 +119,7 @@ const MusicAppContent: React.FC = () => {
   // device showed a tap one second after launch finding the player not yet made: the script and the frame take about a
   // second to be ready)
   useEffect(() => {
+    startStallWatch();
     youtubeEngine.preload();
     youtubeEngine.prime('abertura');
   }, []);

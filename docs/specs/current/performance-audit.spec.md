@@ -91,9 +91,25 @@ Também sem custo para o uso, e a confirmar: `<link rel="preconnect" href="https
 
 ## Medição no aparelho (passo 4)
 
-Antes de implementar 2 e 3, medir no iPhone com o próprio Diagnóstico: registrar tarefas longas (`PerformanceObserver` de `longtask`) e o tempo até a Início aparecer, e mostrar essas linhas no relatório. Assim o aparelho confirma a diferença sem depender de ferramenta de desenvolvedor. Proposta de linha: `tarefas longas: N (total X ms, maior Y ms) desde a abertura`.
+Antes de implementar 2 e 3, medir no iPhone com o próprio Diagnóstico: mostrar no relatório as travadas do primeiro minuto (implementado como quadros acima de 50 ms, porque o Safari não expõe `longtask`; ver a seção de implementação). O tempo até a Início aparecer ainda não é medido. Assim o aparelho confirma a diferença sem depender de ferramenta de desenvolvedor.
+
+## Implementação (2026-11-08, branch `docs/auditoria-desempenho`)
+
+Aprovado pelo usuário com as condições abaixo. Feito nesta ordem; medições de tamanho são do `npm run build`.
+
+- **A (cache dos assets):** `vercel.json` põe `/assets/*` com `max-age=31536000, immutable`; `/`, `index.html`, `sw.js` e `version.json` com `no-cache`. Controle de acúmulo: o service worker separou as capas (`aurastream-covers-v1`, até 400 entradas) da casca (`aurastream-v1`, até 120), e as duas descartam as mais antigas. Antes, a casca guardava toda resposta GET sem limite, inclusive cada build de JavaScript.
+- **B (blocos de biblioteca):** `manualChunks` em `vite.config.ts` separa React (210,9 kB, 65,9 kB comprimido), Supabase (99,7 kB, 23,1 kB) e ícones (22,8 kB, 8,4 kB). O bloco da aplicação passou a 275,4 kB (76,8 kB comprimido). Um deploy que só muda o código da aplicação faz o visitante baixar esse bloco; os outros, com cache longo, não.
+- **1 (capas por tamanho):** `RemoteImage` aceita `sizes` e, para capa da Deezer, monta `srcset` com 56, 120, 250 e 500 px (`deezerCoverAtSize`). Aplicado às linhas de faixa (`TrackList`, 56 px) e à fila (`QueueList`, 48 px). Não aplicado ainda aos carrosséis (`TrackCarousel`): a largura de cada cartão precisa ser medida antes.
+- **3 (ExpandedPlayer):** a parte que acompanha o relógio saiu para componentes próprios (`PlaybackProgress` e `SyncedLyrics`). O componente principal não assina mais o relógio, então não renderiza 4 vezes por segundo com a tela fechada, e a letra e a barra continuam iguais. Desvio do plano original: um invólucro que desmontasse o player fechado mudaria o comportamento (a letra passaria a carregar só ao abrir, e a aba escolhida se perderia), por isso a divisão foi por dentro.
+- **5 (express):** movido para `devDependencies` (só `server.ts` o usa); `package-lock.json` sincronizado.
+- **6 (medição):** o `PerformanceObserver` de `longtask` **não serve no iPhone**: o Safari não expõe essa medida (💭 a confirmar no aparelho). Por isso a medida é de quadros atrasados (`src/utils/stallWatch.ts`): nos primeiros 60 s com a página visível, conta quadros acima de 50 ms e o maior. Aparece no Diagnóstico ("travadas … no 1º minuto"). Não é um contador permanente: custa nada depois de 1 minuto.
+- **7 (orçamento):** `scripts/check-bundle.mjs` reprova o JavaScript comprimido acima de 190 kB (medido hoje: 169 kB). Subir o limite é decisão na mesma mudança.
+
+Invariantes: `INV-PERF-01` a `04` em [music-integrations](../../masters/music-integrations.md), testados em `tests/performanceAudit.test.ts`.
+
+**Fora, como combinado:** item 2 (telas sob demanda) só depois de medir no aparelho; item 4 (troca do `auth-js`) descartado como troca. Sobre o item 2, qualquer carregamento futuro sob demanda precisa acontecer sem texto de espera, sem aviso de atualização na tela e com pré-carregamento em tempo ocioso (condição do usuário, 2026-11-08).
 
 ## Decisões para o usuário
 
-1. Aprova a ordem acima (A e B primeiro: só configuração)?
-2. Confirma que as telas sob demanda (item 2) e a troca do `auth-js` (item 4) ficam de fora até a medição no aparelho pedir?
+1. ~~Aprova a ordem acima~~ **Aprovado** (2026-11-08), com as condições de cache (controle de acúmulo) e de experiência (nada de aviso de atualização ou carregamento).
+2. ~~Telas sob demanda e troca do `auth-js` ficam de fora~~ **Confirmado**.

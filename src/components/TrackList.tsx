@@ -107,6 +107,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                     alt=""
                     referrerPolicy="no-referrer"
                     className="absolute inset-0 w-full h-full object-cover"
+                    sizes="56px"
                     loading="lazy"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = 'none';

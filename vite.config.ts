@@ -30,6 +30,21 @@ export default defineConfig(({command}) => {
         '@': path.resolve(import.meta.dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Libraries change rarely; the app's own code changes on almost every deploy. Splitting them lets a deploy
+          // invalidate only the app's file, so a returning visitor downloads that one again (see performance-audit, item B).
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'vendor-react';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('lucide-react')) return 'vendor-icons';
+            return undefined;
+          },
+        },
+      },
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.

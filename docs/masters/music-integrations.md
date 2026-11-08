@@ -192,6 +192,15 @@ Cada invariante tem um id e pelo menos um teste que o cita pelo id (`tests/docs.
 - **INV-SMART-09:** o cartão "Criar playlist com IA" em "Escolhidos para você" e o botão "Criar com IA" na Biblioteca abrem a mesma folha, montada no próprio pedido.
 - **INV-SMART-10:** o padrão é de 10 faixas; a folha não oferece outra quantidade (a ampliação adiciona 5).
 
+## Desempenho: o que o app baixa e como as capas carregam
+
+Diagnóstico, medições e o plano em [Auditoria de desempenho](../specs/current/performance-audit.spec.md). Invariantes que não podem quebrar:
+
+- **INV-PERF-01:** as capas da Deezer pedem o menor tamanho que cobre a tela (56, 120, 250 ou 500 px, via `srcset` em `RemoteImage` com `sizes`); endereços que não são da Deezer ficam como vieram (`deezerCoverAtSize`).
+- **INV-PERF-02:** a medição de travadas (`stallWatch`) só conta os quadros do primeiro minuto com a página visível, e custa nada depois disso.
+- **INV-PERF-03:** o JavaScript do build comprimido cabe no orçamento de `scripts/check-bundle.mjs`; passar dele é decisão consciente (subir o número na mesma mudança).
+- **INV-PERF-04:** `/assets/*` (nomes com hash) tem cache de um ano e imutável; a casca, `sw.js` e `version.json` pedem revalidação. As caches do service worker têm limite (capas e casca separadas), para o aparelho não acumular lixo.
+
 ## Atualização deste master
 
 Atualize este master quando mudar a arquitetura transversal do domínio, a propriedade de algum componente, a política de fallback ou o estado geral de conclusão. Requisitos granulares e cenários de teste pertencem ao satélite. Ao criar um novo satélite, linke-o neste master e também atualize a tabela de [documentos ativos no root](../README.md).

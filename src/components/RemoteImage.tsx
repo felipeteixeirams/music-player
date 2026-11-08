@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
-import { coverSrc, imagesViaProxy, isProxiableImageUrl, proxiedImageUrl, recordRescuedImage, subscribeImagesViaProxy } from '../utils/imageProxy';
+import { coverSrc, deezerCoverAtSize, DEEZER_COVER_SIZES, imagesViaProxy, isProxiableImageUrl, proxiedImageUrl, recordRescuedImage, subscribeImagesViaProxy } from '../utils/imageProxy';
 
 /**
  * An `<img>` of a catalog cover. It loads from the CDN; when that fails it tries once through this site's proxy (for a
@@ -14,6 +14,9 @@ export const RemoteImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttri
   // A new address starts over: the proxy is for the one that failed
   useEffect(() => setRetriedViaProxy(false), [src]);
   const proxied = (viaProxyDevice || retriedViaProxy) && isProxiableImageUrl(src);
+  const addressFor = (value: string) => (proxied ? proxiedImageUrl(value) : coverSrc(value));
+  const sized = rest.sizes ? DEEZER_COVER_SIZES.map((width) => ({ width, url: deezerCoverAtSize(src, width) })) : [];
+  const srcSet = sized.length > 0 && sized.every((copy) => copy.url) ? sized.map((copy) => `${addressFor(copy.url as string)} ${copy.width}w`).join(', ') : undefined;
 
   return (
     <img
@@ -21,6 +24,7 @@ export const RemoteImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttri
       {...rest}
       referrerPolicy="no-referrer"
       src={proxied ? proxiedImageUrl(src as string) : coverSrc(src)}
+      srcSet={srcSet}
       onError={(event) => {
         if (!proxied && isProxiableImageUrl(src)) {
           setRetriedViaProxy(true);

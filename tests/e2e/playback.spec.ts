@@ -331,6 +331,8 @@ test('o diagnóstico de reprodução conta o que aconteceu, nos Ajustes', async 
   await page.getByRole('button', { name: 'Diagnóstico de reprodução' }).click();
   // The report opens with the build and whether this is the installed app or a browser tab
   await expect(page.getByTestId('playback-environment')).toContainText(/versão .+ · NAVEGADOR · /);
+  // And how many frames were late in the first minute after the app opened (performance audit, item 6)
+  await expect(page.getByTestId('playback-stalls')).toContainText('travadas (quadros acima de 50 ms) no 1º minuto');
   const log = page.getByTestId('playback-log');
   await expect(log).toContainText('toque em "Primeira Faixa"');
   await expect(log).toContainText('começou a tocar (áudio do navegador)');
