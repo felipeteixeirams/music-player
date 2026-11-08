@@ -50,6 +50,8 @@ import { PodcastsHome } from './components/PodcastsHome';
 import { PodcastScreen } from './components/PodcastScreen';
 import { fetchPodcastSearch } from './utils/podcastClient';
 import type { PodcastShowSummary } from './types/music';
+import { HistoricCompilationCard } from './components/HistoricCompilationCard';
+import { findMatchingCompilation } from './data/historicCompilations';
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
 const MIX_TRACKS_PER_CATEGORY = 2;
@@ -228,6 +230,11 @@ const MusicAppContent: React.FC = () => {
     saveRecentSearch(query);
     setSubmittedSearch((prev) => ({ query, id: (prev?.id ?? 0) + 1 }));
   }, [searchQuery]);
+
+  const matchingCompilation = useMemo(() => {
+    const query = submittedSearch?.query || searchQuery;
+    return findMatchingCompilation(query);
+  }, [submittedSearch?.query, searchQuery]);
 
   const handleOpenArtistByName = useCallback((artistName: string) => {
     fetchArtistSearch(artistName).then((artists) => {
@@ -506,6 +513,12 @@ const MusicAppContent: React.FC = () => {
                 </div>
               ) : onlineSearch.tracks.length > 0 ? (
                 <>
+                {matchingCompilation && (
+                  <HistoricCompilationCard
+                    compilation={matchingCompilation}
+                    onPlay={(track, queue) => playTrack(track, queue)}
+                  />
+                )}
                 {searchArtists.length > 0 && (
                   <section aria-label="Artistas" className="px-4 pb-2">
                     <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">Artistas</h2>
@@ -574,6 +587,13 @@ const MusicAppContent: React.FC = () => {
                   onRetry={onlineSearch.retry}
                 />
                 </>
+              ) : matchingCompilation ? (
+                <div className="pt-2">
+                  <HistoricCompilationCard
+                    compilation={matchingCompilation}
+                    onPlay={(track, queue) => playTrack(track, queue)}
+                  />
+                </div>
               ) : submittedSearch || onlineSearch.error || hasTypedQuery ? (
                 <div className="px-4 py-10 text-center text-label-secondary text-xs space-y-2">
                   <div className="w-12 h-12 rounded-card bg-fill-tertiary flex items-center justify-center mx-auto text-accent">
@@ -604,6 +624,12 @@ const MusicAppContent: React.FC = () => {
               )
             ) : hasTypedQuery ? (
               <div className="pt-1 space-y-3">
+                {matchingCompilation && (
+                  <HistoricCompilationCard
+                    compilation={matchingCompilation}
+                    onPlay={(track, queue) => playTrack(track, queue)}
+                  />
+                )}
                 <TrackList
                   tracks={filteredCatalogTracks}
                   title={`Resultados para "${searchQuery}"`}
