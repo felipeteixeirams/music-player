@@ -50,6 +50,15 @@ export function savePlaylists(storage: Pick<Storage, 'setItem'>, playlists: Play
 }
 
 /** A new empty playlist at the end of the list; an empty name becomes "Playlist N". Null at the limit. */
+/**
+ * Whether the person already has a playlist with this name (INV-SMART-08). Case sensitive, spaces at the ends ignored:
+ * "Treino" and "treino" are different names. The person's own playlists only.
+ */
+export function isPlaylistNameTaken(playlists: Playlist[], name: string): boolean {
+  const wanted = name.trim();
+  return wanted.length > 0 && playlists.some((playlist) => playlist.name.trim() === wanted);
+}
+
 export function createPlaylist(playlists: Playlist[], name: string, id: string, now: number): Playlist[] | null {
   if (playlists.length >= MAX_PLAYLISTS) return null;
   return [...playlists, { id, name: cleanName(name) || `Playlist ${playlists.length + 1}`, createdAt: now, tracks: [] }];

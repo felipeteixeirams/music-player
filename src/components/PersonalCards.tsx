@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Music2 } from 'lucide-react';
+import { Music2, Sparkles } from 'lucide-react';
+import { usePlaylists } from '../context/PlaylistsContext';
 import { MixArt, mixBackground } from './MixArt';
 import { prefetchResolved, warmResolve } from '../utils/audioEngine';
 import type { PersonalMix } from '../utils/personalMixes';
@@ -13,7 +14,7 @@ export const PersonalCards: React.FC<{ mixes: PersonalMix[]; onOpen: (mix: Perso
     warmResolve(mixes.flatMap((mix) => mix.tracks.slice(0, 2)));
   }, [mixes]);
 
-  if (mixes.length === 0) return null;
+  const { openSmartPlaylist } = usePlaylists();
   return (
     <section aria-label="Escolhidos para você" className="pt-3">
       <h2 className="px-4 pb-2 text-[22px] font-bold tracking-tight text-label">Escolhidos para você</h2>
@@ -41,6 +42,24 @@ export const PersonalCards: React.FC<{ mixes: PersonalMix[]; onOpen: (mix: Perso
             </span>
           </button>
         ))}
+        {/* "Criar playlist com IA": the same carousel, as the card that starts a new playlist from a description */}
+        <button
+          type="button"
+          onClick={openSmartPlaylist}
+          data-testid="home-create-ai"
+          aria-label="Criar playlist com IA: descreva o que quer ouvir"
+          className="relative aspect-[3/4] w-[72vw] max-w-[272px] shrink-0 snap-start overflow-hidden rounded-[20px] text-left text-white shadow-xl shadow-black/25 transition-transform active:scale-[0.98]"
+          style={{ background: 'linear-gradient(160deg, #6d5cff 0%, #2a2452 100%)' }}
+        >
+          <span className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+            <Sparkles className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <span className="absolute inset-x-4 bottom-4 block">
+            <span className="block text-[15px] text-white/70">Playlist com IA</span>
+            <span className="mt-0.5 block text-[22px] font-bold leading-tight">Criar playlist com IA</span>
+            <span className="mt-1 line-clamp-3 block text-[15px] leading-snug text-white/90">Descreva o que quer ouvir e monte uma playlist de 10 músicas antes de salvar.</span>
+          </span>
+        </button>
       </div>
     </section>
   );

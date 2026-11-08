@@ -8,6 +8,7 @@ import { AudioProvider, useAudio } from './context/AudioContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PlaylistsProvider, usePlaylists } from './context/PlaylistsContext';
 import { AddToPlaylistSheet } from './components/AddToPlaylistSheet';
+import { SmartPlaylistSheet } from './components/SmartPlaylistSheet';
 import { TopBar } from './components/TopBar';
 import { CategoryTiles } from './components/CategoryTiles';
 import { SettingsMenu } from './components/SettingsMenu';
@@ -723,6 +724,13 @@ const MusicAppContent: React.FC = () => {
         onNavigateToAlbum={handleOpenAlbum}
       />
       <AddToPlaylistSheet />
+      {/* "Criar com IA": after saving, the new playlist opens in the library */}
+      <SmartPlaylistSheet
+        onOpenPlaylist={(id) => {
+          setActiveTab('library');
+          setLibraryView({ kind: 'playlist', id });
+        }}
+      />
 
       {/* Floating capsule navigation with the mini player pill above it */}
       <BottomNavBar

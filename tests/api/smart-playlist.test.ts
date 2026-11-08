@@ -272,6 +272,6 @@ test('INV-SMART-03: o relatório de validação diz o limite certo para cada tip
   assert.ok(!focused.criteriaMet.some((c) => c.includes('máximo de')));
 });
 
-test('INV-SMART-05: o padrão é de 10 faixas', () => {
+test('INV-SMART-10: o padrão é de 10 faixas', () => {
   assert.equal(DEFAULT_TARGET_COUNT, 10);
 });
