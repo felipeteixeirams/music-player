@@ -26,8 +26,17 @@ export interface SmartPlaylistResponse {
 
 const MAX_TARGET_COUNT = 30;
 const MIN_TARGET_COUNT = 5;
-const DEFAULT_TARGET_COUNT = 15;
-const MAX_PER_ARTIST = 2;
+export const DEFAULT_TARGET_COUNT = 10;
+/** Diversity limit for general requests (INV-SMART-03). Requests about one artist are not limited. */
+export const MAX_PER_ARTIST = 2;
+/** Parallel catalog searches: enough to be fast, few enough not to hammer the catalog. Results keep their order. */
+const SEARCH_CONCURRENCY = 4;
+/** Tracks the client already has, sent so the next batch does not repeat them. */
+export interface ExcludedTrack {
+  id: string;
+  title: string;
+  artist: string;
+}
 
 type FetchLike = typeof fetch;
 
@@ -44,6 +53,8 @@ interface GeminiCurationOutput {
   title: string;
   description: string;
   criteria: string[];
+  /** The artist the request is about, or empty for a general request. */
+  artistFocus: string;
   candidates: Array<{
     artist: string;
     title: string;
@@ -60,6 +71,7 @@ function fallbackCuration(prompt: string, targetCount: number): GeminiCurationOu
   return {
     title: `Seleção: ${title}`,
     description: `Playlist personalizada baseada em "${clean || 'músicas selecionadas'}"`,
+    artistFocus: '',
     criteria: [
       `Foco no pedido: ${clean || 'estilo variado'}`,
       'Faixas musicais individuais verificadas no catálogo',
@@ -73,7 +85,7 @@ function fallbackCuration(prompt: string, targetCount: number): GeminiCurationOu
   };
 }
 
-async function curateWithGemini(prompt: string, targetCount: number): Promise<GeminiCurationOutput> {
+async function curateWithGemini(prompt: string, targetCount: number, avoid: string[] = []): Promise<GeminiCurationOutput> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return fallbackCuration(prompt, targetCount);
@@ -98,8 +110,9 @@ Gere exatamente ${candidateCount} sugestões de faixas musicais individuais reai
 Regras estritas:
 1. Somente faixas musicais reais (cantor/banda e nome da música).
 2. Proibido sugerir podcasts, programas de rádio falados, notícias ou nomes de playlists prontas.
-3. Máximo de 2 faixas do mesmo artista.
-4. Inclua termos de busca limpos para localização exata no catálogo musical (Deezer/iTunes).`,
+3. Para pedidos gerais, varie os artistas (no máximo 2 faixas do mesmo artista). Se o pedido for sobre um artista específico, pode trazer as faixas dele.
+4. Em "artistFocus", informe o artista do pedido, ou deixe vazio se o pedido for geral.
+5. Inclua termos de busca limpos para localização exata no catálogo musical (Deezer/iTunes).${avoid.length > 0 ? `\n6. Não sugira estas faixas, que já estão na lista: ${avoid.slice(0, 60).join('; ')}.` : ''}`,
       config: {
         systemInstruction:
           'Você é um curador musical experiente para o aplicativo AuraStream. Seu papel é compreender pedidos em linguagem natural e sugerir faixas musicais individuais reais com máxima fidelidade ao clima, ritmo, época e estilo pedidos.',
@@ -120,6 +133,10 @@ Regras estritas:
               items: { type: Type.STRING },
               description: 'Lista de 2 a 4 critérios musicais atendidos (ex: "Década de 1970", "Rock clássico", "Ritmo acelerado")'
             },
+            artistFocus: {
+              type: Type.STRING,
+              description: 'O artista do pedido, quando o pedido é sobre um artista específico; vazio para pedidos gerais'
+            },
             candidates: {
               type: Type.ARRAY,
               items: {
@@ -136,7 +153,7 @@ Regras estritas:
               }
             }
           },
-          required: ['title', 'description', 'criteria', 'candidates']
+          required: ['title', 'description', 'criteria', 'artistFocus', 'candidates']
         }
       }
     });
@@ -154,20 +171,55 @@ Regras estritas:
   }
 }
 
+export interface ResolveOptions {
+  fetchImpl?: FetchLike;
+  /** Tracks the client already has: never returned again (by id, and by title and artist). */
+  exclude?: ExcludedTrack[];
+  /** Maximum tracks per artist; null when the request is about one artist (no limit). */
+  artistCap?: number | null;
+}
+
+/** The searches of one batch run together; their answers are then applied in the candidates' order, so the result is the same as a one-by-one run. */
+async function searchBatch(
+  batch: Array<{ artist: string; title: string; searchQuery: string }>,
+  fetchImpl?: FetchLike
+): Promise<Array<Track[]>> {
+  return Promise.all(
+    batch.map(async (cand) => {
+      const query = cand.searchQuery || `${cand.artist} ${cand.title}`;
+      try {
+        // Only tracks: the album and playlist lookup of the catalog is not used here
+        return (await searchCatalog(query, { limit: 3, fetchImpl, collections: false })).tracks;
+      } catch {
+        return [];
+      }
+    })
+  );
+}
+
 /**
- * Searches the catalog (Deezer + iTunes) for individual songs matching the candidates,
- * applying deduplication, artist limits (max 2 per artist), and strict exclusion of podcasts and pre-made lists.
+ * Searches the catalog (Deezer + iTunes) for individual songs matching the candidates, applying deduplication,
+ * the optional per-artist limit and the exclusion of podcasts and pre-made lists.
  */
 export async function resolveAndValidateCandidates(
   candidates: Array<{ artist: string; title: string; searchQuery: string }>,
   targetCount: number,
   fallbackPrompt: string,
-  fetchImpl?: FetchLike
+  options: ResolveOptions | FetchLike = {}
 ): Promise<Track[]> {
+  // Accepts the old signature (a fetch function) too: the callers and tests that pass only the fetch keep working
+  const opts: ResolveOptions = typeof options === 'function' ? { fetchImpl: options } : options;
+  const artistCap = opts.artistCap === undefined ? MAX_PER_ARTIST : opts.artistCap;
   const resolved: Track[] = [];
   const seenIds = new Set<string>();
   const seenSignatures = new Set<string>();
   const artistCount = new Map<string, number>();
+
+  const signatureOf = (title: string, artist: string) => `${normalize(title)}|${normalize(artist)}`;
+  for (const item of opts.exclude ?? []) {
+    seenIds.add(item.id);
+    seenSignatures.add(signatureOf(item.title, item.artist));
+  }
 
   const isEligible = (track: Track): boolean => {
     // Exclude anything that isn't a song or has malformed ID
@@ -175,49 +227,36 @@ export async function resolveAndValidateCandidates(
     // Podcasts never come through searchCatalog tracks, but verify invariants:
     if ((track as unknown as { kind?: string }).kind === 'podcast') return false;
     if (seenIds.has(track.id)) return false;
-
-    const signature = `${normalize(track.title)}|${normalize(track.artist)}`;
-    if (seenSignatures.has(signature)) return false;
-
-    const artistNorm = normalize(track.artist);
-    const count = artistCount.get(artistNorm) ?? 0;
-    if (count >= MAX_PER_ARTIST) return false;
-
+    if (seenSignatures.has(signatureOf(track.title, track.artist))) return false;
+    if (artistCap !== null && (artistCount.get(normalize(track.artist)) ?? 0) >= artistCap) return false;
     return true;
   };
 
   const addTrack = (track: Track): void => {
     seenIds.add(track.id);
-    seenSignatures.add(`${normalize(track.title)}|${normalize(track.artist)}`);
+    seenSignatures.add(signatureOf(track.title, track.artist));
     const artistNorm = normalize(track.artist);
     artistCount.set(artistNorm, (artistCount.get(artistNorm) ?? 0) + 1);
     resolved.push(track);
   };
 
-  // Step 1: Resolve candidates suggested by AI
-  for (const cand of candidates) {
-    if (resolved.length >= targetCount) break;
-    const query = cand.searchQuery || `${cand.artist} ${cand.title}`;
-    try {
-      const searchResult = await searchCatalog(query, { limit: 3, fetchImpl });
-      const best = searchResult.tracks.find(isEligible);
-      if (best) {
-        addTrack(best);
-      }
-    } catch {
-      // Continue to next candidate
+  // Step 1: the candidates suggested by the model, in batches of parallel searches
+  for (let i = 0; i < candidates.length && resolved.length < targetCount; i += SEARCH_CONCURRENCY) {
+    const found = await searchBatch(candidates.slice(i, i + SEARCH_CONCURRENCY), opts.fetchImpl);
+    for (const tracks of found) {
+      if (resolved.length >= targetCount) break;
+      const best = tracks.find(isEligible);
+      if (best) addTrack(best);
     }
   }
 
-  // Step 2: If we still haven't reached targetCount, search directly with prompt keywords to fill remaining
+  // Step 2: if still short, search the request's own words to fill the rest
   if (resolved.length < targetCount) {
     try {
-      const backupSearch = await searchCatalog(fallbackPrompt, { limit: targetCount * 2, fetchImpl });
+      const backupSearch = await searchCatalog(fallbackPrompt, { limit: targetCount * 2, fetchImpl: opts.fetchImpl, collections: false });
       for (const t of backupSearch.tracks) {
         if (resolved.length >= targetCount) break;
-        if (isEligible(t)) {
-          addTrack(t);
-        }
+        if (isEligible(t)) addTrack(t);
       }
     } catch {
       // ignore
@@ -231,7 +270,8 @@ export function buildValidationReport(
   prompt: string,
   targetCount: number,
   tracks: Track[],
-  criteria: string[]
+  criteria: string[],
+  artistCap: number | null = MAX_PER_ARTIST
 ): SmartPlaylistValidation {
   const passed = tracks.length >= Math.min(targetCount, MIN_TARGET_COUNT) && tracks.every((t) => t.id && t.title && t.artist);
   const uniqueArtists = new Set(tracks.map((t) => normalize(t.artist)));
@@ -242,7 +282,9 @@ export function buildValidationReport(
   const criteriaMet: string[] = [
     'Faixas musicais individuais verificadas nas integrações de catálogo',
     'Exclusão estrita de podcasts, episódios e listas prontas de terceiros',
-    `Diversidade de artistas respeitada (máximo de ${MAX_PER_ARTIST} faixas por artista)`,
+    artistCap === null
+      ? 'Pedido sobre um artista: as faixas dele, sem limite por artista'
+      : `Diversidade de artistas respeitada (máximo de ${artistCap} faixas por artista)`,
     `Quantidade atendida: ${tracks.length} faixas entregues`,
     ...criteria.slice(0, 3)
   ];
@@ -277,14 +319,33 @@ export async function smartPlaylistEndpoint(
   const rawCount = typeof req.targetCount === 'number' && Number.isFinite(req.targetCount) ? req.targetCount : DEFAULT_TARGET_COUNT;
   const targetCount = Math.max(MIN_TARGET_COUNT, Math.min(MAX_TARGET_COUNT, Math.round(rawCount)));
 
-  // 1. Curation
-  const curation = await curateWithGemini(rawPrompt, targetCount);
+  // What the client already has (for "add more"): ids and titles, bounded
+  const exclude: ExcludedTrack[] = Array.isArray(req.exclude)
+    ? req.exclude
+        .filter((item): item is ExcludedTrack => !!item && typeof item === 'object' && typeof (item as ExcludedTrack).id === 'string' && typeof (item as ExcludedTrack).title === 'string' && typeof (item as ExcludedTrack).artist === 'string')
+        .slice(0, 200)
+        .map((item) => ({ id: item.id.slice(0, 64), title: item.title.slice(0, 200), artist: item.artist.slice(0, 200) }))
+    : [];
 
-  // 2. Resolution against real catalog
-  const tracks = await resolveAndValidateCandidates(curation.candidates, targetCount, rawPrompt, options.fetchImpl);
+  // 1. Curation (the model is told what is already in the list, so the new batch does not repeat it)
+  const curation = await curateWithGemini(
+    rawPrompt,
+    targetCount,
+    exclude.map((item) => `${item.artist} - ${item.title}`)
+  );
+
+  // The per-artist limit applies to general requests only (INV-SMART-03)
+  const artistCap = curation.artistFocus?.trim() ? null : MAX_PER_ARTIST;
+
+  // 2. Resolution against the real catalog
+  const tracks = await resolveAndValidateCandidates(curation.candidates, targetCount, rawPrompt, {
+    fetchImpl: options.fetchImpl,
+    exclude,
+    artistCap
+  });
 
   // 3. Validation
-  const validation = buildValidationReport(rawPrompt, targetCount, tracks, curation.criteria);
+  const validation = buildValidationReport(rawPrompt, targetCount, tracks, curation.criteria, artistCap);
 
   return {
     status: 200,
