@@ -199,9 +199,9 @@ export const RadioView: React.FC = () => {
             if (selectedRegion === 'SP') return station.location.includes('SP');
             if (selectedRegion === 'RJ') return station.location.includes('RJ');
             if (selectedRegion === 'MG') return station.location.includes('MG');
-            if (selectedRegion === 'MS') return station.location.includes('MS') || station.location.includes('Corumbá');
+            if (selectedRegion === 'MS') return station.location.includes('MS') || station.location.includes('Corumbá') || station.location.includes('Pantanal');
             if (selectedRegion === 'Outras') {
-              return !station.location.includes('SP') && !station.location.includes('RJ') && !station.location.includes('MG') && !station.location.includes('MS') && !station.location.includes('Corumbá');
+              return !station.location.includes('SP') && !station.location.includes('RJ') && !station.location.includes('MG') && !station.location.includes('MS') && !station.location.includes('Corumbá') && !station.location.includes('Pantanal');
             }
             return true;
           });

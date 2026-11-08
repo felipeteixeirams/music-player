@@ -72,6 +72,17 @@ let installed = false;
 export function installTraceLogging(): void {
   if (installed) return;
   installed = true;
+
+  // Suppress DEP0169 (url.parse deprecation) emitted by serverless platform wrappers so Vercel doesn't mark it as an error in logs
+  if (typeof process !== 'undefined' && typeof process.on === 'function') {
+    process.on('warning', (warning) => {
+      if (warning.name === 'DeprecationWarning' && warning.message.includes('url.parse')) {
+        return;
+      }
+      console.warn(`[Node] ${warning.name}: ${warning.message}`);
+    });
+  }
+
   for (const method of ['log', 'info', 'warn', 'error'] as const) {
     const original = console[method].bind(console);
     console[method] = (...args: unknown[]) => {

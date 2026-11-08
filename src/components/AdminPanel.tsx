@@ -78,20 +78,77 @@ export const AdminPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               ))}
             </Block>
 
-            <Block title="Uso diário (abriu o app)">
+            <Block title="Frequência e Usuários Ativos">
+              {data.activity?.dailyCounts && data.activity.dailyCounts.length > 0 && (
+                <div className="p-4 space-y-2 border-b border-separator/40">
+                  <div className="flex items-center justify-between text-xs text-label-secondary">
+                    <span>Usuários ativos por dia (últimos 14 dias)</span>
+                    <span className="font-semibold text-accent">{data.activity.today}</span>
+                  </div>
+                  <div className="flex items-end gap-1.5 h-20 pt-2 pb-1">
+                    {data.activity.dailyCounts.map((item, idx) => {
+                      const max = Math.max(...(data.activity?.dailyCounts?.map((d) => d.count) ?? [1]), 1);
+                      const heightPercent = item.count > 0 ? Math.max(15, Math.round((item.count / max) * 100)) : 6;
+                      const dayLabel = item.day.slice(8); // DD
+                      const isToday = item.day === data.activity?.today;
+
+                      return (
+                        <div key={item.day} className="flex-1 flex flex-col items-center gap-1 group relative">
+                          <div className="w-full flex items-end justify-center h-14">
+                            <div
+                              style={{ height: `${heightPercent}%` }}
+                              className={`w-full max-w-[16px] rounded-t transition-all ${
+                                isToday
+                                  ? 'bg-accent'
+                                  : item.count > 0
+                                  ? 'bg-accent/70'
+                                  : 'bg-fill-tertiary'
+                              }`}
+                              title={`${item.day}: ${item.count} usuário(s)`}
+                            />
+                          </div>
+                          <span className={`text-[10px] tabular-nums ${isToday ? 'text-accent font-bold' : 'text-label-tertiary'}`}>
+                            {dayLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {data.activity?.people == null ? (
                 <Row label="Dados" value="ainda não gravados (rode a migração 0005_app_days.sql no Supabase)" testId="admin-activity-empty" />
               ) : data.activity.people.length === 0 ? (
                 <Row label="Ninguém abriu o app nos últimos 30 dias" value="" />
               ) : (
-                data.activity.people.map((person) => (
-                  <Row
-                    key={person.email}
-                    label={person.email}
-                    value={`${person.days7}/7 · ${person.days30}/${data.activity?.window ?? 30} dias · sequência ${person.streak} · último ${person.last ?? '—'}`}
-                    testId="admin-activity-row"
-                  />
-                ))
+                data.activity.people.map((person) => {
+                  const freq =
+                    person.days7 >= 5
+                      ? { label: 'Diário', bg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
+                      : person.days7 >= 2
+                      ? { label: 'Frequente', bg: 'bg-accent/10 text-accent border-accent/20' }
+                      : { label: 'Ocasional', bg: 'bg-white/5 text-label-secondary border-white/10' };
+
+                  return (
+                    <div key={person.email} className="px-4 py-3 space-y-1.5" data-testid="admin-activity-row">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[15px] font-medium text-label truncate">{person.email}</span>
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${freq.bg}`}>
+                          {freq.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[13px] text-label-secondary">
+                        <span>
+                          {person.days7}/7 dias na semana · {person.days30}/{data.activity?.window ?? 30} no mês
+                        </span>
+                        <span className="text-label-tertiary">
+                          {person.streak > 1 ? `🔥 ${person.streak} dias seguidos` : `Último: ${person.last ?? '—'}`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </Block>
 

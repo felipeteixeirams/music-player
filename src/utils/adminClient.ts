@@ -5,8 +5,12 @@ export interface AdminOverview {
   youtube: { search: 'normal' | 'suspended'; reason?: string; until?: number; searchesToday: number; unitsUpperBound: number };
   limits: { dailyNewTracks: number };
   people: { counted: number; accounts: number | null; perPerson: { email: string; used: number }[] };
-  /** Daily use (INV-ADMIN-03). Absent from servers that predate it; null when the table is not there yet. */
-  activity?: { window: number; today: string; people: { email: string; days7: number; days30: number; last: string | null; streak: number }[] | null };
+  activity?: {
+    window: number;
+    today: string;
+    people: { email: string; days7: number; days30: number; last: string | null; streak: number; activeDays?: string[] }[] | null;
+    dailyCounts?: { day: string; count: number }[] | null;
+  };
   cache: { tracks: number | null };
   config: { id: string; level: 'ok' | 'warn' | 'error'; message: string }[];
   database: 'ok' | 'off';

@@ -80,11 +80,11 @@ export const LIVE_RADIO_GROUPS: LiveRadioGroup[] = [
     id: 'mato-grosso-do-sul',
     name: 'Mato Grosso do Sul e Pantanal',
     stations: [
-      { id: 'radio-corumba-fm', name: 'Rádio Corumbá FM', location: 'Corumbá, MS', streamUrl: 'https://stream.zeno.fm/exz39q72zceuv' },
-      { id: 'difusora-corumba', name: 'Difusora Pantanal', location: 'Corumbá, MS', streamUrl: 'https://stream.zeno.fm/1q52q72zceuv' },
-      { id: 'capital-95-fm', name: 'Capital 95 FM', location: 'Campo Grande, MS', streamUrl: 'https://stm2.conectastream.com.br:8322/stream' },
-      { id: 'cidade-97-fm', name: 'FM Cidade 97', location: 'Campo Grande, MS', streamUrl: 'https://stream.zeno.fm/2q52q72zceuv' },
-      { id: 'jota-fm', name: 'Jota FM', location: 'Dourados, MS', streamUrl: 'https://stream.zeno.fm/3q52q72zceuv' }
+      { id: 'difusora-pantanal', name: 'Difusora Pantanal 101.9 FM', location: 'Pantanal / MS', streamUrl: 'https://aovivo.difusorapantanal.com.br/listen/difusora_pantanal/radio.mp3' },
+      { id: 'blink-102-fm', name: 'Blink 102 FM', location: 'Campo Grande, MS', streamUrl: 'https://27323.live.streamtheworld.com/BLINK102FMAAC.aac' },
+      { id: 'capital-95-fm', name: 'Capital 95 FM', location: 'Campo Grande, MS', streamUrl: 'https://stm1.srvif.com:7908/stream' },
+      { id: 'cidade-97-fm', name: 'Cidade 97 FM', location: 'Campo Grande, MS', streamUrl: 'https://radio.megadj.com.br/listen/cidade97/radio.mp3' },
+      { id: 'educativa-104-7', name: 'Educativa FM 104,7', location: 'Campo Grande, MS', streamUrl: 'https://stream01.digilab.com.br/fertel/radio/icecast.audio' }
     ]
   }
 ];

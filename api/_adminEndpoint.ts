@@ -70,9 +70,26 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
   // Daily use: who opened the app and how often (INV-ADMIN-03). `opened` is null when the table is not there yet.
   const activity = opened
     ? Object.entries(opened)
-        .map(([id, days]) => ({ email: users?.[id] || 'conta sem e-mail', ...summarizeDays(days, day) }))
+        .map(([id, days]) => ({
+          email: users?.[id] || 'conta sem e-mail',
+          ...summarizeDays(days, day),
+          activeDays: [...new Set(days.filter((d) => d <= day && d >= dayBefore(day, 13)))]
+        }))
         .sort((a, b) => b.days30 - a.days30 || b.days7 - a.days7)
     : null;
+
+  const past14Days: string[] = [];
+  for (let i = 13; i >= 0; i--) past14Days.push(dayBefore(day, i));
+  const dailyCounts = opened
+    ? past14Days.map((d) => {
+        let count = 0;
+        for (const userDays of Object.values(opened)) {
+          if (userDays.includes(d)) count++;
+        }
+        return { day: d, count };
+      })
+    : null;
+
   const perPerson = Object.entries(usage ?? {})
     .map(([id, used]) => ({ email: users?.[id] || 'conta sem e-mail', used }))
     .sort((a, b) => b.used - a.used);
@@ -91,7 +108,7 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
       },
       limits: { dailyNewTracks: deps.dailyLimit },
       people: { counted: perPerson.length, accounts: users ? Object.keys(users).length : null, perPerson },
-      activity: { window: ACTIVITY_WINDOW_DAYS, today: day, people: activity },
+      activity: { window: ACTIVITY_WINDOW_DAYS, today: day, people: activity, dailyCounts },
       cache: { tracks: cached },
       config: findings.map(({ id, level, message }) => ({ id, level, message })),
       database: deps.admin ? 'ok' : 'off'
