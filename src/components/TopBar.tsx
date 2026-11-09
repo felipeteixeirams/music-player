@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Search, Globe, Library, Loader2, Settings } from 'lucide-react';
+import { ChevronLeft, Search, Globe, Library, Loader2, Settings, Mic, X } from 'lucide-react';
 
 interface TopBarProps {
   /** Large title of the screen. */
@@ -72,7 +72,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {showSearch && (
-          <div className="mt-3 space-y-2.5">
+          <div className="mt-3 space-y-3">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-label-secondary" />
@@ -83,59 +83,56 @@ export const TopBar: React.FC<TopBarProps> = ({
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={searchScope === 'online' ? 'Artistas, músicas e álbuns' : 'Buscar no que já carregou'}
+                  placeholder="Artistas, Músicas, Letras e Mais"
                   aria-label="Buscar"
-                  className="w-full h-10 pl-10 pr-4 rounded-full bg-fill-tertiary text-label placeholder:text-label-secondary text-[17px] focus:outline-none focus:ring-2 focus:ring-accent/60 transition-all"
+                  className="w-full h-11 pl-10 pr-16 rounded-xl bg-fill-tertiary text-label placeholder:text-label-secondary text-[17px] focus:outline-none focus:ring-2 focus:ring-accent/60 transition-all"
                 />
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2 text-label-secondary">
+                  <Mic className="w-4 h-4" />
+                  {searchQuery && (
+                    <button
+                      onClick={() => onSearchChange('')}
+                      className="w-5 h-5 rounded-full bg-label-secondary/30 text-white flex items-center justify-center hover:bg-label-secondary/50"
+                      aria-label="Limpar busca"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {searchScope === 'online' && searchQuery.trim() && (
                 <button
                   onClick={onSubmitOnlineSearch}
                   disabled={isSearchingOnline}
-                  className="h-10 px-4 rounded-full bg-accent hover:bg-accent-pressed disabled:opacity-50 text-white text-[15px] font-semibold flex items-center gap-1.5 shrink-0 active:scale-95 transition-all"
+                  className="h-11 px-4 rounded-xl bg-accent hover:bg-accent-pressed disabled:opacity-50 text-white text-[15px] font-semibold flex items-center gap-1.5 shrink-0 active:scale-95 transition-all"
                 >
                   {isSearchingOnline ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Buscar</span>}
                 </button>
               )}
             </div>
 
-            {searchScope === 'online' && recentSearches && recentSearches.length > 0 && !searchQuery.trim() && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {recentSearches.map((term) => (
-                  <button
-                    key={term}
-                    onClick={() => onSelectRecentSearch?.(term)}
-                    className="px-3 py-1 rounded-full bg-fill-tertiary hover:bg-fill-secondary text-label text-xs shrink-0 active:scale-95 transition-all"
-                  >
-                    {term}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center gap-0.5 p-0.5 bg-fill-tertiary rounded-lg w-fit">
+            {/* Apple Music style scope toggle pills */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-fill-tertiary rounded-xl">
               <button
                 onClick={() => onSearchScopeChange('online')}
-                className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
+                className={`py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
                   searchScope === 'online'
-                    ? 'bg-segment text-label font-semibold shadow-sm'
+                    ? 'bg-segment text-label shadow-md'
                     : 'text-label-secondary hover:text-label'
                 }`}
               >
-                <Globe className="w-3 h-3" />
-                <span>Músicas online</span>
+                <span>Apple Music</span>
               </button>
               <button
                 onClick={() => onSearchScopeChange('catalog')}
-                className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
+                className={`py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
                   searchScope === 'catalog'
-                    ? 'bg-segment text-label font-semibold shadow-sm'
+                    ? 'bg-segment text-label shadow-md'
                     : 'text-label-secondary hover:text-label'
                 }`}
               >
-                <Library className="w-3 h-3" />
-                <span>Já carregadas</span>
+                <span>Biblioteca</span>
               </button>
             </div>
           </div>

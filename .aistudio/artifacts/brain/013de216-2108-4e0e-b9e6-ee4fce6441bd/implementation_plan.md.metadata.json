@@ -1,6 +1,6 @@
 {
-  "summary":  "Atualização do plano de implementação das Playlists Inteligentes incorporando as regras obrigatórias de exclusão estrita de podcasts e de listas prontas, garantindo faixas musicais individuais existentes e verificadas nas integrações de catálogo do app (Deezer e iTunes).",
-  "updatedAt":  "2026-11-07T23:10:24.060976003Z",
+  "summary":  "Implementation plan for aligning search screen UI with Apple Music reference design: scope toggles (Apple Music / Biblioteca), recent searches with circular avatars and chevrons, and clear button.",
+  "updatedAt":  "2026-11-09T00:55:36.016713921Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
