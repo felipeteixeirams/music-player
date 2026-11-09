@@ -50,7 +50,7 @@ import { PodcastsHome } from './components/PodcastsHome';
 import { PodcastScreen } from './components/PodcastScreen';
 import { fetchPodcastSearch } from './utils/podcastClient';
 import type { PodcastShowSummary } from './types/music';
-import { HistoricCompilationList } from './components/HistoricCompilationCard';
+import { HistoricCdsRow } from './components/HistoricCdsRow';
 import { useHistoricMatches } from './hooks/useHistoricMatches';
 
 /** How many tracks of each collection go into the mixed list on the home screen. */
@@ -510,7 +510,7 @@ const MusicAppContent: React.FC = () => {
                 </div>
               ) : onlineSearch.tracks.length > 0 ? (
                 <>
-                <HistoricCompilationList entries={historicMatches} onPlay={(track, queue) => playTrack(track, queue)} />
+                <HistoricCdsRow entries={historicMatches} onOpen={(album) => { setArtistStack([]); setSelectedAlbum(album); }} />
                 {searchArtists.length > 0 && (
                   <section aria-label="Artistas" className="px-4 pb-2">
                     <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">Artistas</h2>
@@ -581,7 +581,7 @@ const MusicAppContent: React.FC = () => {
                 </>
               ) : historicMatches.length > 0 ? (
                 <div className="pt-2">
-                  <HistoricCompilationList entries={historicMatches} onPlay={(track, queue) => playTrack(track, queue)} />
+                  <HistoricCdsRow entries={historicMatches} onOpen={(album) => { setArtistStack([]); setSelectedAlbum(album); }} />
                 </div>
               ) : submittedSearch || onlineSearch.error || hasTypedQuery ? (
                 <div className="px-4 py-10 text-center text-label-secondary text-xs space-y-2">
@@ -613,7 +613,7 @@ const MusicAppContent: React.FC = () => {
               )
             ) : hasTypedQuery ? (
               <div className="pt-1 space-y-3">
-                <HistoricCompilationList entries={historicMatches} onPlay={(track, queue) => playTrack(track, queue)} />
+                <HistoricCdsRow entries={historicMatches} onOpen={(album) => { setArtistStack([]); setSelectedAlbum(album); }} />
                 <TrackList
                   tracks={filteredCatalogTracks}
                   title={`Resultados para "${searchQuery}"`}
