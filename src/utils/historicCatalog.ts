@@ -1,4 +1,4 @@
-import type { Track } from '../types/music';
+import type { AlbumPage, AlbumSummary, Track } from '../types/music';
 import { baseTitle, SERIES_ALIASES } from './historicNames';
 
 /** One compilation (one CD) of the historic catalog, as listed in public/historic/index.json. */
@@ -11,6 +11,8 @@ export interface HistoricEntry {
   catno: string | null;
   tracks: number;
   matched: number;
+  /** The MusicBrainz release whose artwork the Cover Art Archive holds; null when there is none. */
+  mbid?: string | null;
 }
 
 /** A track as the generator wrote it: `deezerId` is null when the Deezer catalog has no exact match. */
@@ -89,5 +91,35 @@ export function historicTrack(record: HistoricRecord, line: HistoricTrackRecord)
     categoryId: 'rock',
     sources: { localUrl: '', previewUrl: '' },
     releaseYear: record.year ?? undefined
+  };
+}
+
+/** A CD as the album screen shows it: the same page as an album (cover, tracks, play, shuffle). */
+export const HISTORIC_ALBUM_PREFIX = 'historic-';
+
+/** The front cover at 250 px from the Cover Art Archive (a plain image address, loaded by the browser only when shown). */
+export const historicCoverUrl = (mbid: string | null | undefined): string =>
+  mbid ? `https://coverartarchive.org/release/${mbid}/front-250` : '';
+
+export function historicAlbumSummary(entry: HistoricEntry): AlbumSummary {
+  return {
+    id: `${HISTORIC_ALBUM_PREFIX}${entry.id}`,
+    title: entry.title,
+    artist: 'Som Livre',
+    coverUrl: historicCoverUrl(entry.mbid),
+    year: entry.year ?? 0,
+    kind: 'album',
+    trackCount: entry.tracks
+  };
+}
+
+/** The album page of a CD: its tracks from the catalog file. Throws when the file cannot be read (the page says so). */
+export async function loadHistoricAlbumPage(albumId: string): Promise<AlbumPage> {
+  const record = await loadHistoricRecord(albumId.slice(HISTORIC_ALBUM_PREFIX.length));
+  if (!record) throw new Error('Não foi possível carregar este CD agora.');
+  const tracks = record.tracks.map((line) => historicTrack(record, line));
+  return {
+    album: historicAlbumSummary({ id: record.id, title: record.title, base: record.base, year: record.year, catno: record.catno, tracks: record.tracks.length, matched: record.matched, mbid: record.mbid }),
+    tracks: { tracks, total: tracks.length, nextIndex: null }
   };
 }

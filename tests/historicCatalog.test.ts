@@ -1,7 +1,7 @@
 // Coletâneas históricas (INV-CAT-02 e INV-CAT-03): a busca só mostra um CD quando o termo é o nome da série.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { findHistoricMatches, durationSeconds, type HistoricEntry } from '../src/utils/historicCatalog';
+import { findHistoricMatches, durationSeconds, historicAlbumSummary, historicCoverUrl, type HistoricEntry } from '../src/utils/historicCatalog';
 import { baseTitle, norm } from '../src/utils/historicNames';
 
 const entry = (id: string, title: string, base: string, year: number | null): HistoricEntry => ({
@@ -74,4 +74,11 @@ test('a duração do Discogs ("5:41") vira segundos; sem tempo vale 0', () => {
   assert.equal(durationSeconds('12:05'), 725);
   assert.equal(durationSeconds(null), 0);
   assert.equal(durationSeconds('?'), 0);
+});
+
+test('a capa do CD vem da Cover Art Archive pelo release do MusicBrainz; sem release, não há endereço', () => {
+  assert.equal(historicCoverUrl('1ebe9ab6-a804-4f52-9773-695902e1fab3'), 'https://coverartarchive.org/release/1ebe9ab6-a804-4f52-9773-695902e1fab3/front-250');
+  assert.equal(historicCoverUrl(null), '');
+  assert.equal(historicCoverUrl(undefined), '');
+  assert.equal(historicAlbumSummary({ ...entry('m1', 'Good Times', 'good times', 2003), mbid: null }).coverUrl, '');
 });

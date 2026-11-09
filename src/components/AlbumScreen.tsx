@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Heart, ListPlus, Loader2, Play, Search, Shuffle, X } from 'lucide-react';
+import { AlertCircle, Check, Heart, ListPlus, Loader2, Play, Plus, Search, Shuffle, X } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { fetchAlbumPage } from '../utils/catalogClient';
+import { HISTORIC_ALBUM_PREFIX, loadHistoricAlbumPage } from '../utils/historicCatalog';
+import { isPlaylistNameTaken } from '../utils/playlists';
 import { formatTime, prefetchResolved } from '../utils/audioEngine';
 import type { AlbumPage, AlbumSummary, Track } from '../types/music';
 import { RemoteImage } from './RemoteImage';
+import { CdCover } from './CdCover';
 import { TrackPlaybackIcon } from './PlaybackIcon';
 
 interface AlbumScreenProps {
@@ -16,7 +19,9 @@ interface AlbumScreenProps {
 /** Page of an album: centered cover art, Play and Shuffle actions, search filter, and numbered track list. */
 export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist }) => {
   const { currentTrack, isPlaying, togglePlayPause, playTrack, isLiked, toggleLike, isShuffle, toggleShuffle } = useAudio();
-  const { openAddToPlaylist } = usePlaylists();
+  const { openAddToPlaylist, createWithTracks, playlists } = usePlaylists();
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const isHistoric = album.id.startsWith(HISTORIC_ALBUM_PREFIX);
 
   const [page, setPage] = useState<AlbumPage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +33,9 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
     setPage(null);
     setError(null);
     setFilterQuery('');
-    fetchAlbumPage(album.id, controller.signal)
+    // A CD of the historic catalog is read from its own file; catalog albums come from the search API
+    const load = isHistoric ? loadHistoricAlbumPage : fetchAlbumPage;
+    load(album.id, controller.signal)
       .then((data) => {
         setPage(data);
         prefetchResolved(data.tracks.tracks.slice(0, 40));
@@ -38,7 +45,7 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
         setError(err instanceof Error && err.message ? err.message : 'Não foi possível carregar este álbum agora.');
       });
     return () => controller.abort();
-  }, [album.id, attempt]);
+  }, [album.id, attempt, isHistoric]);
 
   const tracks = page?.tracks.tracks ?? [];
 
@@ -76,19 +83,29 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
       {/* 1. Header: Large Centered Artwork and Album Details (Apple Music style) */}
       <header className="flex flex-col items-center text-center px-6 pt-2">
         <div className="relative group">
-          <RemoteImage
-            src={album.coverUrl}
-            alt={`Capa ${album.kind === 'playlist' ? 'da playlist' : 'do álbum'} ${album.title}`}
-            referrerPolicy="no-referrer"
-            className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl object-cover bg-fill-tertiary shadow-2xl shadow-black/60 ring-1 ring-white/10"
-          />
+          {isHistoric ? (
+            // A CD of the historic catalog: its artwork, or the disc when there is none
+            <CdCover
+              url={album.coverUrl}
+              alt={`Capa do CD ${album.title}`}
+              className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl shadow-2xl shadow-black/60 ring-1 ring-white/10"
+              iconClassName="h-20 w-20 text-white/70"
+            />
+          ) : (
+            <RemoteImage
+              src={album.coverUrl}
+              alt={`Capa ${album.kind === 'playlist' ? 'da playlist' : 'do álbum'} ${album.title}`}
+              referrerPolicy="no-referrer"
+              className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl object-cover bg-fill-tertiary shadow-2xl shadow-black/60 ring-1 ring-white/10"
+            />
+          )}
         </div>
 
         <h2 className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-label leading-snug max-w-md">
           {album.title}
         </h2>
 
-        {onOpenArtist && album.kind !== 'playlist' ? (
+        {onOpenArtist && album.kind !== 'playlist' && !isHistoric ? (
           <button
             onClick={() => onOpenArtist(album.artist)}
             className="mt-1 text-[17px] font-semibold text-accent hover:underline active:opacity-60 transition-opacity"
@@ -142,6 +159,22 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
               <span>Aleatório</span>
             </button>
           </div>
+
+          {isHistoric && (
+            <div className="px-4 -mt-2">
+              <SaveCdButton
+                disabled={tracks.length === 0}
+                saved={savedSuccess}
+                alreadySaved={isPlaylistNameTaken(playlists, `${album.title} (Som Livre)`)}
+                onSave={() => {
+                  if (createWithTracks(`${album.title} (Som Livre)`, tracks)) {
+                    setSavedSuccess(true);
+                    window.setTimeout(() => setSavedSuccess(false), 3000);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {/* 3. In-Album Track Search / Filter */}
           {tracks.length > 3 && (
@@ -286,6 +319,28 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
         </>
       )}
     </div>
+  );
+};
+
+/** Saves a CD as a playlist. A CD already saved (same name) is shown as saved, not saved twice. */
+const SaveCdButton: React.FC<{ disabled: boolean; saved: boolean; alreadySaved: boolean; onSave: () => void }> = ({
+  disabled,
+  saved,
+  alreadySaved,
+  onSave
+}) => {
+  const done = saved || alreadySaved;
+  return (
+    <button
+      onClick={onSave}
+      disabled={disabled || done}
+      className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-semibold active:scale-[0.98] transition-transform ${
+        done ? 'bg-emerald-600/20 text-emerald-400' : 'bg-fill-tertiary text-accent'
+      } disabled:opacity-50`}
+    >
+      {done ? <Check className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
+      <span>{done ? 'Salvo na Biblioteca' : 'Salvar na Biblioteca'}</span>
+    </button>
   );
 };
 

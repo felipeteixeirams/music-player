@@ -4,7 +4,7 @@ import { nav, stubApi } from './fixtures';
 // The catalog files are published as static files (public/historic); the test serves a small copy of them, so it does
 // not depend on the generated catalog (scripts/build-historic-compilations.mjs) changing.
 const INDEX = {
-  generatedAt: '2026-11-08',
+  generatedAt: '2026-11-09',
   source: 'teste',
   compilations: [
     { id: 'm3', title: 'Lovy Metal 1', base: 'lovy metal', year: 2001, catno: '23282', tracks: 2, matched: 1 },
@@ -38,20 +38,24 @@ async function serveCatalog(page: Page) {
   );
 }
 
-test('INV-CAT-02: buscar o nome da série mostra os CDs dela, com as faixas e a opção de salvar', async ({ page }) => {
+const cdsRow = (page: Page) => page.getByRole('region', { name: 'CDs históricos' });
+
+test('INV-CAT-02: buscar o nome da série mostra os CDs numa linha, como álbuns; tocar abre a página do CD', async ({ page }) => {
   await stubApi(page);
   await serveCatalog(page);
   await page.goto('/');
   await nav(page, 'Buscar').click();
   await page.getByRole('searchbox', { name: 'Buscar' }).fill('lovy metal');
 
-  await expect(page.getByRole('heading', { name: 'Lovy Metal 1' })).toBeVisible();
-  await expect(page.getByText('CD Som Livre · 2001')).toBeVisible();
-  await page.getByRole('button', { name: /Ver faixas/i }).first().click();
-  await expect(page.getByText('Silent Lucidity')).toBeVisible();
+  await expect(cdsRow(page)).toBeVisible();
+  await expect(cdsRow(page).getByRole('button', { name: /Lovy Metal 1/ })).toBeVisible();
+  await cdsRow(page).getByRole('button', { name: /Lovy Metal 1/ }).click();
 
-  await page.getByRole('button', { name: 'Salvar Playlist' }).first().click();
-  await expect(page.getByText('Salvo na Biblioteca!').first()).toBeVisible();
+  // The album page: the tracks of the CD, play and shuffle, and the save action
+  await expect(page.getByTestId('album-page')).toBeVisible();
+  await expect(page.getByText('Silent Lucidity')).toBeVisible();
+  await page.getByRole('button', { name: 'Salvar na Biblioteca' }).click();
+  await expect(page.getByRole('button', { name: /Salvo na Biblioteca/ })).toBeVisible();
 });
 
 test('INV-CAT-03: uma busca por artista não mostra nenhum CD', async ({ page }) => {
@@ -61,7 +65,7 @@ test('INV-CAT-03: uma busca por artista não mostra nenhum CD', async ({ page })
   await nav(page, 'Buscar').click();
   await page.getByRole('searchbox', { name: 'Buscar' }).fill('love metal iron maiden');
 
-  await expect(page.getByLabel(/Coletânea histórica/)).toHaveCount(0);
+  await expect(cdsRow(page)).toHaveCount(0);
 });
 
 test('salvar o mesmo CD de novo não cria outra playlist com o mesmo nome', async ({ page }) => {
@@ -70,15 +74,16 @@ test('salvar o mesmo CD de novo não cria outra playlist com o mesmo nome', asyn
   await page.goto('/');
   await nav(page, 'Buscar').click();
   await page.getByRole('searchbox', { name: 'Buscar' }).fill('lovy metal');
-  await page.getByRole('button', { name: 'Salvar Playlist' }).first().click();
-  await expect(page.getByText('Salvo na Biblioteca!').first()).toBeVisible();
+  await cdsRow(page).getByRole('button', { name: /Lovy Metal 1/ }).click();
+  await page.getByRole('button', { name: 'Salvar na Biblioteca' }).click();
+  await expect(page.getByRole('button', { name: /Salvo na Biblioteca/ })).toBeVisible();
 
-  // A new visit (the same account, after a reload): the name is already taken, so nothing is created
+  // A new visit (the same account, after a reload): the CD is already saved, so the button says so and nothing is created
   await page.reload();
   await nav(page, 'Buscar').click();
   await page.getByRole('searchbox', { name: 'Buscar' }).fill('lovy metal');
-  await page.getByRole('button', { name: 'Salvar Playlist' }).first().click();
-  await expect(page.getByText('Salvo na Biblioteca!').first()).toBeVisible();
+  await cdsRow(page).getByRole('button', { name: /Lovy Metal 1/ }).click();
+  await expect(page.getByRole('button', { name: /Salvo na Biblioteca/ })).toBeVisible();
 
   await nav(page, 'Biblioteca').click();
   await page.getByRole('button', { name: /^Playlists/ }).click();
