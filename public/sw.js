@@ -80,6 +80,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.webm') ||
     url.pathname.includes('/streams/') ||
     url.pathname === '/version.json' ||
+    // The historic catalog is read once per search and is in the page's own files: it must not push the app shell out of the cache
+    url.pathname.startsWith('/historic/') ||
     url.hostname.includes('googlevideo') ||
     url.hostname.includes('youtube')
   ) {
