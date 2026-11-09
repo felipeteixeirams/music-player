@@ -34,8 +34,8 @@ async function getJson(url, { discogs = false, attempt = 1 } = {}) {
   const headers = { 'User-Agent': UA };
   if (discogs && DISCOGS_TOKEN) headers.Authorization = `Discogs token=${DISCOGS_TOKEN}`;
   const response = await fetch(url, { headers });
-  if (response.status === 429 && attempt <= 3) {
-    await sleep(65_000);
+  if ((response.status === 429 || response.status === 503) && attempt <= 3) {
+    await sleep(response.status === 429 ? 65_000 : 15_000);
     return getJson(url, { discogs, attempt: attempt + 1 });
   }
   if (!response.ok) throw new Error(`${response.status} ${url}`);
@@ -127,7 +127,64 @@ async function deezerTrack(title, artist) {
   return hit ? hit.id : null;
 }
 
+/** Comparable catalog number: "3106-2" and "3106 2" are the same CD. */
+const catnoKey = (text) => String(text ?? '').replace(/[\s-]/g, '').toUpperCase();
+
+/**
+ * The MusicBrainz release of a CD, found by its catalog number (and the label). The Cover Art Archive has the artwork of
+ * that release. Only an exact catalog number counts: a title match could be another edition. Cached.
+ */
+async function coverRelease(catno) {
+  const file = join(CACHE, 'mb', `${createHash('sha1').update(catnoKey(catno)).digest('hex')}.json`);
+  if (existsSync(file)) return JSON.parse(readFileSync(file, 'utf8')).mbid;
+  await sleep(1100); // MusicBrainz asks for one request a second
+  const q = encodeURIComponent(`catno:"${catno}"`);
+  const data = await getJson(`https://musicbrainz.org/ws/2/release/?query=${q}&fmt=json&limit=10`);
+  const hit = (data.releases ?? []).find((r) => (r['label-info'] ?? []).some((l) => catnoKey(l['catalog-number']) === catnoKey(catno)));
+  let mbid = null;
+  if (hit && (await artworkExists(hit.id))) mbid = hit.id;
+  mkdirSync(join(CACHE, 'mb'), { recursive: true });
+  writeFileSync(file, JSON.stringify({ catno, mbid }));
+  return mbid;
+}
+
+/** The Cover Art Archive answers with the front image of the release (it redirects to the file). */
+async function artworkExists(mbid) {
+  const response = await fetch(`https://coverartarchive.org/release/${mbid}/front-250`, { method: 'HEAD', headers: { 'User-Agent': UA }, redirect: 'follow' });
+  return response.ok;
+}
+
+/**
+ * COVERS_ONLY=1: adds the artwork to a catalog that is already built (no Discogs or Deezer calls): reads public/historic,
+ * finds each CD's MusicBrainz release by catalog number, and rewrites the index and the CD files with `mbid`.
+ */
+async function addCovers() {
+  const indexFile = join(OUT, 'index.json');
+  const index = JSON.parse(readFileSync(indexFile, 'utf8'));
+  let found = 0;
+  for (const [i, entry] of index.compilations.entries()) {
+    const recordFile = join(OUT, 't', `${entry.id}.json`);
+    const record = existsSync(recordFile) ? JSON.parse(readFileSync(recordFile, 'utf8')) : null;
+    const catno = entry.catno ?? record?.catno;
+    let mbid = null;
+    if (catno) {
+      try {
+        mbid = await coverRelease(catno);
+      } catch (error) {
+        console.warn(`[${i + 1}/${index.compilations.length}] capa: ${entry.title} (${catno}): ${error.message}`);
+      }
+    }
+    if (mbid) found += 1;
+    entry.mbid = mbid;
+    if (record) writeFileSync(recordFile, JSON.stringify({ ...record, mbid }));
+    if ((i + 1) % 100 === 0) console.log(`[${i + 1}/${index.compilations.length}] capas encontradas até agora: ${found}`);
+  }
+  writeFileSync(indexFile, JSON.stringify({ ...index, coversAt: new Date().toISOString().slice(0, 10) }));
+  console.log(`capas: ${found} de ${index.compilations.length} CDs (Cover Art Archive, pelo número de catálogo)`);
+}
+
 async function main() {
+  if (process.env.COVERS_ONLY === '1') return addCovers();
   const masters = (await listCompilations()).slice(0, LIMIT);
   console.log(`${masters.length} compilações da ${LABEL} no Discogs (masters e releases, sem repetição)`);
   mkdirSync(join(OUT, 't'), { recursive: true });

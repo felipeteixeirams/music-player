@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Check, Disc3, Heart, ListPlus, Loader2, Play, Plus, Search, Shuffle, X } from 'lucide-react';
+import { AlertCircle, Check, Heart, ListPlus, Loader2, Play, Plus, Search, Shuffle, X } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { usePlaylists } from '../context/PlaylistsContext';
 import { fetchAlbumPage } from '../utils/catalogClient';
@@ -8,6 +8,7 @@ import { isPlaylistNameTaken } from '../utils/playlists';
 import { formatTime, prefetchResolved } from '../utils/audioEngine';
 import type { AlbumPage, AlbumSummary, Track } from '../types/music';
 import { RemoteImage } from './RemoteImage';
+import { CdCover } from './CdCover';
 import { TrackPlaybackIcon } from './PlaybackIcon';
 
 interface AlbumScreenProps {
@@ -82,18 +83,21 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
       {/* 1. Header: Large Centered Artwork and Album Details (Apple Music style) */}
       <header className="flex flex-col items-center text-center px-6 pt-2">
         <div className="relative group">
-          {album.coverUrl ? (
+          {isHistoric ? (
+            // A CD of the historic catalog: its artwork, or the disc when there is none
+            <CdCover
+              url={album.coverUrl}
+              alt={`Capa do CD ${album.title}`}
+              className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl shadow-2xl shadow-black/60 ring-1 ring-white/10"
+              iconClassName="h-20 w-20 text-white/70"
+            />
+          ) : (
             <RemoteImage
               src={album.coverUrl}
               alt={`Capa ${album.kind === 'playlist' ? 'da playlist' : 'do álbum'} ${album.title}`}
               referrerPolicy="no-referrer"
               className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl object-cover bg-fill-tertiary shadow-2xl shadow-black/60 ring-1 ring-white/10"
             />
-          ) : (
-            // No artwork (the CDs of the historic catalog have none): the same frame, with the disc
-            <div className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl flex items-center justify-center bg-gradient-to-br from-amber-600/30 via-red-950/40 to-black shadow-2xl shadow-black/60 ring-1 ring-white/10">
-              <Disc3 className="h-20 w-20 text-white/70" aria-hidden="true" />
-            </div>
           )}
         </div>
 
