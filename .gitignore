@@ -13,3 +13,4 @@ test-results/
 # Só o npm é usado (package-lock.json); o AI Studio gera bun.lock
 bun.lock
 bun.lockb
+scripts/.historic-cache/
