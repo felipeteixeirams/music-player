@@ -1,5 +1,7 @@
 import { createRestCaller, type RestConfig } from './supabaseRest';
 import { saoPauloDayOf } from './appDays';
+import { reportClientError } from './errorReporter';
+import { RemoteError } from './supabaseRest';
 
 /**
  * Records that the signed-in person opened the app today (INV-ADMIN-03): one row per person and day, written with the
@@ -21,7 +23,13 @@ export async function recordAppOpen(
       body: JSON.stringify([{ user_id: user.id, day: saoPauloDayOf(now) }]),
       prefer: 'resolution=ignore-duplicates,return=minimal'
     });
-  } catch {
-    // the table may not exist yet (migration not applied) or the network is down: nothing to show, nothing to fix here
+  } catch (error) {
+    // Nothing for the person to see, but the reason goes to the server's log (as [Client]): a row that never lands is
+    // otherwise invisible. The reason is the status and the start of the database's answer, never a token.
+    if (error instanceof RemoteError) {
+      void reportClientError('error', `uso diário: ${error.status} ${error.detail ?? error.message}`);
+    } else {
+      void reportClientError('error', `uso diário: ${error instanceof Error ? error.message : 'erro'}`);
+    }
   }
 }

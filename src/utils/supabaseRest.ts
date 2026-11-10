@@ -5,8 +5,12 @@ export interface RestConfig {
 
 /** A refused call. `retryable` is false for answers that will not change by trying again (a limit, a bad row). */
 export class RemoteError extends Error {
-  constructor(message: string, readonly status: number) {
+  /** What the server said, when it said something: the start of its answer (its code and message, never a key). */
+  detail?: string;
+
+  constructor(message: string, readonly status: number, detail?: string) {
     super(message);
+    this.detail = detail;
   }
 
   get retryable(): boolean {
@@ -44,7 +48,10 @@ export function createRestCaller(
     } catch {
       throw new RemoteError('Sem conexão', 0);
     }
-    if (!response.ok) throw new RemoteError(`Falha ${response.status} em ${path.split('?')[0]}`, response.status);
+    if (!response.ok) {
+      const detail = await response.text().then((text) => text.slice(0, 300)).catch(() => undefined);
+      throw new RemoteError(`Falha ${response.status} em ${path.split('?')[0]}`, response.status, detail);
+    }
     return response;
   };
 }
