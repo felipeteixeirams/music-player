@@ -65,7 +65,11 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
     deps.admin?.listUsers().catch(() => null) ?? null,
     deps.admin?.cacheCount().catch(() => null) ?? null,
     // Wrapped so a missing method or a missing table never fails the whole panel
-    (async () => deps.admin?.activitySince(dayBefore(day, ACTIVITY_WINDOW_DAYS - 1)) ?? null)().catch(() => null)
+    (async () => deps.admin?.activitySince(dayBefore(day, ACTIVITY_WINDOW_DAYS - 1)) ?? null)().catch((error: unknown) => {
+      // The panel shows "ainda não gravados" for this: the log says why (status and path only, never a key or an address)
+      console.warn(`[Admin] uso diário indisponível: ${error instanceof Error ? error.message : 'erro'}`);
+      return null;
+    })
   ]);
   // Daily use: who opened the app and how often (INV-ADMIN-03). `opened` is null when the table is not there yet.
   const activity = opened
