@@ -4,7 +4,7 @@ import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
 import { PlaybackDiagnostics } from './PlaybackDiagnostics';
-import { APPEARANCES, readAppearance, saveAppearance, type Appearance } from '../utils/appearance';
+import { APPEARANCES, readAppearance, readTheme, saveAppearance, saveTheme, THEMES, THEME_LABELS, type Appearance, type Theme } from '../utils/appearance';
 import { sessionId } from '../utils/trace';
 import { fetchIsAdmin } from '../utils/adminClient';
 import { AdminPanel } from './AdminPanel';
@@ -30,6 +30,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
   const { enabled, email, signOut } = useAuth();
   const [usage, setUsage] = useState<DailyUsage | null>(null);
   const [appearance, setAppearance] = useState<Appearance>(readAppearance);
+  const [theme, setTheme] = useState<Theme>(readTheme);
   const [isAdmin, setIsAdmin] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -91,14 +92,38 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           </Section>
         )}
 
-        <Section title="Aparência">
+        <Section title="Tema">
           <div className="px-4 py-3">
+            <div role="radiogroup" aria-label="Tema" className="flex rounded-lg bg-fill-tertiary p-0.5">
+              {THEMES.map((value) => (
+                <button
+                  key={value}
+                  role="radio"
+                  aria-checked={theme === value}
+                  onClick={() => {
+                    setTheme(value);
+                    saveTheme(value);
+                  }}
+                  className={`flex-1 rounded-md py-1 text-[13px] transition-colors ${
+                    theme === value ? 'bg-segment font-semibold text-label shadow-sm' : 'text-label-secondary'
+                  }`}
+                >
+                  {THEME_LABELS[value]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Aparência">
+          <div className={`px-4 py-3 ${theme === 'padrao' ? '' : 'opacity-40'}`}>
             <div role="radiogroup" aria-label="Aparência" className="flex rounded-lg bg-fill-tertiary p-0.5">
               {APPEARANCES.map((value) => (
                 <button
                   key={value}
                   role="radio"
                   aria-checked={appearance === value}
+                  disabled={theme !== 'padrao'}
                   onClick={() => {
                     setAppearance(value);
                     saveAppearance(value);
@@ -111,6 +136,9 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
                 </button>
               ))}
             </div>
+            {theme !== 'padrao' && (
+              <p className="mt-2 text-[12px] text-label-secondary">Os temas clássicos têm cores próprias; a aparência vale para o tema Padrão.</p>
+            )}
           </div>
         </Section>
 

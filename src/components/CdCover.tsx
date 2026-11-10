@@ -15,7 +15,7 @@ export const CdCover: React.FC<{ url: string; className: string; iconClassName: 
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     return (
-      <div className={`${className} flex items-center justify-center bg-gradient-to-br from-amber-600/30 via-red-950/40 to-black`}>
+      <div className={`${className} flex items-center justify-center bg-gradient-to-br from-accent/40 via-elevated-2 to-canvas`}>
         <Disc3 className={iconClassName} aria-hidden="true" />
       </div>
     );
