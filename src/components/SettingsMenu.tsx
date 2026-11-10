@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronRight, Database, FlaskConical, Gauge, LogOut, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Database, FlaskConical, Gauge, LogOut, ShieldCheck } from 'lucide-react';
 import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
 import { PlaybackDiagnostics } from './PlaybackDiagnostics';
-import { APPEARANCES, readAppearance, readTheme, saveAppearance, saveTheme, THEMES, THEME_LABELS, type Appearance, type Theme } from '../utils/appearance';
+import { readAppearance, readTheme, saveAppearance, saveTheme, type Appearance, type Theme } from '../utils/appearance';
 import { sessionId } from '../utils/trace';
 import { fetchIsAdmin } from '../utils/adminClient';
 import { AdminPanel } from './AdminPanel';
 import { BackgroundLab } from './BackgroundLab';
-
-const APPEARANCE_LABELS: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
+import { ThemeChooser } from './ThemeChooser';
 
 /** Initial of the account, for the round avatar. */
 const initialOf = (email: string | null): string => (email ?? '?').trim().charAt(0).toUpperCase() || '?';
@@ -29,40 +28,6 @@ const Section: React.FC<{ title: string; footer?: string; children: React.ReactN
   </section>
 );
 
-/** A list of choices, one per row, with a check on the chosen one (the iOS pattern for "pick one"). */
-function ChoiceRows<T extends string>({
-  label,
-  options,
-  labels,
-  value,
-  disabled = false,
-  onChoose
-}: {
-  label: string;
-  options: readonly T[];
-  labels: Record<T, string>;
-  value: T;
-  disabled?: boolean;
-  onChoose: (value: T) => void;
-}) {
-  return (
-    <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={disabled ? 'opacity-40' : ''}>
-      {options.map((option) => (
-        <button
-          key={option}
-          role="radio"
-          aria-checked={value === option}
-          disabled={disabled}
-          onClick={() => onChoose(option)}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label disabled:cursor-default"
-        >
-          <span className="flex-1">{labels[option]}</span>
-          {value === option && <Check className="h-4 w-4 text-accent" aria-hidden="true" />}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 /** Settings as a full screen of grouped lists, like the music apps: account, appearance, storage, help, about. */
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onOpenCacheSettings }) => {
@@ -124,32 +89,23 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           </section>
         )}
 
-        <Section title="Tema" footer="Os temas clássicos têm cores próprias. A aparência abaixo vale só para o tema Padrão.">
-          <ChoiceRows
-            label="Tema"
-            options={THEMES}
-            labels={THEME_LABELS}
-            value={theme}
-            onChoose={(value) => {
-              setTheme(value);
-              saveTheme(value);
-            }}
-          />
-        </Section>
-
-        <Section title="Aparência">
-          <ChoiceRows
-            label="Aparência"
-            options={APPEARANCES}
-            labels={APPEARANCE_LABELS}
-            value={appearance}
-            disabled={theme !== 'padrao'}
-            onChoose={(value) => {
-              setAppearance(value);
-              saveAppearance(value);
-            }}
-          />
-        </Section>
+        <section aria-label="Tema" className="space-y-1.5">
+          <h3 className="px-4 text-[13px] uppercase tracking-wide text-label-secondary">Tema</h3>
+          <div className="rounded-card bg-elevated p-4">
+            <ThemeChooser
+              theme={theme}
+              appearance={appearance}
+              onTheme={(value) => {
+                setTheme(value);
+                saveTheme(value);
+              }}
+              onAppearance={(value) => {
+                setAppearance(value);
+                saveAppearance(value);
+              }}
+            />
+          </div>
+        </section>
 
         <Section title="Armazenamento e dados">
           <button

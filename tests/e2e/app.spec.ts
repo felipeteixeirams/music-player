@@ -565,12 +565,12 @@ test.describe('cartões personalizados da home', () => {
   });
 });
 
-test('INV-UI-08: Ajustes é uma tela com seções (conta, aparência, armazenamento, ajuda, sobre) e o OK volta ao app', async ({ page }) => {
+test('INV-UI-08: Ajustes é uma tela com seções (conta, tema, armazenamento, ajuda, sobre) e o OK volta ao app', async ({ page }) => {
   await stubApi(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Abrir ajustes' }).click();
   const dialog = page.getByRole('dialog', { name: 'Ajustes' });
-  for (const name of ['Conta', 'Aparência', 'Armazenamento e dados', 'Ajuda', 'Sobre']) {
+  for (const name of ['Conta', 'Tema', 'Armazenamento e dados', 'Ajuda', 'Sobre']) {
     await expect(dialog.getByRole('region', { name })).toBeVisible();
   }
   await expect(page.getByTestId('app-version')).not.toBeEmpty();
