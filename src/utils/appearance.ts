@@ -31,6 +31,13 @@ export const themeIsLight = (theme: Theme, appearance: Appearance, systemLight: 
   return isLightScheme(appearance, systemLight, standalone);
 };
 
+/**
+ * The pixel face of the Ferro theme, from Google Fonts. Loaded only when that theme is chosen, so nobody else
+ * downloads it. Null for the themes that use the system faces.
+ */
+export const themeFontUrl = (theme: Theme): string | null =>
+  theme === 'ferro' ? 'https://fonts.googleapis.com/css2?family=VT323&display=swap' : null;
+
 export function readTheme(): Theme {
   try {
     return parseTheme(localStorage.getItem(THEME_KEY));
@@ -57,6 +64,17 @@ const THEME_COLORS: Record<Theme, { light: string; dark: string }> = {
   ferro: { light: '#15181c', dark: '#15181c' }
 };
 
+/** Adds the theme's stylesheet once, when the theme needs one. */
+function ensureThemeFont(theme: Theme): void {
+  const url = themeFontUrl(theme);
+  if (!url || document.getElementById('theme-font')) return;
+  const link = document.createElement('link');
+  link.id = 'theme-font';
+  link.rel = 'stylesheet';
+  link.href = url;
+  document.head.appendChild(link);
+}
+
 /** Sets the scheme on the page: the `scheme-light` class on <html> and the browser's own bar color. */
 export function applyAppearance(appearance: Appearance, theme: Theme = readTheme()): void {
   if (typeof document === 'undefined') return;
@@ -66,6 +84,7 @@ export function applyAppearance(appearance: Appearance, theme: Theme = readTheme
   document.documentElement.classList.toggle('scheme-light', light);
   document.documentElement.dataset.appearance = appearance;
   document.documentElement.dataset.theme = theme;
+  ensureThemeFont(theme);
   // One color for every tab: the media-query variants in index.html would still follow the system
   document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.remove());
   const meta = document.createElement('meta');
