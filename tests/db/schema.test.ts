@@ -297,3 +297,43 @@ test('INV-POD-07: o progresso de episódios é de cada pessoa, guarda só os 300
     await db.exec(`delete from podcast_progress`);
   }
 });
+
+test('INV-ADMIN-03: app_days aceita gravação apenas do próprio usuário, bloqueia leitura por clientes e permite leitura pelo service_role', async () => {
+  try {
+    // User A inserts own day successfully
+    await as('authenticated', USER_A, async (q) => {
+      await q.query(`insert into public.app_days (user_id, day) values ($1, '2026-11-09')`, [USER_A]);
+      // Client (authenticated) cannot read app_days
+      await rejects(q.query('select * from public.app_days'), /permission denied/);
+    });
+
+    // User A cannot insert for User B
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(
+        q.query(`insert into public.app_days (user_id, day) values ($1, '2026-11-09')`, [USER_B]),
+        /row-level security/
+      );
+    });
+
+    // Anon cannot insert
+    await as('anon', null, async (q) => {
+      await rejects(q.query(`insert into public.app_days (user_id, day) values ($1, '2026-11-09')`, [USER_A]), /permission denied/);
+    });
+
+    // Anon cannot read
+    await as('anon', null, async (q) => {
+      await rejects(q.query('select * from public.app_days'), /permission denied/);
+    });
+
+    // Direct insert to check service_role read
+    await db.exec(`insert into public.app_days (user_id, day) values ('${USER_A}', '2026-11-09')`);
+    await as('service_role', null, async (q) => {
+      const { rows } = await q.query<{ user_id: string; day: string }>('select user_id, day::text from public.app_days');
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].user_id, USER_A);
+      assert.equal(rows[0].day, '2026-11-09');
+    });
+  } finally {
+    await db.exec('delete from public.app_days');
+  }
+});
