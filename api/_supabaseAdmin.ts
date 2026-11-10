@@ -130,7 +130,8 @@ export function createAdmin(config: AdminConfig, fetchImpl: typeof fetch = fetch
       return Object.fromEntries((data.users ?? []).map((user) => [user.id, user.email ?? '']));
     },
     async activitySince(fromDay) {
-      const rows = (await (await call(`/app_days?select=user_id,day&day=gte.${eq(fromDay)}&order=day.desc&limit=20000`)).json()) as {
+      // `gte.<day>`: the operator is written once here (eq() would add a second one, which the database refuses)
+      const rows = (await (await call(`/app_days?select=user_id,day&day=gte.${encodeURIComponent(fromDay)}&order=day.desc&limit=20000`)).json()) as {
         user_id: string;
         day: string;
       }[];
