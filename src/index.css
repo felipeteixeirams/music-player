@@ -227,3 +227,56 @@ input[type='range']::-moz-range-thumb {
     animation: none;
   }
 }
+
+/*
+ * Classic themes (Ajustes > Tema): each one is a palette of its own, set by `applyAppearance` as `data-theme` on <html>.
+ * They declare the same tokens as the standard scheme. Colors and backgrounds only, no skeuomorphic detail.
+ */
+
+/* Clássico Azul: a light, silver-and-blue palette. Its status strip stays black (the light rule above). */
+:root[data-theme="azul"] {
+  --color-canvas: #eef3fa;
+  --color-elevated: #ffffff;
+  --color-elevated-2: #dce6f4;
+  --color-label: #0c2550;
+  --color-label-secondary: rgb(12 37 80 / 0.65);
+  --color-label-tertiary: rgb(12 37 80 / 0.35);
+  --color-separator: rgb(40 80 140 / 0.3);
+  --color-fill: rgb(40 80 140 / 0.16);
+  --color-fill-secondary: rgb(40 80 140 / 0.12);
+  --color-fill-tertiary: rgb(40 80 140 / 0.08);
+  --color-segment: #ffffff;
+  --color-tab-active: rgb(20 70 150 / 0.12);
+  --color-accent: #1d5fc7;
+  --color-accent-pressed: #1649a0;
+  --material-rgb: 236 243 252;
+  --ma-ultrathin: 0.45;
+  --ma-thin: 0.6;
+  --ma-regular: 0.72;
+  --ma-thick: 0.85;
+  color-scheme: light;
+}
+
+/* Clássico Ferro: a dark iron-grey palette with a green display accent. */
+:root[data-theme="ferro"] {
+  --color-canvas: #15181c;
+  --color-elevated: #20252b;
+  --color-elevated-2: #2b3238;
+  --color-label: #d8f5d0;
+  --color-label-secondary: rgb(216 245 208 / 0.62);
+  --color-label-tertiary: rgb(216 245 208 / 0.32);
+  --color-separator: rgb(90 110 90 / 0.45);
+  --color-fill: rgb(120 150 120 / 0.28);
+  --color-fill-secondary: rgb(120 150 120 / 0.22);
+  --color-fill-tertiary: rgb(120 150 120 / 0.16);
+  --color-segment: rgb(60 75 66);
+  --color-tab-active: rgb(0 0 0 / 0.5);
+  --color-accent: #3ddc5a;
+  --color-accent-pressed: #2bb545;
+  --material-rgb: 40 46 52;
+  --ma-ultrathin: 0.32;
+  --ma-thin: 0.42;
+  --ma-regular: 0.5;
+  --ma-thick: 0.6;
+  color-scheme: dark;
+}
