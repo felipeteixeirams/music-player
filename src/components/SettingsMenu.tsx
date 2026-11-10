@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Database, Disc3, LogOut, FlaskConical, ShieldCheck } from 'lucide-react';
+import { Check, ChevronRight, Database, FlaskConical, Gauge, LogOut, ShieldCheck } from 'lucide-react';
 import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -12,18 +12,57 @@ import { BackgroundLab } from './BackgroundLab';
 
 const APPEARANCE_LABELS: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
 
+/** Initial of the account, for the round avatar. */
+const initialOf = (email: string | null): string => (email ?? '?').trim().charAt(0).toUpperCase() || '?';
+
 interface SettingsMenuProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenCacheSettings: () => void;
 }
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+const Section: React.FC<{ title: string; footer?: string; children: React.ReactNode }> = ({ title, footer, children }) => (
   <section aria-label={title} className="space-y-1.5">
     <h3 className="px-4 text-[13px] uppercase tracking-wide text-label-secondary">{title}</h3>
     <div className="divide-y divide-separator overflow-hidden rounded-card bg-elevated">{children}</div>
+    {footer && <p className="px-4 text-[12px] leading-snug text-label-secondary">{footer}</p>}
   </section>
 );
+
+/** A list of choices, one per row, with a check on the chosen one (the iOS pattern for "pick one"). */
+function ChoiceRows<T extends string>({
+  label,
+  options,
+  labels,
+  value,
+  disabled = false,
+  onChoose
+}: {
+  label: string;
+  options: readonly T[];
+  labels: Record<T, string>;
+  value: T;
+  disabled?: boolean;
+  onChoose: (value: T) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={disabled ? 'opacity-40' : ''}>
+      {options.map((option) => (
+        <button
+          key={option}
+          role="radio"
+          aria-checked={value === option}
+          disabled={disabled}
+          onClick={() => onChoose(option)}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label disabled:cursor-default"
+        >
+          <span className="flex-1">{labels[option]}</span>
+          {value === option && <Check className="h-4 w-4 text-accent" aria-hidden="true" />}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** Settings as a full screen of grouped lists, like the music apps: account, appearance, storage, help, about. */
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onOpenCacheSettings }) => {
@@ -72,74 +111,44 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
         </div>
 
         {enabled && (
-          <Section title="Conta">
-            <div className="flex items-center gap-3 px-4 py-3">
-              <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-[17px] font-semibold text-white">
-                {(email ?? '?').charAt(0).toUpperCase()}
+          <section aria-label="Conta" className="overflow-hidden rounded-card bg-elevated">
+            <div className="flex items-center gap-3.5 px-4 py-4">
+              <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-[20px] font-semibold text-white">
+                {initialOf(email)}
               </span>
-              <p className="min-w-0 truncate text-[15px] text-label" data-testid="account-email">{email}</p>
+              <div className="min-w-0">
+                <p className="truncate text-[17px] font-semibold text-label" data-testid="account-email">{email}</p>
+                <p className="text-[13px] text-label-secondary">Conta AuraStream</p>
+              </div>
             </div>
-            <button
-              onClick={() => {
-                onClose();
-                void signOut();
-              }}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-accent"
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              <span>Sair</span>
-            </button>
-          </Section>
+          </section>
         )}
 
-        <Section title="Tema">
-          <div className="px-4 py-3">
-            <div role="radiogroup" aria-label="Tema" className="flex rounded-lg bg-fill-tertiary p-0.5">
-              {THEMES.map((value) => (
-                <button
-                  key={value}
-                  role="radio"
-                  aria-checked={theme === value}
-                  onClick={() => {
-                    setTheme(value);
-                    saveTheme(value);
-                  }}
-                  className={`flex-1 rounded-md py-1 text-[13px] transition-colors ${
-                    theme === value ? 'bg-segment font-semibold text-label shadow-sm' : 'text-label-secondary'
-                  }`}
-                >
-                  {THEME_LABELS[value]}
-                </button>
-              ))}
-            </div>
-          </div>
+        <Section title="Tema" footer="Os temas clássicos têm cores próprias. A aparência abaixo vale só para o tema Padrão.">
+          <ChoiceRows
+            label="Tema"
+            options={THEMES}
+            labels={THEME_LABELS}
+            value={theme}
+            onChoose={(value) => {
+              setTheme(value);
+              saveTheme(value);
+            }}
+          />
         </Section>
 
         <Section title="Aparência">
-          <div className={`px-4 py-3 ${theme === 'padrao' ? '' : 'opacity-40'}`}>
-            <div role="radiogroup" aria-label="Aparência" className="flex rounded-lg bg-fill-tertiary p-0.5">
-              {APPEARANCES.map((value) => (
-                <button
-                  key={value}
-                  role="radio"
-                  aria-checked={appearance === value}
-                  disabled={theme !== 'padrao'}
-                  onClick={() => {
-                    setAppearance(value);
-                    saveAppearance(value);
-                  }}
-                  className={`flex-1 rounded-md py-1 text-[13px] transition-colors ${
-                    appearance === value ? 'bg-segment font-semibold text-label shadow-sm' : 'text-label-secondary'
-                  }`}
-                >
-                  {APPEARANCE_LABELS[value]}
-                </button>
-              ))}
-            </div>
-            {theme !== 'padrao' && (
-              <p className="mt-2 text-[12px] text-label-secondary">Os temas clássicos têm cores próprias; a aparência vale para o tema Padrão.</p>
-            )}
-          </div>
+          <ChoiceRows
+            label="Aparência"
+            options={APPEARANCES}
+            labels={APPEARANCE_LABELS}
+            value={appearance}
+            disabled={theme !== 'padrao'}
+            onChoose={(value) => {
+              setAppearance(value);
+              saveAppearance(value);
+            }}
+          />
         </Section>
 
         <Section title="Armazenamento e dados">
@@ -156,7 +165,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
           </button>
           {usage && (
             <div className="flex items-center gap-3 px-4 py-3 text-[15px] text-label" data-testid="daily-usage">
-              <Disc3 className="h-4 w-4 text-accent" aria-hidden="true" />
+              <Gauge className="h-4 w-4 text-accent" aria-hidden="true" />
               <span>
                 Faixas novas hoje: {usage.used} de {usage.limit}
               </span>
@@ -184,6 +193,21 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
               <ChevronRight className="h-4 w-4 text-label-tertiary" aria-hidden="true" />
             </button>
           </Section>
+        )}
+
+        {enabled && (
+          <section aria-label="Sair" className="overflow-hidden rounded-card bg-elevated">
+            <button
+              onClick={() => {
+                onClose();
+                void signOut();
+              }}
+              className="flex w-full items-center justify-center gap-2 px-4 py-3 text-[15px] font-semibold text-accent"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span>Sair</span>
+            </button>
+          </section>
         )}
 
         <Section title="Sobre">
