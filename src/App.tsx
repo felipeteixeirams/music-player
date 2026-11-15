@@ -40,6 +40,7 @@ import { fetchArtistSearch, fetchCategoryPage, fetchFeed, fetchSearchPage } from
 import { scrollToTop } from './utils/smoothScroll';
 import { PersonalCards } from './components/PersonalCards';
 import { MixScreen } from './components/MixScreen';
+import { PlayShuffleButtons } from './components/PlayShuffleButtons';
 import { usePersonalMixes } from './hooks/usePersonalMixes';
 import type { MixKind } from './utils/personalMixes';
 import { ArtistScreen } from './components/ArtistScreen';
@@ -460,6 +461,12 @@ const MusicAppContent: React.FC = () => {
                 {activeCategory.description}
                 {categoryList.total ? ` · ${categoryList.total} faixas` : ''}
               </p>
+              {categoryList.tracks.length > 0 && (
+                <PlayShuffleButtons
+                  tracks={categoryList.tracks}
+                  source={activeCategoryId && categoryList.nextIndex !== null ? categorySource(activeCategoryId, categoryList.nextIndex) : undefined}
+                />
+              )}
               {categoryList.isLoading ? (
                 <div className="py-12 text-center text-label-secondary space-y-3">
                   <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />

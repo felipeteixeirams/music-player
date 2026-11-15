@@ -132,6 +132,24 @@ test('Ver tudo abre a coleção, carrega a próxima página e o botão de voltar
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
 });
 
+test('INV-UI-13: a coleção aberta pela home tem Reproduzir (a primeira faixa) e Aleatório (uma faixa da coleção)', async ({ page }) => {
+  await page.getByRole('button', { name: 'Ver todas as faixas de Classic Rock' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Classic Rock' })).toBeVisible();
+  const play = page.getByRole('button', { name: 'Reproduzir', exact: true });
+  const shuffle = page.getByRole('button', { name: 'Aleatório' });
+  await expect(play).toBeEnabled();
+  await expect(shuffle).toBeEnabled();
+
+  await play.click();
+  await expect(page.getByRole('button', { name: /Abrir player expandido para Rock Um/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Início' }).first().click();
+  await page.getByRole('button', { name: 'Ver todas as faixas de Classic Rock' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Classic Rock' })).toBeVisible();
+  await page.getByRole('button', { name: 'Aleatório' }).click();
+  await expect(page.getByRole('button', { name: /Abrir player expandido para Rock (Um|Dois|Três)/ })).toBeVisible();
+});
+
 test('tocar uma faixa mostra o mini player e abre e fecha o player completo', async ({ page }) => {
   await page.locator('section[aria-label="Top Hits"] [role=button]').first().click();
   const mini = page.getByRole('button', { name: new RegExp(`Abrir player expandido para ${TOP_HITS[0].title}`) });
