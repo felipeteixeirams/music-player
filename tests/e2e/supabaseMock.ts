@@ -81,6 +81,7 @@ interface UserStore {
   podcast_follows: Map<string, Row>;
   podcast_progress: Map<string, Row>;
   app_days: Map<string, Row>;
+  app_feedback: Map<string, Row>;
 }
 const KEYS: Record<keyof UserStore, string[]> = {
   favorites: ['track_id'],
@@ -90,14 +91,16 @@ const KEYS: Record<keyof UserStore, string[]> = {
   play_history: ['id'],
   podcast_follows: ['show_id'],
   podcast_progress: ['episode_id'],
-  app_days: ['day']
+  app_days: ['day'],
+  app_feedback: ['id']
 };
 let nextHistoryId = 1;
+let nextFeedbackId = 1;
 const stores = new Map<string, UserStore>();
 const storeOf = (userId: string): UserStore => {
   let store = stores.get(userId);
   if (!store) {
-    store = { favorites: new Map(), playlists: new Map(), playlist_tracks: new Map(), video_choices: new Map(), play_history: new Map(), podcast_follows: new Map(), podcast_progress: new Map(), app_days: new Map() };
+    store = { favorites: new Map(), playlists: new Map(), playlist_tracks: new Map(), video_choices: new Map(), play_history: new Map(), podcast_follows: new Map(), podcast_progress: new Map(), app_days: new Map(), app_feedback: new Map() };
     stores.set(userId, store);
   }
   return store;
@@ -111,7 +114,8 @@ const SORTS: Record<keyof UserStore, string[]> = {
   play_history: ['played_at', 'id'],
   podcast_follows: ['created_at', 'show_id'],
   podcast_progress: ['updated_at', 'episode_id'],
-  app_days: ['day']
+  app_days: ['day'],
+  app_feedback: ['created_at', 'id']
 };
 
 function sortRows(table: keyof UserStore, rows: Row[]): Row[] {
@@ -155,6 +159,14 @@ function handleRest(
     const offset = Number(params.get('offset') ?? 0);
     const limit = Number(params.get('limit') ?? all.length);
     return { status: 200, body: all.slice(offset, offset + limit) };
+  }
+  if (method === 'POST' && table === 'app_feedback') {
+    // The feedback table takes one row per send; the database gives it the id
+    for (const row of body as Row[]) {
+      const id = nextFeedbackId++;
+      rows.set(String(id), { id, created_at: new Date().toISOString(), ...row });
+    }
+    return { status: 201 };
   }
   if (method === 'POST' && table === 'play_history') {
     for (const row of body as Row[]) {
