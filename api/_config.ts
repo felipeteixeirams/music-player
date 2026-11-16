@@ -156,6 +156,8 @@ const EXPECTED_PATHS = ['/favorites', '/playlists', '/playlist_tracks', '/video_
 /** The tables of the podcast migration (0004): the app works without them, so their absence is only a warning. */
 const PODCAST_PATHS = ['/podcast_follows', '/podcast_progress'];
 const APP_DAYS_PATHS = ['/app_days'];
+/** The feedback table (INV-FB-01): without it the sheet says the message did not go; nothing else breaks. */
+const APP_FEEDBACK_PATHS = ['/app_feedback'];
 
 /**
  * What the services say: the public key is accepted, sign-up is closed (the app is by invitation), the e-mail
@@ -210,6 +212,9 @@ export async function checkDeepConfig(env: Env = process.env, fetchImpl: typeof 
           // The daily-use table (INV-ADMIN-03): without it the panel says so and the app keeps working
           if (!APP_DAYS_PATHS.every((path) => path in (spec.paths as object))) {
             out.push(finding('migrations-app-days', 'warn', 'Falta no banco: app_days. Rode supabase/migrations/0005_app_days.sql no SQL Editor; sem ela o painel de administrador não mostra o uso diário (o resto do app segue igual).'));
+          }
+          if (!APP_FEEDBACK_PATHS.every((path) => path in (spec.paths as object))) {
+            out.push(finding('migrations-app-feedback', 'warn', 'Falta no banco: app_feedback. Rode supabase/migrations/0006_app_feedback.sql no SQL Editor; sem ela o feedback dos usuários não é gravado (o resto do app segue igual).'));
           }
           if (missing.length === 0) {
             out.push(

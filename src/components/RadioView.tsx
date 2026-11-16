@@ -329,7 +329,8 @@ export const RadioView: React.FC = () => {
           <h2 className="text-[22px] font-bold text-label tracking-tight mb-2.5">{genre.name}</h2>
           <div className="grid grid-cols-3 gap-3">
             {genre.stations.map((station) => {
-              const isCurrent = radioStation?.id === station.id;
+              // A station of this tab, not the radio of an artist that happens to share its number
+              const isCurrent = radioStation?.id === station.id && !radioStation.source;
               const isStarting = startingId === station.id;
               return (
                 <StationTile

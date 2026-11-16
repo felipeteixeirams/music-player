@@ -337,3 +337,44 @@ test('INV-ADMIN-03: app_days aceita gravação apenas do próprio usuário, bloq
     await db.exec('delete from public.app_days');
   }
 });
+
+test('INV-FB-01: app_feedback aceita só linha da própria pessoa, com tipo e mensagem válidos, e nenhum cliente lê', async () => {
+  try {
+    // The person writes her own row (the transaction is not kept, so the read below uses its own row)
+    await as('authenticated', USER_A, async (q) => {
+      await q.query(`insert into public.app_feedback (user_id, kind, message, version) values ($1, 'idea', 'Modo noturno', '1.2.3')`, [USER_A]);
+    });
+    // Each refusal is checked in its own transaction: one error aborts the rest of it
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query('select * from public.app_feedback'), /permission denied/);
+    });
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`insert into public.app_feedback (user_id, kind, message) values ($1, 'idea', '')`, [USER_A]), /check constraint/);
+    });
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`insert into public.app_feedback (user_id, kind, message) values ($1, 'elogio', 'Ótimo')`, [USER_A]), /check constraint/);
+    });
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`insert into public.app_feedback (user_id, kind, message) values ($1, 'idea', $2)`, [USER_A, 'x'.repeat(1001)]), /check constraint/);
+    });
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`insert into public.app_feedback (user_id, kind, message) values ($1, 'idea', 'oi')`, [USER_B]), /row-level security/);
+    });
+    await as('anon', null, async (q) => {
+      await rejects(q.query(`insert into public.app_feedback (user_id, kind, message) values ($1, 'idea', 'oi')`, [USER_A]), /permission denied/);
+    });
+    await as('anon', null, async (q) => {
+      await rejects(q.query('select * from public.app_feedback'), /permission denied/);
+    });
+    // The service role (the administrator's way in) reads what was sent
+    await db.exec(`insert into public.app_feedback (user_id, kind, message) values ('${USER_A}', 'idea', 'Modo noturno')`);
+    await as('service_role', null, async (q) => {
+      const { rows } = await q.query<{ user_id: string; kind: string }>('select user_id, kind from public.app_feedback');
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].user_id, USER_A);
+      assert.equal(rows[0].kind, 'idea');
+    });
+  } finally {
+    await db.exec('delete from public.app_feedback');
+  }
+});

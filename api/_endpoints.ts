@@ -1,6 +1,6 @@
 import { isCategoryId, readPageParams } from './_categories.js';
 import { searchCatalog } from './_catalog.js';
-import { buildDeezerFeed, fetchAlbumPage, fetchDeezerPlaylistAsAlbum, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
+import { buildDeezerFeed, fetchAlbumPage, fetchArtistRadioTracks, fetchDeezerPlaylistAsAlbum, fetchArtistPage, fetchCategoryPage, fetchDeezerPreviewUrl, fetchRadioGenres, fetchRadioTracks, searchDeezerArtists } from './_deezer.js';
 import { fetchItunesAlbumPage } from './_itunes.js';
 import { findRadioStation } from './_radios.js';
 import { PodcastError, searchShows, showWithEpisodes } from './_podcasts.js';
@@ -151,11 +151,12 @@ async function albumEndpoint(raw: unknown, fetchImpl?: typeof fetch): Promise<En
  * a fresh batch of its tracks (never cached: every call is a new shuffle, which is what keeps the radio going).
  */
 export async function radioEndpoint(
-  query: { id?: unknown; live?: unknown; click?: unknown; q?: unknown },
+  query: { id?: unknown; live?: unknown; click?: unknown; q?: unknown; artist?: unknown },
   fetchImpl: typeof fetch = fetch
 ): Promise<EndpointResult> {
   if (query.live !== undefined || query.q !== undefined) return liveRadioEndpoint(query.live, query, fetchImpl);
   if (query.click !== undefined) return radioClickEndpoint(query.click, fetchImpl);
+  if (query.artist !== undefined) return artistRadioEndpoint(query.artist, fetchImpl);
 
   const hasId = Array.isArray(query.id) ? query.id.length > 0 : query.id !== undefined;
 
@@ -181,6 +182,20 @@ export async function radioEndpoint(
   } catch (err: any) {
     console.warn(`[Radio] ⚠️ ${station.name} falhou: ${err?.message || err}`);
     return failure(502, 'Não foi possível carregar esta estação agora');
+  }
+}
+
+/** The radio of an artist (INV-RAD-01): a fresh batch on every call, never cached. The id is a Deezer artist id. */
+async function artistRadioEndpoint(artist: unknown, fetchImpl: typeof fetch): Promise<EndpointResult> {
+  const text = Array.isArray(artist) ? artist[0] : artist;
+  if (typeof text !== 'string' || !/^\d{1,12}$/.test(text)) return failure(400, 'Artista desconhecido');
+  try {
+    const page = await fetchArtistRadioTracks(text, fetchImpl);
+    console.log(`[Radio] ✅ rádio do artista ${text} → ${page.tracks.length} faixa(s)`);
+    return { status: 200, body: page };
+  } catch (err: any) {
+    console.warn(`[Radio] ⚠️ rádio do artista ${text} falhou: ${err?.message || err}`);
+    return failure(502, 'Não foi possível carregar esta rádio agora');
   }
 }
 

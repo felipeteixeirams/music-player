@@ -264,6 +264,8 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
     }
     if (url.pathname === '/api/radio') {
       if (url.searchParams.has('id')) return reply(route, page([track(201, 'Faixa da Rádio', 'Artista Rádio')]));
+      // The radio of an artist: a batch on every call (INV-RAD-01)
+      if (url.searchParams.has('artist')) return reply(route, page([track(301, 'Faixa do Rádio do Artista', 'Artista Teste')]));
       return reply(route, {
         genres: [{ id: 'pop', name: 'Pop', stations: [{ id: 1, name: 'Estação Pop', picture: null }, { id: 2, name: 'Estação Hits', picture: null }] }]
       });

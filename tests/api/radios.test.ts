@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RADIO_GENRES, findRadioStation } from '../../api/_radios';
-import { fetchRadioTracks, mapRadioGenres } from '../../api/_deezer';
+import { fetchArtistRadioTracks, fetchRadioTracks, mapRadioGenres } from '../../api/_deezer';
+import { radioEndpoint } from '../../api/_endpoints';
 
 const deezerGenres = (ids: number[], extra: Record<string, unknown> = {}) => ({
   data: [{ id: 152, title: 'Rock', radios: ids.map((id) => ({ id, title: `Station ${id}`, picture_medium: `https://cdn.example/${id}.jpg`, ...extra })) }]
@@ -76,4 +77,52 @@ test('fetchRadioTracks maps one batch with the station as style and no paging', 
 test('fetchRadioTracks rejects when Deezer fails', async () => {
   const fetchImpl = (async () => new Response('', { status: 503 })) as unknown as typeof fetch;
   await assert.rejects(fetchRadioTracks({ id: 1, name: 'X' }, fetchImpl), /Deezer HTTP 503/);
+});
+
+const artistRadioPayload = {
+  data: [
+    { id: 11, title: 'Uma', duration: 200, preview: 'https://cdn.example/11.mp3', artist: { name: 'Artista' }, album: { title: 'X' } },
+    { id: 12, title: 'Duas', duration: 210, preview: 'https://cdn.example/12.mp3', artist: { name: 'Outro' }, album: { title: 'Y' } }
+  ]
+};
+
+test('INV-RAD-01: fetchArtistRadioTracks pede o rádio do artista com 40 faixas e devolve um lote sem paginação', async () => {
+  let requested = '';
+  const fetchImpl = (async (url: string) => {
+    requested = String(url);
+    return Response.json(artistRadioPayload);
+  }) as unknown as typeof fetch;
+
+  const page = await fetchArtistRadioTracks('1783', fetchImpl);
+  assert.equal(requested, 'https://api.deezer.com/artist/1783/radio?limit=40');
+  assert.deepEqual(page.tracks.map((t) => t.id), ['deezer-11', 'deezer-12']);
+  assert.equal(page.total, 2);
+  assert.equal(page.nextIndex, null);
+});
+
+test('INV-RAD-01: /api/radio?artist= responde um lote novo a cada chamada e nunca em cache', async () => {
+  const fetchImpl = (async () => Response.json(artistRadioPayload)) as unknown as typeof fetch;
+  const result = await radioEndpoint({ artist: '1783' }, fetchImpl);
+  assert.equal(result.status, 200);
+  assert.equal(result.cacheControl, undefined);
+  assert.equal((result.body as { tracks: unknown[] }).tracks.length, 2);
+});
+
+test('INV-RAD-01: o id do artista é validado antes de qualquer chamada ao Deezer', async () => {
+  let calls = 0;
+  const fetchImpl = (async () => {
+    calls += 1;
+    return Response.json(artistRadioPayload);
+  }) as unknown as typeof fetch;
+  for (const artist of ['abc', '1783/../../search', '1234567890123', '']) {
+    const result = await radioEndpoint({ artist }, fetchImpl);
+    assert.equal(result.status, 400, artist);
+  }
+  assert.equal(calls, 0);
+});
+
+test('INV-RAD-01: falha do Deezer no rádio do artista vira 502 com mensagem para a pessoa', async () => {
+  const fetchImpl = (async () => new Response('', { status: 503 })) as unknown as typeof fetch;
+  const result = await radioEndpoint({ artist: '1783' }, fetchImpl);
+  assert.equal(result.status, 502);
 });

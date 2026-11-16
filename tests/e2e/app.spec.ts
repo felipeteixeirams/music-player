@@ -75,6 +75,26 @@ test('INV-CAT-01: a busca mostra o álbum do iTunes e as playlists, e cada um ab
   await expect(playlistPage.getByRole('button', { name: 'Dona da Lista' })).toHaveCount(0);
 });
 
+test('INV-RAD-01: a página do artista inicia a rádio dele, que toca e aparece no mini player; falha mostra aviso sem tocar', async ({ page }) => {
+  await nav(page, 'Buscar').click();
+  const box = page.getByRole('searchbox', { name: 'Buscar' });
+  await box.fill('artista');
+  await box.press('Enter');
+  await page.locator('section[aria-label="Artistas"]').getByRole('button', { name: 'Artista Teste' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Artista Teste' })).toBeVisible();
+
+  // A failing radio says so and starts nothing
+  await page.route('**/api/radio?artist=*', (route) => route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"falha"}' }));
+  await page.getByRole('button', { name: 'Iniciar rádio de Artista Teste' }).click();
+  await expect(page.getByRole('alert')).toContainText('Não foi possível iniciar a rádio de Artista Teste');
+  await expect(page.getByRole('button', { name: /Abrir player expandido/ })).toHaveCount(0);
+
+  // The radio works: its first track plays and the mini player shows it
+  await page.unroute('**/api/radio?artist=*');
+  await page.getByRole('button', { name: 'Iniciar rádio de Artista Teste' }).click();
+  await expect(page.getByRole('button', { name: /Abrir player expandido para Faixa do Rádio do Artista/ })).toBeVisible();
+});
+
 test('INV-UI-06: a busca lista artistas, a página do artista toca as mais tocadas abre os álbuns e os artistas semelhantes', async ({ page }) => {
   await nav(page, 'Buscar').click();
   const box = page.getByRole('searchbox', { name: 'Buscar' });
@@ -130,6 +150,24 @@ test('Ver tudo abre a coleção, carrega a próxima página e o botão de voltar
 
   await page.getByRole('button', { name: 'Início' }).first().click();
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+});
+
+test('INV-UI-13: a coleção aberta pela home tem Reproduzir (a primeira faixa) e Aleatório (uma faixa da coleção)', async ({ page }) => {
+  await page.getByRole('button', { name: 'Ver todas as faixas de Classic Rock' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Classic Rock' })).toBeVisible();
+  const play = page.getByRole('button', { name: 'Reproduzir', exact: true });
+  const shuffle = page.getByRole('button', { name: 'Aleatório' });
+  await expect(play).toBeEnabled();
+  await expect(shuffle).toBeEnabled();
+
+  await play.click();
+  await expect(page.getByRole('button', { name: /Abrir player expandido para Rock Um/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Início' }).first().click();
+  await page.getByRole('button', { name: 'Ver todas as faixas de Classic Rock' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Classic Rock' })).toBeVisible();
+  await page.getByRole('button', { name: 'Aleatório' }).click();
+  await expect(page.getByRole('button', { name: /Abrir player expandido para Rock (Um|Dois|Três)/ })).toBeVisible();
 });
 
 test('tocar uma faixa mostra o mini player e abre e fecha o player completo', async ({ page }) => {

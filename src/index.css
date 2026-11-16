@@ -280,3 +280,25 @@ input[type='range']::-moz-range-thumb {
   --ma-thick: 0.6;
   color-scheme: dark;
 }
+
+/*
+ * Immersion, first stage (CSS only). Azul: a Verdana face and a glossy top light on the primary buttons.
+ * Ferro: the figures (times, counts) in a pixel display face with a green glow, and beveled panels.
+ */
+:root[data-theme="azul"] {
+  --font-sans: Verdana, Tahoma, 'Segoe UI', system-ui, sans-serif;
+}
+:root[data-theme="azul"] .bg-accent {
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.32) 0%, rgb(255 255 255 / 0) 55%);
+}
+:root[data-theme="ferro"] {
+  --font-mono: 'VT323', ui-monospace, monospace;
+}
+:root[data-theme="ferro"] .tabular-nums {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 6px rgb(61 220 90 / 0.45);
+}
+:root[data-theme="ferro"] .bg-elevated {
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.07), inset -1px -1px 0 rgb(0 0 0 / 0.55);
+}

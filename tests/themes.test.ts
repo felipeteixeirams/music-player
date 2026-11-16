@@ -1,7 +1,7 @@
 // Temas (Ajustes > Tema): o padrão segue a aparência; o Clássico Azul é claro; o Clássico Ferro é escuro.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseTheme, themeIsLight, THEMES, THEME_LABELS } from '../src/utils/appearance';
+import { parseTheme, themeFontUrl, themeIsLight, THEMES, THEME_LABELS } from '../src/utils/appearance';
 
 test('um tema desconhecido ou ausente vira o padrão', () => {
   assert.equal(parseTheme(null), 'padrao');
@@ -24,4 +24,10 @@ test('os três temas têm nomes que não são marcas registradas', () => {
   assert.equal(THEME_LABELS.azul, 'Clássico Azul');
   assert.equal(THEME_LABELS.ferro, 'Clássico Ferro');
   for (const label of Object.values(THEME_LABELS)) assert.doesNotMatch(label, /windows|xp|winamp/i);
+});
+
+test('só o Clássico Ferro carrega a fonte de pixel; os outros temas não baixam nada a mais', () => {
+  assert.equal(themeFontUrl('padrao'), null);
+  assert.equal(themeFontUrl('azul'), null);
+  assert.match(themeFontUrl('ferro') ?? '', /fonts\.googleapis\.com.*VT323/);
 });

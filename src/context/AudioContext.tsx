@@ -12,7 +12,7 @@ import {
   knownVideoIds
 } from '../utils/audioEngine';
 import { allowanceDay, KNOWN_LOOKAHEAD, MAX_QUEUE_SKIPS, nextKnownIndex, skipNotice } from '../utils/smartQueue';
-import { fetchRadioTracks } from '../utils/catalogClient';
+import { fetchRadioBatch } from '../utils/catalogClient';
 import { needsRadioRefill, pickRadioRefill } from '../utils/radioQueue';
 import { MAX_EMPTY_PAGES, needsMoreTracks, newTracks, type QueueSource } from '../utils/queueSource';
 import { useAuth } from './AuthContext';
@@ -937,7 +937,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!radioStation || radioRefillingRef.current) return [];
     radioRefillingRef.current = true;
     try {
-      const incoming = await fetchRadioTracks(radioStation.id);
+      const incoming = await fetchRadioBatch(radioStation);
       const added = pickRadioRefill(queueRef.current, incoming);
       if (added.length > 0) {
         queueRef.current = [...queueRef.current, ...added];
@@ -1007,7 +1007,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     primeInTap();
 
     try {
-      const batch = await fetchRadioTracks(station.id);
+      const batch = await fetchRadioBatch(station);
       if (batch.length === 0) return false;
       radioRefillingRef.current = false;
       queueRef.current = batch;
