@@ -19,9 +19,11 @@ export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> =
     const config = readSupabaseConfig();
     if (!config) return;
 
+    // The id must be the one the token belongs to: the database checks the row's user_id against it (INV-ADMIN-03).
+    // A stale id from the stored account made the daily-use write fail with a row-level-security refusal (production, 2026-11-16).
     const getUser = async () => {
       const session = await getSession();
-      return session ? { id: userId, token: session.access_token } : null;
+      return session ? { id: session.user.id, token: session.access_token } : null;
     };
     // One row per day the app is in use (INV-ADMIN-03). Recorded when the app starts and again when it comes back to the
     // front: an iPhone app that wakes from the background does not start again, so a day could otherwise go unrecorded.

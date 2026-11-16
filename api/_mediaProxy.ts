@@ -2,7 +2,7 @@ type FetchLike = typeof fetch;
 
 const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 8000;
-import { COVER_HOST_SUFFIXES } from '../src/utils/coverHosts';
+import { COVER_HOST_SUFFIXES } from './_coverHosts.js';
 
 const ALLOWED_HOST_SUFFIXES = [...COVER_HOST_SUFFIXES, '.itunes.apple.com'];
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
-import { COVER_PLACEHOLDER } from '../utils/coverFallback';
+import { COVER_PLACEHOLDER } from '../../api/_coverFallback';
 import { coverSrc, deezerCoverAtSize, DEEZER_COVER_SIZES, imagesViaProxy, isProxiableImageUrl, proxiedImageUrl, recordRescuedImage, subscribeImagesViaProxy } from '../utils/imageProxy';
 
 /**

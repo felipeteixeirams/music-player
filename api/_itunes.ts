@@ -1,5 +1,5 @@
 import type { AlbumPage, AlbumSummary, Track } from '../src/types/music';
-import { COVER_PLACEHOLDER } from '../src/utils/coverFallback';
+import { COVER_PLACEHOLDER } from './_coverFallback.js';
 
 const ITUNES_SEARCH = 'https://itunes.apple.com/search';
 const REQUEST_TIMEOUT_MS = 4000;

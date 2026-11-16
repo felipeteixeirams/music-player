@@ -1,4 +1,4 @@
-import { COVER_HOST_SUFFIXES } from './coverHosts';
+import { COVER_HOST_SUFFIXES } from '../../api/_coverHosts';
 
 /**
  * Covers normally load straight from the catalog's CDN. On a network that blocks that domain but not ours, they load
