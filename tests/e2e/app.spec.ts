@@ -516,23 +516,31 @@ test.describe('tocar na aba já aberta', () => {
     await expect.poll(() => scrollY(page)).toBeGreaterThan(1000);
     const before = requests.length;
 
-    // Samples of the position as it travels, taken in the page's own frames
-    const samples = await page.evaluate(
+    // Samples of the position as it travels, taken in the page's own frames, with the time of each one. How many frames
+    // a headless browser draws per second varies with the machine (the CI runner draws fewer), so the test checks the
+    // time the travel takes, not how many frames it was sampled in.
+    const { samples, times } = await page.evaluate(
       () =>
-        new Promise<number[]>((resolve) => {
+        new Promise<{ samples: number[]; times: number[] }>((resolve) => {
           const seen: number[] = [];
+          const when: number[] = [];
           const nav = [...document.querySelectorAll('nav button')].find((b) => b.textContent?.includes('Início')) as HTMLElement;
           nav.click();
           const tick = () => {
             seen.push(Math.round(window.scrollY));
-            if (window.scrollY > 0 && seen.length < 200) requestAnimationFrame(tick);
-            else resolve(seen);
+            when.push(performance.now());
+            if (window.scrollY > 0 && seen.length < 400) requestAnimationFrame(tick);
+            else resolve({ samples: seen, times: when });
           };
           requestAnimationFrame(tick);
         })
     );
     expect(samples[samples.length - 1]).toBe(0);
-    expect(samples.length).toBeGreaterThan(10);
+    // Not a jump: the travel lasts a real time (the invariant says 450 to 750 ms; the slack is for slow machines)
+    const travel = times[times.length - 1] - times[0];
+    expect(travel).toBeGreaterThan(300);
+    expect(travel).toBeLessThan(2500);
+    expect(samples.length).toBeGreaterThan(3);
     // Never goes back down, starts gently (the first step is small) and brakes at the end (the last steps are small)
     expect(samples.every((value, i) => i === 0 || value <= samples[i - 1])).toBe(true);
     const steps = samples.slice(1).map((value, i) => samples[i] - value);
