@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Heart, Music, ListPlus, MinusCircle } from 'lucide-react';
+import { Heart, Music, ListPlus, MinusCircle, MoreHorizontal } from 'lucide-react';
+import { TrackActionsSheet } from './TrackActionsSheet';
 import { TrackPlaybackIcon } from './PlaybackIcon';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
@@ -45,6 +46,8 @@ export const TrackList: React.FC<TrackListProps> = ({
 }) => {
   const { currentTrack, isPlaying, togglePlayPause, toggleLike, isLiked } = useAudio();
   const { openAddToPlaylist } = usePlaylists();
+  // The track whose actions sheet is open (INV-PLAY-28)
+  const [actionTrack, setActionTrack] = React.useState<Track | null>(null);
 
   // Ask the shared cache about the tracks shown, so tapping one somebody already played starts with no wait
   useEffect(() => {
@@ -178,6 +181,16 @@ export const TrackList: React.FC<TrackListProps> = ({
                     }`}
                   />
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionTrack(track);
+                  }}
+                  aria-label={`Mais ações de ${track.title}`}
+                  className="p-1.5 rounded-full text-label-secondary hover:text-label transition-transform active:scale-75"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
               </div>
             </div>
           );
@@ -194,6 +207,7 @@ export const TrackList: React.FC<TrackListProps> = ({
           onRetry={onRetry ?? onLoadMore}
         />
       )}
+      {actionTrack && <TrackActionsSheet track={actionTrack} onClose={() => setActionTrack(null)} />}
     </section>
   );
 };
