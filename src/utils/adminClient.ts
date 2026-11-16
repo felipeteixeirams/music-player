@@ -12,8 +12,19 @@ export interface AdminOverview {
     dailyCounts?: { day: string; count: number }[] | null;
   };
   cache: { tracks: number | null };
+  /** The latest feedback from Ajustes (INV-ADMIN-04); null while the table is not there yet. */
+  feedback?: AdminFeedback[] | null;
   config: { id: string; level: 'ok' | 'warn' | 'error'; message: string }[];
   database: 'ok' | 'off';
+}
+
+export interface AdminFeedback {
+  id: number;
+  kind: string;
+  message: string;
+  version: string;
+  createdAt: string;
+  email: string;
 }
 
 /** Whether the server considers the signed-in person an administrator (it decides; this only shows or hides the entry). */

@@ -92,3 +92,35 @@ test('INV-ADMIN-03: sem a tabela de uso (migração não aplicada) o painel resp
   const data = (await adminEndpoint({}, ME, deps({ admin: { ...deps().admin!, activitySince: async () => { throw new Error('404'); } } as unknown as Admin }))).body as { activity: { people: null } };
   assert.equal(data.activity.people, null);
 });
+
+test('INV-ADMIN-04: o painel lista os feedbacks com o e-mail de quem enviou; sem a tabela, feedback vem null e o painel segue', async () => {
+  const rows = [
+    { id: 2, user_id: 'u-other', kind: 'bug', message: 'A busca some ao girar', version: '1.4.0', created_at: '2026-11-15T12:00:00Z' },
+    { id: 1, user_id: 'u-idle', kind: 'idea', message: 'Modo noturno', version: '1.3.9', created_at: '2026-11-14T09:00:00Z' }
+  ];
+  const withFeedback = deps();
+  (withFeedback.admin as unknown as { recentFeedback: (limit: number) => Promise<unknown> }).recentFeedback = async (limit: number) => {
+    assert.equal(limit, 50);
+    return rows;
+  };
+  const { body } = await adminEndpoint({}, ME, withFeedback);
+  const data = body as { feedback: { id: number; email: string; kind: string; message: string }[] };
+  assert.deepEqual(data.feedback.map((item) => [item.id, item.email, item.kind]), [
+    [2, 'ana@example.com', 'bug'],
+    [1, 'idle@example.com', 'idea']
+  ]);
+  assert.equal(data.feedback[0].message, 'A busca some ao girar');
+  // Only the administrator gets it
+  const denied = await adminEndpoint({}, OTHER, withFeedback);
+  assert.doesNotMatch(JSON.stringify(denied.body), /A busca some|ana@/);
+
+  // The table is not there yet: the panel still answers, with feedback null
+  const missing = deps();
+  (missing.admin as unknown as { recentFeedback: () => Promise<unknown> }).recentFeedback = async () => {
+    throw new Error('Supabase HTTP 404 em /app_feedback');
+  };
+  const { status, body: partial } = await adminEndpoint({}, ME, missing);
+  assert.equal(status, 200);
+  assert.equal((partial as { feedback: unknown }).feedback, null);
+  assert.equal((partial as { youtube: unknown }).youtube !== undefined, true);
+});
