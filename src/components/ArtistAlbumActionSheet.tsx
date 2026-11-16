@@ -75,7 +75,7 @@ export const ArtistAlbumActionSheet: React.FC<ArtistAlbumActionSheetProps> = ({
             <div className="flex items-center gap-3.5 min-w-0 pr-3">
               <div className="w-12 h-12 rounded-full overflow-hidden bg-elevated-2 flex items-center justify-center shrink-0 shadow-sm ring-1 ring-white/10">
                 {artistPictureUrl ? (
-                  <RemoteImage
+                  <RemoteImage sizes="48px"
                     src={artistPictureUrl}
                     alt=""
                     referrerPolicy="no-referrer"

@@ -93,6 +93,7 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
               >
                 <RemoteImage
                   src={track.coverUrl}
+                  sizes="(min-width: 640px) 164px, 148px"
                   alt=""
                   referrerPolicy="no-referrer"
                   loading="lazy"
