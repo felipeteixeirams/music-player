@@ -72,7 +72,7 @@ export const AddToPlaylistSheet: React.FC = () => {
               >
                 <span className="w-11 h-11 rounded-cover bg-fill-tertiary text-label-secondary flex items-center justify-center shrink-0 overflow-hidden">
                   {playlist.tracks[0] ? (
-                    <RemoteImage src={playlist.tracks[0].coverUrl} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    <RemoteImage src={playlist.tracks[0].coverUrl} alt="" referrerPolicy="no-referrer" sizes="44px" className="w-full h-full object-cover" />
                   ) : (
                     <ListMusic className="w-5 h-5" />
                   )}

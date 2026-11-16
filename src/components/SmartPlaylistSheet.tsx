@@ -275,7 +275,7 @@ export const SmartPlaylistSheet: React.FC<SmartPlaylistSheetProps> = ({ onOpenPl
                         aria-label={playing ? `Pausar prévia de ${track.title}` : `Ouvir prévia de ${track.title}`}
                       >
                         {track.coverUrl ? (
-                          <RemoteImage src={track.coverUrl} alt="" className="w-full h-full object-cover" />
+                          <RemoteImage src={track.coverUrl} alt="" sizes="44px" className="w-full h-full object-cover" />
                         ) : (
                           <Music2 className="w-5 h-5 text-label-secondary" />
                         )}

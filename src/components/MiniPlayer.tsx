@@ -86,6 +86,7 @@ export const MiniPlayer: React.FC = () => {
               >
                 <RemoteImage
                   src={currentTrack.coverUrl}
+                  sizes="36px"
                   alt=""
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
