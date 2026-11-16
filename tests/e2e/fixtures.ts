@@ -51,7 +51,10 @@ const COLLECTIONS: Record<string, FakeTrack[]> = {
   // The "Humor para você" card takes its collection from the hour of the day (mpb in the morning, pop-internacional in the
   // afternoon, top-hits at night, lofi-chill at dawn): all four must exist here or the home test fails at some hours
   mpb: [track(51, 'MPB Um', 'Cantor M'), track(52, 'MPB Dois', 'Cantor M'), track(53, 'MPB Três', 'Cantora N')],
-  'pop-internacional': [track(61, 'Pop Um', 'Star P'), track(62, 'Pop Dois', 'Star P'), track(63, 'Pop Três', 'Star Q')]
+  'pop-internacional': [track(61, 'Pop Um', 'Star P'), track(62, 'Pop Dois', 'Star P'), track(63, 'Pop Três', 'Star Q')],
+  'rock-brasil': [track(71, 'Rock Brasil Um', 'Banda Nacional'), track(72, 'Rock Brasil Dois', 'Banda Nacional'), track(73, 'Rock Brasil Três', 'Banda Tupi')],
+  reggaeton: [track(81, 'Reggaeton Um', 'Artista Latino'), track(82, 'Reggaeton Dois', 'Artista Latino'), track(83, 'Reggaeton Três', 'Artista Caribe')],
+  'pop-brasil': [track(91, 'Pop Brasil Um', 'Cantora B'), track(92, 'Pop Brasil Dois', 'Cantora B'), track(93, 'Pop Brasil Três', 'Grupo C')]
 };
 
 /** A podcast show with three episodes (newest first); their audio is a silent 20 s clip on a host that tests answer. */

@@ -31,7 +31,13 @@ export const CATEGORY_PLAYLISTS = {
   // "study lofi" by Deezer Mood: lo-fi beats for focus
   'lofi-chill': { playlistId: 8749345882, style: 'Lofi Chill' },
   // "Synthwave" by Deezer Dance
-  'synthwave': { playlistId: 5896949744, style: 'Synthwave' }
+  'synthwave': { playlistId: 5896949744, style: 'Synthwave' },
+  // "Rock Brasil Anos 90" by Editores Deezer Brasil: Capital Inicial, Titãs, O Rappa, Los Hermanos (medido em 2026-11-16)
+  'rock-brasil': { playlistId: 5619144082, style: 'Rock Brasil' },
+  // "Reggaeton Hits" by Camojada, Deezer Latin editor: Bad Bunny, KAROL G, J. Balvin, Ozuna (medido em 2026-11-16)
+  'reggaeton': { playlistId: 1273315391, style: 'Reggaeton' },
+  // "Pop Brasil Anos 2000" by Editores Deezer Brasil: Luka, Wanessa, Sandy e Junior, Tribalistas (medido em 2026-11-16)
+  'pop-brasil': { playlistId: 5441594162, style: 'Pop Brasil' }
 } as const;
 
 export type CategoryId = keyof typeof CATEGORY_PLAYLISTS;

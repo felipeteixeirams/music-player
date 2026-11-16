@@ -83,6 +83,27 @@ export const CATEGORIES: Category[] = [
     accentColor: '#f59e0b'
   },
   {
+    id: 'rock-brasil',
+    name: 'Rock Brasil',
+    description: 'O rock nacional dos anos 90 que tocou em todo rádio',
+    gradient: 'from-red-600/30 to-stone-900/30',
+    accentColor: '#ef4444'
+  },
+  {
+    id: 'reggaeton',
+    name: 'Reggaeton',
+    description: 'Os hits do reggaeton, de Bad Bunny a KAROL G',
+    gradient: 'from-orange-500/30 to-fuchsia-900/30',
+    accentColor: '#f97316'
+  },
+  {
+    id: 'pop-brasil',
+    name: 'Pop Brasil',
+    description: 'O pop brasileiro dos anos 2000 que grudou na memória',
+    gradient: 'from-sky-500/30 to-violet-900/30',
+    accentColor: '#38bdf8'
+  },
+  {
     id: 'alternative-pop',
     name: 'Alternative & Indie',
     description: 'Indie e alternativo de hoje: guitarras modernas e refrões marcantes',
