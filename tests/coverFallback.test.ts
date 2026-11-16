@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { mapDeezerTrack } from '../api/_deezer';
-import { COVER_PLACEHOLDER } from '../src/utils/coverFallback';
+import { COVER_PLACEHOLDER } from '../api/_coverFallback';
 
 test('INV-MEDIA-04: a capa padrão é um desenho embutido (data URI), sem pedir nada a terceiros', () => {
   assert.ok(COVER_PLACEHOLDER.startsWith('data:image/svg+xml'));

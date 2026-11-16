@@ -1,7 +1,7 @@
 import type { AlbumPage, AlbumSummary, ArtistPage, ArtistSummary, FeedResponse, RadioGenre, Track, TrackPage } from '../src/types/music';
 import { CATEGORY_IDS, CATEGORY_PLAYLISTS, type CategoryId } from './_categories.js';
 import { RADIO_GENRES, type RadioStationConfig } from './_radios.js';
-import { COVER_PLACEHOLDER } from '../src/utils/coverFallback';
+import { COVER_PLACEHOLDER } from './_coverFallback.js';
 
 const DEEZER_API = 'https://api.deezer.com';
 const REQUEST_TIMEOUT_MS = 4000;
