@@ -363,6 +363,16 @@ export async function fetchRadioTracks(station: RadioStationConfig, fetchImpl?: 
 }
 
 /**
+ * A batch of the artist's radio (INV-RAD-01): tracks of the artist and of similar ones, drawn in a new order on
+ * every call, as a station is. `limit=40` is the size the radio queue expects; Deezer answers 25 without it.
+ */
+export async function fetchArtistRadioTracks(artistId: string, fetchImpl?: FetchLike): Promise<TrackPage> {
+  const payload = await requestDeezer(`/artist/${artistId}/radio?limit=40`, fetchImpl);
+  const tracks = mapDeezerTracks(payload);
+  return { tracks, total: tracks.length, nextIndex: null };
+}
+
+/**
  * A fresh preview address of a track. Deezer's preview links carry a signature that expires in about 15 minutes,
  * while lists are kept (by the CDN and by the phone) for hours: the player asks for a new one when it is about to
  * use an old one. Null when the track has none.

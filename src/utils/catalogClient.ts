@@ -1,4 +1,4 @@
-import type { AlbumPage, AlbumSummary, ArtistPage, ArtistSummary, FeedResponse, LiveStation, RadioGenre, Track, TrackPage } from '../types/music';
+import type { AlbumPage, AlbumSummary, ArtistPage, ArtistSummary, FeedResponse, LiveStation, RadioGenre, RadioStation, Track, TrackPage } from '../types/music';
 import { apiFetch } from './apiFetch';
 import { isPreviewStale } from './previewUrl';
 
@@ -107,6 +107,14 @@ export async function fetchRadioGenres(signal?: AbortSignal): Promise<RadioGenre
 export async function fetchRadioTracks(stationId: number, signal?: AbortSignal): Promise<Track[]> {
   const body = await getJson(`/api/radio?id=${stationId}`, signal);
   if (!isTrackPage(body)) throw new CatalogError('Resposta inesperada do servidor ao carregar a estação.');
+  return body.tracks;
+}
+
+/** The next batch of whatever radio is playing: a station's, or the radio of an artist (INV-RAD-01). */
+export async function fetchRadioBatch(station: RadioStation, signal?: AbortSignal): Promise<Track[]> {
+  if (station.source !== 'artist') return fetchRadioTracks(station.id, signal);
+  const body = await getJson(`/api/radio?artist=${station.id}`, signal);
+  if (!isTrackPage(body)) throw new CatalogError('Resposta inesperada do servidor ao carregar a rádio do artista.');
   return body.tracks;
 }
 
