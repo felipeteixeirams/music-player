@@ -18,6 +18,23 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <style>
+      /* The opening screen: it is in the HTML, so it shows before the app's JavaScript arrives. src/utils/splash.ts takes it away
+         once the app has painted (INV-UI-14). */
+      #splash { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: #000; transition: opacity 0.4s ease; }
+      .scheme-light #splash { background: #fff; }
+      #splash.splash-hide { opacity: 0; pointer-events: none; }
+      #splash img { width: 96px; height: 96px; border-radius: 22px; animation: splash-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      #splash .splash-bars { display: flex; align-items: flex-end; gap: 5px; height: 28px; }
+      #splash .splash-bars span { width: 6px; height: 100%; border-radius: 3px; background: #ec4899; transform-origin: bottom; animation: splash-bar 1s ease-in-out infinite; }
+      #splash .splash-bars span:nth-child(1) { background: #a855f7; animation-delay: 0s; }
+      #splash .splash-bars span:nth-child(2) { background: #ec4899; animation-delay: 0.15s; }
+      #splash .splash-bars span:nth-child(3) { background: #3b82f6; animation-delay: 0.3s; }
+      #splash .splash-bars span:nth-child(4) { background: #ec4899; animation-delay: 0.45s; }
+      @keyframes splash-in { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: none; } }
+      @keyframes splash-bar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+      @media (prefers-reduced-motion: reduce) { #splash * { animation: none !important; } }
+    </style>
     <script>
       // Applies the saved appearance before the first paint (no flash); src/utils/appearance.ts keeps it afterwards
       try {
@@ -30,6 +47,10 @@
     </script>
   </head>
   <body>
+    <div id="splash" role="status" aria-label="Carregando o app">
+      <img src="/icon.svg" alt="" width="96" height="96" />
+      <div class="splash-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
