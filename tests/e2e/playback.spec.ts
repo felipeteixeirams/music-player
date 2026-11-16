@@ -13,6 +13,21 @@ async function openApp(page: Page, options: Parameters<typeof stubApi>[1]) {
   await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
 }
 
+test('INV-PLAY-01: com a página rolada e a barra recolhida, o aviso de "o iPhone não deixou começar" continua aparecendo', async ({ page }) => {
+  await openApp(page, { videoIds: [FIRST] });
+  await topHit(page).click();
+  await expect(page.getByRole('button', { name: 'Carregando música' })).toBeVisible();
+  // Scrolling down collapses the bottom bar; with something playing that bar used to hide the notice
+  await page.evaluate(() => {
+    document.body.style.minHeight = '4000px';
+  });
+  // Scrolled the way a finger does it: small steps going down
+  await page.mouse.move(200, 400);
+  for (let i = 0; i < 6; i += 1) await page.mouse.wheel(0, 300);
+  await expect(page.getByRole('button', { name: 'Mostrar a navegação' })).toBeVisible();
+  await expect(page.getByText(/não deixou a música começar sozinha/).first()).toBeVisible({ timeout: 20_000 });
+});
+
 test('INV-PLAY-01: a faixa completa que o navegador não deixa começar sozinha não finge que toca: avisa e o ▶ resolve', async ({ page }) => {
   await openApp(page, { videoIds: [FIRST] });
   await topHit(page).click();
