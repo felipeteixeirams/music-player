@@ -1,7 +1,7 @@
 import type { AlbumPage, AlbumSummary, Track } from '../src/types/music';
+import { COVER_PLACEHOLDER } from '../src/utils/coverFallback';
 
 const ITUNES_SEARCH = 'https://itunes.apple.com/search';
-const FALLBACK_COVER = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500';
 const REQUEST_TIMEOUT_MS = 4000;
 
 type FetchLike = typeof fetch;
@@ -34,7 +34,7 @@ function asHttpsUrl(value: unknown): string | null {
 
 /** iTunes serves artwork at the size named in the URL; ask for a larger one. */
 function largeArtwork(url: string | null): string {
-  return url ? url.replace(/\/\d+x\d+bb\./, '/600x600bb.') : FALLBACK_COVER;
+  return url ? url.replace(/\/\d+x\d+bb\./, '/600x600bb.') : COVER_PLACEHOLDER;
 }
 
 export function mapItunesTrack(input: unknown, style = 'Apple Music'): Track | null {

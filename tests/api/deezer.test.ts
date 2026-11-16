@@ -58,7 +58,8 @@ test('mapDeezerTrack applies consistent fallbacks for optional fields', () => {
   assert.ok(track);
   assert.equal(track.title, 'Get Lucky (Radio Edit)');
   assert.equal(track.album, 'Single');
-  assert.match(track.coverUrl, /^https:\/\//);
+  // No cover from Deezer: the neutral picture (INV-MEDIA-04), not a photo from another site
+  assert.match(track.coverUrl, /^data:image\/svg\+xml/);
 });
 
 test('mapDeezerTracks skips invalid and duplicate items and keeps tracks without preview', () => {

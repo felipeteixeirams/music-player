@@ -1,9 +1,9 @@
 import type { AlbumPage, AlbumSummary, ArtistPage, ArtistSummary, FeedResponse, RadioGenre, Track, TrackPage } from '../src/types/music';
 import { CATEGORY_IDS, CATEGORY_PLAYLISTS, type CategoryId } from './_categories.js';
 import { RADIO_GENRES, type RadioStationConfig } from './_radios.js';
+import { COVER_PLACEHOLDER } from '../src/utils/coverFallback';
 
 const DEEZER_API = 'https://api.deezer.com';
-const FALLBACK_COVER = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500';
 const REQUEST_TIMEOUT_MS = 4000;
 
 type FetchLike = typeof fetch;
@@ -61,7 +61,7 @@ export function mapDeezerTrack(input: unknown, style = 'Deezer'): Track | null {
     artist,
     album: asText(album?.title) ?? 'Single',
     duration: Math.round(duration),
-    coverUrl: asHttpUrl(album?.cover_big) ?? asHttpUrl(album?.cover_medium) ?? FALLBACK_COVER,
+    coverUrl: asHttpUrl(album?.cover_big) ?? asHttpUrl(album?.cover_medium) ?? COVER_PLACEHOLDER,
     style,
     categoryId: 'web',
     sources: previewUrl ? { localUrl: '', previewUrl } : { localUrl: '' }
@@ -135,7 +135,7 @@ export function mapDeezerArtist(input: unknown): ArtistSummary | null {
   return {
     id: rawId,
     name,
-    pictureUrl: asHttpUrl(item.picture_big) ?? asHttpUrl(item.picture_medium) ?? asHttpUrl(item.picture_xl) ?? FALLBACK_COVER,
+    pictureUrl: asHttpUrl(item.picture_big) ?? asHttpUrl(item.picture_medium) ?? asHttpUrl(item.picture_xl) ?? COVER_PLACEHOLDER,
     fans: typeof fans === 'number' && Number.isFinite(fans) && fans > 0 ? Math.round(fans) : 0
   };
 }
@@ -165,7 +165,7 @@ export function mapDeezerAlbum(input: unknown, fallbackArtist = ''): AlbumSummar
   return {
     id: rawId,
     title,
-    coverUrl: asHttpUrl(item.cover_big) ?? asHttpUrl(item.cover_medium) ?? FALLBACK_COVER,
+    coverUrl: asHttpUrl(item.cover_big) ?? asHttpUrl(item.cover_medium) ?? COVER_PLACEHOLDER,
     year: Number.isFinite(year) && year > 1900 ? year : 0,
     artist: asText(asRecord(item.artist)?.name) ?? fallbackArtist
   };
@@ -186,7 +186,7 @@ export function mapDeezerPlaylist(input: unknown): AlbumSummary | null {
   return {
     id: `pl-${rawId}`,
     title,
-    coverUrl: asHttpUrl(item.picture_big) ?? asHttpUrl(item.picture_medium) ?? FALLBACK_COVER,
+    coverUrl: asHttpUrl(item.picture_big) ?? asHttpUrl(item.picture_medium) ?? COVER_PLACEHOLDER,
     year: 0,
     artist: asText(owner?.name) ?? '',
     kind: 'playlist',
