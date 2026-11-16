@@ -385,6 +385,54 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 
 `npm test` (301 testes, 6 ignorados que dependem de rede) e `npm run test:e2e` (69 testes de ponta a ponta no Chromium com as rotas simuladas; contagens de 2026-10-28), `npm run lint`, `npm run build` e `npm run test:integrations:live` (smoke: prévias do Deezer, resolução de vídeos, iTunes, as 14 playlists das coleções e as rádios ao vivo). A integração contínua (`.github/workflows/ci.yml`) roda tipos, testes, build e ponta a ponta em todo PR e na `main`.
 
+## Rodada 8: mudanças de 2026-11-15 e 16 (sem teste no aparelho)
+
+### T31: enviar feedback (Ajustes > Ajuda)
+
+1. Abra Ajustes > Ajuda > "Enviar feedback" com a conta logada. Escolha um tipo, escreva uma mensagem e envie: deve aparecer "Obrigado!".
+2. Repita com a rede desligada (modo avião): a folha deve dizer que não foi enviado e manter o texto.
+3. No Supabase (Table Editor, `app_feedback`), a linha deve ter o tipo, a mensagem e a versão do app.
+
+Esperado: o envio funciona com a rede e falha com aviso sem a rede; nenhuma mensagem se perde.
+
+### T32: painel de administrador (só a conta admin)
+
+1. Em Ajustes > Painel de administrador, o bloco "Feedback dos usuários" lista os envios, do mais novo ao mais antigo, com o e-mail de quem enviou.
+2. Em "Frequência e Usuários Ativos", o gráfico de 14 dias mostra hoje com quem abriu o app.
+3. Com uma conta que não é admin, a linha "Administração" não aparece.
+
+Esperado: as listas batem com o banco; nenhuma conta sem permissão vê esses dados.
+
+### T33: contagem de uso diário (abrir e voltar)
+
+1. Abra o app logado. No Supabase, `app_days` deve ter uma linha para hoje e a sua conta.
+2. Coloque o app em segundo plano, passe um tempo, e volte a ele sem fechar: não deve haver uma segunda linha de hoje (é uma por dia).
+3. Se a gravação falhar, o Diagnóstico de reprodução mostra uma linha `uso diário:` com o status; nada disso deve aparecer num dia normal.
+
+Esperado: exatamente uma linha por pessoa e por dia, mesmo com várias voltas ao app.
+
+### T34: rádio de artista
+
+1. Busque um artista, abra a página e toque em "Iniciar rádio". A primeira faixa deve tocar e aparecer no mini player.
+2. Deixe a rádio tocar até passar de 10 faixas: a fila deve continuar com faixas novas, sem parar.
+3. Na aba Rádio, a estação de número igual ao do artista não deve aparecer marcada como "atual".
+
+Esperado: a rádio toca e segue; falhas mostram o aviso "Não foi possível iniciar a rádio" e nada toca.
+
+### T35: coleções novas (Rock Brasil, Reggaeton, Pop Brasil)
+
+1. Na home, as três coleções aparecem com faixas. "Ver tudo" em cada uma abre a lista e carrega a próxima página ao rolar.
+2. Tocar uma faixa de cada coleção toca a faixa e mostra o mini player com o nome dela.
+
+Esperado: nenhuma coleção vazia; a descrição bate com as faixas (rock nacional dos anos 90, reggaeton, pop brasileiro dos anos 2000).
+
+### T36: cartões que mudam com as curtidas
+
+1. Com uma conta que nunca tocou nada de um artista, curta duas faixas dele. Sem tocar nada, a home deve passar a considerar esse artista (o cartão "Feito para você" ou "Estação de descoberta" muda).
+2. Depois de tocar algumas faixas de outro artista, o cartão deve voltar a mostrar esse outro artista.
+
+Esperado: o cartão reage na mesma sessão, sem recarregar o app; o nome do artista no cartão confere com o que foi curtido ou tocado.
+
 ## Registro
 
 | Teste | Data | Aparelho e navegador | Resultado | Observações |
@@ -416,3 +464,9 @@ Já resolvidas: feed offline (ver T15), playlists criadas pelo usuário (ver T14
 | T25 | | | ⬜ | |
 | T26 | 2026-10-28 | iPhone, app instalado `f2abfa7520bc` | ⚠️ | A primeira faixa nova ("Memories") começou completa com "player liberado no toque" (carregado 5,3 s depois do toque, dentro da janela de 6 s). A segunda faixa nova ("For Freedom") não tocou de primeira ("sem som 6 s depois") porque o vídeo-reserva só rodava uma vez por sessão; o ▶ iniciou em 454 ms. Corrigido (refeito em todo toque com o player parado); falta repetir. A barra da faixa ficou com a duração do vídeo-reserva (0:19): corrigido. |
 | T27 | 2026-10-28 | iPhone, app instalado `f2abfa7520bc` | ✅ | "Memories" e "For Freedom" voltaram a achar vídeo (2 versões, resolvido em 2,2 e 2,4 s). "Give Me Shelter" continua sem vídeo, e está certo: na busca só aparecem faixas dos Rolling Stones; o ranking recusa e toca a prévia. |
+| T31 | | | ⬜ | |
+| T32 | | | ⬜ | |
+| T33 | | | ⬜ | |
+| T34 | | | ⬜ | |
+| T35 | | | ⬜ | |
+| T36 | | | ⬜ | |
