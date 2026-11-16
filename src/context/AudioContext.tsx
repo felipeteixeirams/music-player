@@ -22,7 +22,7 @@ import { isUnlockClip, unlockAudioElement } from '../utils/audioUnlock';
 import { classifyYouTubeError } from '../utils/youtubeErrors';
 import { logPlayback } from '../utils/playbackDiagnostics';
 import { plausiblePlayerLength } from '../utils/playerLength';
-import { moveQueueItem } from '../utils/queueOrder';
+import { moveQueueItem, queueWithAppended, queueWithNext } from '../utils/queueOrder';
 import { episodeRefOf, isPodcastTrack } from '../utils/podcastTrack';
 import { readProgress, resumePosition, saveProgress } from '../utils/podcastProgress';
 import { nextSpeed, readSpeed, saveSpeed } from '../utils/podcastSpeed';
@@ -104,6 +104,10 @@ interface AudioContextType {
   markWrongVersion: () => void;
   /** Moves a track of the queue (absolute positions, both after the playing one) to another place. */
   moveQueueTrack: (from: number, to: number) => void;
+  /** Tocar a seguir: the track plays right after the one playing (or now, when nothing plays). INV-PLAY-28. */
+  addNextToQueue: (track: Track) => void;
+  /** Adicionar à fila: the track goes to the end of the queue (or plays now, when nothing plays). INV-PLAY-28. */
+  addToQueue: (track: Track) => void;
   /** Podcast episodes only: the speed (1 = normal) and the button that goes to the next one. */
   playbackSpeed: number;
   cycleSpeed: () => void;
@@ -1217,6 +1221,26 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setQueue(queueRef.current);
   }, [currentIndex]);
 
+  const addNextToQueue = useCallback((track: Track) => {
+    if (!currentTrackRef.current) {
+      playTrack(track);
+      return;
+    }
+    const next = queueWithNext(queueRef.current, currentIndex, track);
+    queueRef.current = next;
+    setQueue(next);
+  }, [currentIndex, playTrack]);
+
+  const addToQueue = useCallback((track: Track) => {
+    if (!currentTrackRef.current) {
+      playTrack(track);
+      return;
+    }
+    const next = queueWithAppended(queueRef.current, track);
+    queueRef.current = next;
+    setQueue(next);
+  }, [playTrack]);
+
   const markWrongVersion = useCallback(async () => {
     const track = currentTrackRef.current;
     const versions = versionsRef.current;
@@ -1360,6 +1384,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       switchVersion,
       markWrongVersion,
       moveQueueTrack,
+      addNextToQueue,
+      addToQueue,
       playbackSpeed,
       cycleSpeed,
       skipBy,
@@ -1412,6 +1438,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       switchVersion,
       markWrongVersion,
       moveQueueTrack,
+      addNextToQueue,
+      addToQueue,
       playbackSpeed,
       cycleSpeed,
       skipBy,
