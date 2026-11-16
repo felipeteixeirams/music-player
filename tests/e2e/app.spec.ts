@@ -603,6 +603,19 @@ test.describe('cartões personalizados da home', () => {
   });
 });
 
+test('INV-HOME-02: curtir faixas de um artista, sem tocar nada, pede os dados dele para o cartão "Feito para você"', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Início' })).toBeVisible();
+  const hits = page.locator('section[aria-label="Top Hits"]');
+  // "Primeira Faixa" and "Segunda Faixa" are both by Artista Um; nothing is played
+  const askedFor = page.waitForRequest((request) => request.url().includes('/api/search?artists=') && request.url().includes('Artista'));
+  await hits.getByRole('button', { name: `Favoritar ${TOP_HITS[0].title}`, exact: true }).click();
+  await hits.getByRole('button', { name: `Favoritar ${TOP_HITS[1].title}`, exact: true }).click();
+  const request = await askedFor;
+  expect(decodeURIComponent(request.url())).toContain('artists=Artista Um');
+});
+
 test('INV-UI-08: Ajustes é uma tela com seções (conta, tema, armazenamento, ajuda, sobre) e o OK volta ao app', async ({ page }) => {
   await stubApi(page);
   await page.goto('/');

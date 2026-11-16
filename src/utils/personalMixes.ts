@@ -67,22 +67,30 @@ export const normalizeName = (name: string): string =>
 
 export interface RankedArtist {
   name: string;
-  /** Plays, counting the last 30 days double. */
+  /** Plays (the last 30 days count double) and likes (each counts LIKE_WEIGHT). */
   score: number;
 }
 
-/** The artists played most, best first (ties by name). Several artists on one track count for the first name. */
-export function rankArtists(entries: PlayEntry[], now: number, limit = 5): RankedArtist[] {
+/** What a like is worth in the ranking, in plays from the last 30 days: a liked track says more than one play. */
+export const LIKE_WEIGHT = 3;
+
+/**
+ * The artists the person listens to most, best first (ties by name): plays, plus each liked track of the artist (a like
+ * counts LIKE_WEIGHT, so an artist liked but not played yet still shows up). Several artists on one track count for the
+ * first name.
+ */
+export function rankArtists(entries: PlayEntry[], now: number, limit = 5, liked: Track[] = []): RankedArtist[] {
   const scores = new Map<string, RankedArtist>();
-  for (const entry of entries) {
-    const name = entry.track.artist.split(/\s*(?:,|&| feat\.? | ft\.? )\s*/i)[0]?.trim();
-    if (!name) continue;
+  const add = (artist: string, weight: number) => {
+    const name = artist.split(/\s*(?:,|&| feat\.? | ft\.? )\s*/i)[0]?.trim();
+    if (!name) return;
     const key = normalizeName(name);
-    const weight = now - entry.playedAt <= RECENT_WEIGHT_MS ? 2 : 1;
     const current = scores.get(key);
     if (current) current.score += weight;
     else scores.set(key, { name, score: weight });
-  }
+  };
+  for (const entry of entries) add(entry.track.artist, now - entry.playedAt <= RECENT_WEIGHT_MS ? 2 : 1);
+  for (const track of liked) add(track.artist, LIKE_WEIGHT);
   return [...scores.values()].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name)).slice(0, limit);
 }
 
