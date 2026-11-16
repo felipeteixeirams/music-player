@@ -169,6 +169,11 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
         day: '2026-10-29',
         youtube: { search: 'suspended', reason: 'quota', until: Date.parse('2026-10-29T07:00:00Z'), searchesToday: 12, unitsUpperBound: 1200 },
         limits: { dailyNewTracks: 30 },
+        // What the people sent from Ajustes (INV-ADMIN-04), newest first
+        feedback: [
+          { id: 2, kind: 'bug', message: 'A busca some ao girar o aparelho', version: '1.4.0', createdAt: '2026-10-29T12:00:00Z', email: 'ana@example.com' },
+          { id: 1, kind: 'idea', message: 'Um modo noturno para o carro', version: '1.3.9', createdAt: '2026-10-28T09:00:00Z', email: 'felipe@example.com' }
+        ],
         people: { counted: 2, accounts: 3, perPerson: [{ email: 'ana@example.com', used: 9 }, { email: 'felipe@example.com', used: 3 }] },
         activity: {
           window: 30,

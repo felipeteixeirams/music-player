@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { fetchAdminOverview, type AdminOverview } from '../utils/adminClient';
+import { FEEDBACK_LABELS, type FeedbackKind } from '../utils/feedbackRemote';
 
 const LEVEL_LABEL = { ok: 'OK', warn: 'Aviso', error: 'Erro' } as const;
 
@@ -59,6 +60,25 @@ export const AdminPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         {data && (
           <>
+            <Block title="Feedback dos usuários">
+              {data.feedback == null ? (
+                <Row label="Dados" value="ainda não gravados (rode a migração 0006_app_feedback.sql no Supabase)" testId="admin-feedback-empty" />
+              ) : data.feedback.length === 0 ? (
+                <Row label="Nenhum feedback ainda" value="" testId="admin-feedback-empty" />
+              ) : (
+                data.feedback.map((item) => (
+                  <div key={item.id} className="px-4 py-3 space-y-1.5" data-testid="admin-feedback-row">
+                    <div className="flex items-center justify-between gap-2 text-[12px] text-label-secondary">
+                      <span className="font-semibold text-accent">{FEEDBACK_LABELS[item.kind as FeedbackKind] ?? item.kind}</span>
+                      <span>{new Date(item.createdAt).toLocaleString('pt-BR')} · v{item.version}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-[15px] text-label">{item.message}</p>
+                    <p className="text-[12px] text-label-secondary truncate">{item.email}</p>
+                  </div>
+                ))
+              )}
+            </Block>
+
             <Block title="Busca do YouTube">
               <Row
                 label="Busca oficial"

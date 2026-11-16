@@ -39,6 +39,18 @@ export interface Admin {
   listUsers(): Promise<Record<string, string>>;
   /** The days each person opened the app since `fromDay` (INV-ADMIN-03): user id -> days, newest first. */
   activitySince(fromDay: string): Promise<Record<string, string[]>>;
+  /** The latest feedback the people sent (INV-ADMIN-04), newest first. Throws when the table is not there. */
+  recentFeedback(limit: number): Promise<FeedbackRow[]>;
+}
+
+/** A row of `app_feedback` as the panel reads it (the e-mail is added from the accounts, not stored in the row). */
+export interface FeedbackRow {
+  id: number;
+  user_id: string;
+  kind: string;
+  message: string;
+  version: string;
+  created_at: string;
 }
 
 /** Today's date in São Paulo, the day the quota counts in (same as the SQL function). */
@@ -138,6 +150,9 @@ export function createAdmin(config: AdminConfig, fetchImpl: typeof fetch = fetch
       const byUser: Record<string, string[]> = {};
       for (const row of rows) (byUser[row.user_id] ??= []).push(row.day);
       return byUser;
+    },
+    async recentFeedback(limit) {
+      return (await (await call(`/app_feedback?select=id,user_id,kind,message,version,created_at&order=created_at.desc,id.desc&limit=${limit}`)).json()) as FeedbackRow[];
     },
     async usedToday(userId, now) {
       const rows = (await (

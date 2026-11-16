@@ -639,6 +639,12 @@ test.describe('painel de administrador', () => {
     await expect(panel.getByRole('region', { name: 'Uso por pessoa' }).getByText('ana@example.com')).toBeVisible();
     await expect(panel.getByText('9 de 30')).toBeVisible();
     await expect(panel.getByText('Aviso: service-key')).toBeVisible();
+    // The feedback the people sent, with who sent it (INV-ADMIN-04)
+    const feedback = panel.getByRole('region', { name: 'Feedback dos usuários' });
+    await expect(feedback.getByTestId('admin-feedback-row')).toHaveCount(2);
+    await expect(feedback.getByText('A busca some ao girar o aparelho')).toBeVisible();
+    await expect(feedback.getByText('Algo não funciona')).toBeVisible();
+    await expect(feedback.getByText('ana@example.com')).toBeVisible();
     await page.getByRole('button', { name: 'Fechar administração' }).click();
     await expect(panel).toBeHidden();
   });

@@ -3,6 +3,9 @@ import { cachedDeepConfig, checkStaticConfig, type Finding } from './_config.js'
 import { breakerFor, DEFAULT_DAILY_NEW_TRACKS } from './_resolveEndpoint.js';
 import { adminConfigFromEnv, createAdmin, saoPauloDay, type Admin } from './_supabaseAdmin.js';
 import { ACTIVITY_WINDOW_DAYS, dayBefore, summarizeDays } from './_appDays.js';
+
+/** How many of the latest feedbacks the panel lists (INV-ADMIN-04). */
+export const FEEDBACK_PANEL_LIMIT = 50;
 import type { YoutubeBreaker } from './_youtubeBreaker.js';
 
 type Env = Record<string, string | undefined>;
@@ -58,7 +61,7 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
 
   const now = deps.now();
   const day = saoPauloDay(now);
-  const [breaker, findings, usage, users, cached, opened] = await Promise.all([
+  const [breaker, findings, usage, users, cached, opened, feedback] = await Promise.all([
     deps.breaker.check().catch(() => null),
     deps.findings().catch(() => [] as Finding[]),
     deps.admin?.usageByDay(day).catch(() => null) ?? null,
@@ -68,6 +71,11 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
     (async () => deps.admin?.activitySince(dayBefore(day, ACTIVITY_WINDOW_DAYS - 1)) ?? null)().catch((error: unknown) => {
       // The panel shows "ainda não gravados" for this: the log says why (status and path only, never a key or an address)
       console.warn(`[Admin] uso diário indisponível: ${error instanceof Error ? error.message : 'erro'}`);
+      return null;
+    }),
+    // The feedback table (INV-ADMIN-04): null while the migration 0006 is not applied; the log says why
+    (async () => deps.admin?.recentFeedback?.(FEEDBACK_PANEL_LIMIT) ?? null)().catch((error: unknown) => {
+      console.warn(`[Admin] feedback indisponível: ${error instanceof Error ? error.message : 'erro'}`);
       return null;
     })
   ]);
@@ -114,6 +122,17 @@ export async function adminEndpoint(query: Record<string, unknown>, user: AuthUs
       people: { counted: perPerson.length, accounts: users ? Object.keys(users).length : null, perPerson },
       activity: { window: ACTIVITY_WINDOW_DAYS, today: day, people: activity, dailyCounts },
       cache: { tracks: cached },
+      // Feedback sent from Ajustes (INV-FB-01): what the person wrote, when, on which version, and who (e-mail)
+      feedback: feedback
+        ? feedback.map((row) => ({
+            id: row.id,
+            kind: row.kind,
+            message: row.message,
+            version: row.version,
+            createdAt: row.created_at,
+            email: users?.[row.user_id] || 'conta sem e-mail'
+          }))
+        : null,
       config: findings.map(({ id, level, message }) => ({ id, level, message })),
       database: deps.admin ? 'ok' : 'off'
     }

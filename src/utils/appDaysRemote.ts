@@ -13,9 +13,9 @@ export async function recordAppOpen(
   getUser: () => Promise<{ id: string; token: string } | null>,
   now: number = Date.now(),
   fetchImpl: typeof fetch = fetch
-): Promise<void> {
+): Promise<boolean> {
   const user = await getUser().catch(() => null);
-  if (!user) return;
+  if (!user) return false;
   const call = createRestCaller(config, async () => user, fetchImpl);
   try {
     await call('/app_days?on_conflict=user_id,day', {
@@ -23,6 +23,7 @@ export async function recordAppOpen(
       body: JSON.stringify([{ user_id: user.id, day: saoPauloDayOf(now) }]),
       prefer: 'resolution=ignore-duplicates,return=minimal'
     });
+    return true;
   } catch (error) {
     // Nothing for the person to see, but the reason goes to the server's log (as [Client]): a row that never lands is
     // otherwise invisible. The reason is the status and the start of the database's answer, never a token.
@@ -31,5 +32,6 @@ export async function recordAppOpen(
     } else {
       void reportClientError('error', `uso diário: ${error instanceof Error ? error.message : 'erro'}`);
     }
+    return false;
   }
 }

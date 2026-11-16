@@ -26,6 +26,9 @@ function fakeAdmin(limitFails = false) {
   const used = new Map<string, number>();
   const calls: string[] = [];
   const admin: Admin = {
+    async recentFeedback() {
+      return [];
+    },
     async getCached(key) {
       calls.push(`get ${key}`);
       return cache.get(key) ?? null;

@@ -11,6 +11,7 @@ import { subscribeProgress } from '../utils/podcastProgress';
 import { createRemote } from '../utils/userDataRemote';
 import { UserDataSync } from '../utils/userDataSync';
 import { recordAppOpen } from '../utils/appDaysRemote';
+import { saoPauloDayOf } from '../utils/appDays';
 
 /** Keeps this device's favorites, playlists, picks and play history in step with the signed-in user's account. Renders nothing. */
 export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> = ({ userId, storage }) => {
@@ -22,8 +23,18 @@ export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> =
       const session = await getSession();
       return session ? { id: userId, token: session.access_token } : null;
     };
-    // One row per day the app is opened (INV-ADMIN-03); a failure here changes nothing for the person
-    void recordAppOpen(config, getUser);
+    // One row per day the app is in use (INV-ADMIN-03). Recorded when the app starts and again when it comes back to the
+    // front: an iPhone app that wakes from the background does not start again, so a day could otherwise go unrecorded.
+    // A day is recorded once; a failed record is tried again on the next wake-up.
+    let recordedDay = '';
+    const recordOpen = () => {
+      const today = saoPauloDayOf(Date.now());
+      if (today === recordedDay) return;
+      void recordAppOpen(config, getUser).then((ok) => {
+        if (ok) recordedDay = today;
+      });
+    };
+    recordOpen();
     const sync = new UserDataSync({ storage, remote: createRemote(config, getUser), onApplied: emitUserDataApplied });
     const history = new PlayHistorySync({ storage, remote: createHistoryRemote(config, getUser), onApplied: emitHistoryApplied });
     const progress = new PodcastProgressSync({ storage, remote: createProgressRemote(config, getUser) });
@@ -41,7 +52,10 @@ export const SyncAgent: React.FC<{ userId: string; storage: KeyValueStorage }> =
       progress.refresh();
     };
     const onVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
+      if (document.visibilityState === 'visible') {
+        refresh();
+        recordOpen();
+      }
       // Leaving the app: what was listened to goes to the account now, not after the wait
       else progress.flush();
     };
