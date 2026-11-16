@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronRight, Database, FlaskConical, Gauge, LogOut, ShieldCheck } from 'lucide-react';
+import { Check, ChevronRight, Database, FlaskConical, Gauge, LogOut, MessageSquareText, ShieldCheck } from 'lucide-react';
 import { fetchDailyUsage, type DailyUsage } from '../utils/usageClient';
 import { useAuth } from '../context/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -9,6 +9,7 @@ import { sessionId } from '../utils/trace';
 import { fetchIsAdmin } from '../utils/adminClient';
 import { AdminPanel } from './AdminPanel';
 import { BackgroundLab } from './BackgroundLab';
+import { FeedbackSheet } from './FeedbackSheet';
 
 const APPEARANCE_LABELS: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
 
@@ -73,6 +74,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
   const [isAdmin, setIsAdmin] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !enabled) return;
@@ -175,6 +177,13 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
 
         <Section title="Ajuda">
           <PlaybackDiagnostics />
+          {enabled && (
+            <button onClick={() => setFeedbackOpen(true)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-label">
+              <MessageSquareText className="h-4 w-4 text-accent" aria-hidden="true" />
+              <span className="flex-1">Enviar feedback</span>
+              <ChevronRight className="h-4 w-4 text-label-tertiary" aria-hidden="true" />
+            </button>
+          )}
           <div className="flex justify-start px-4 py-3 empty:hidden">
             <PWAInstallButton />
           </div>
@@ -223,6 +232,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose, onO
       </div>
       {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
       {labOpen && <BackgroundLab onClose={() => setLabOpen(false)} />}
+      {feedbackOpen && <FeedbackSheet onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 };

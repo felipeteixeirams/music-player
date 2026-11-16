@@ -91,10 +91,13 @@ export interface FeedResponse {
 }
 
 export interface RadioStation {
+  /** A station's Deezer id, or with `source: 'artist'` the Deezer id of the artist. */
   id: number;
   name: string;
   /** Cover from Deezer; null when it has none. */
   picture: string | null;
+  /** Set for the radio of an artist (INV-RAD-01); stations of the Rádio tab leave it out. */
+  source?: 'artist';
 }
 
 export interface RadioGenre {

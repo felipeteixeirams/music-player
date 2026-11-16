@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Radio } from 'lucide-react';
 import { PlayShuffleButtons } from './PlayShuffleButtons';
 import { TrackList } from './TrackList';
 import { useAudio } from '../context/AudioContext';
@@ -11,10 +11,22 @@ const formatFans = (fans: number) => (fans > 0 ? `${new Intl.NumberFormat('pt-BR
 
 /** Page of an artist of the online catalog: photo, play and shuffle, and the most played tracks. */
 export const ArtistScreen: React.FC<{ artistId: string; onOpenAlbum: (album: AlbumSummary) => void; onOpenArtist: (artist: ArtistSummary) => void }> = ({ artistId, onOpenAlbum, onOpenArtist }) => {
-  const { playTrack } = useAudio();
+  const { playTrack, startRadio } = useAudio();
   const [page, setPage] = useState<ArtistPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [startingRadio, setStartingRadio] = useState(false);
+  const [radioError, setRadioError] = useState<string | null>(null);
+
+  /** The radio of this artist (INV-RAD-01): it starts from the tap, as a station does. */
+  const startArtistRadio = async () => {
+    if (!page || startingRadio) return;
+    setStartingRadio(true);
+    setRadioError(null);
+    const started = await startRadio({ id: Number(artistId), name: page.artist.name, picture: page.artist.pictureUrl || null, source: 'artist' });
+    setStartingRadio(false);
+    if (!started) setRadioError(`Não foi possível iniciar a rádio de ${page.artist.name} agora. Tente de novo.`);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,6 +73,18 @@ export const ArtistScreen: React.FC<{ artistId: string; onOpenAlbum: (album: Alb
         {formatFans(page.artist.fans) && <p className="text-[13px] text-label-secondary">{formatFans(page.artist.fans)}</p>}
       </div>
       <PlayShuffleButtons tracks={tracks} />
+      <div className="px-4">
+        <button
+          onClick={() => void startArtistRadio()}
+          disabled={startingRadio}
+          aria-label={`Iniciar rádio de ${page.artist.name}`}
+          className="flex w-full items-center justify-center gap-2 rounded-card bg-fill-tertiary py-2.5 text-[17px] font-semibold text-accent active:scale-[0.97] transition-transform disabled:opacity-40"
+        >
+          {startingRadio ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Radio className="h-4 w-4" aria-hidden="true" />}
+          <span>Iniciar rádio</span>
+        </button>
+        {radioError && <p role="alert" className="pt-2 text-center text-[13px] text-rose-500">{radioError}</p>}
+      </div>
       <TrackList
         tracks={tracks}
         title="Músicas mais tocadas"
