@@ -29,7 +29,7 @@ Abra, no navegador logado na Vercel:
 | Endereço | Esperado |
 | --- | --- |
 | `/api/health` | `{"status":"ok", ...}` |
-| `/api/feed` | `categories` com 14 coleções (as de `api/_categories.ts`), cada uma com 15 faixas, `total` maior que 15 e `nextIndex` 15; `featured` preenchido (a home não o mostra mais; fica por compatibilidade) |
+| `/api/feed` | `categories` com 17 coleções (as de `api/_categories.ts`), cada uma com 15 faixas, `total` maior que 15 e `nextIndex` 15; `featured` preenchido (a home não o mostra mais; fica por compatibilidade) |
 | `/api/category?id=classic-rock&index=15` | 20 faixas, `nextIndex` 35, nenhuma repetida da página anterior |
 | `/api/category?id=nao-existe` | 400 `Categoria desconhecida` |
 | `/api/search?q=queen&index=20` | 20 faixas, `source` `deezer`, `total` maior que 100 |
@@ -41,7 +41,7 @@ Se falhar: `via web` com a chave configurada indica que a chave não chega à fu
 
 ### T02: fidelidade das coleções, "Ver tudo" e paginação
 
-1. Na home, confira os carrosséis (14, mais "Tocadas recentemente" quando há histórico) e o conteúdo de cada um contra a descrição; os cinco primeiros editoriais: Top Hits (músicas mais tocadas no Brasil), Classic Rock (AC/DC, Pink Floyd, Bowie, Beatles), Alternative & Indie (indie e alternativo de hoje), Lofi Chill (lo-fi para estudar), Synthwave & Retrowave (sintetizadores dos anos 80).
+1. Na home, confira os carrosséis (17, mais "Tocadas recentemente" quando há histórico) e o conteúdo de cada um contra a descrição; os cinco primeiros editoriais: Top Hits (músicas mais tocadas no Brasil), Classic Rock (AC/DC, Pink Floyd, Bowie, Beatles), Alternative & Indie (indie e alternativo de hoje), Lofi Chill (lo-fi para estudar), Synthwave & Retrowave (sintetizadores dos anos 80).
 2. Toque em "Ver tudo" em cada carrossel e também em cada bloco da grade "Explorar tudo" da aba Buscar; confira que a lista mostra só aquela coleção (Synthwave não pode mostrar faixas de outras) e que "‹" no topo volta à tela de onde você veio.
 3. Em uma coleção, role até o fim. As faixas devem aparecer em blocos e o botão "Carregar mais" deve sumir no fim; a linha sob o título diz o total da coleção (por exemplo "100 faixas").
 4. Procure faixas repetidas na mesma lista.
@@ -214,7 +214,7 @@ Esperado: o relógio e os ícones da barra de status ficam legíveis nos três m
 
 ### T17: home dinâmica
 
-1. Abra o app em produção: a home deve mostrar até 14 coleções (Top Hits, Sertanejo, Pagode e Samba, Funk, Forró, MPB, Gospel, Pop Internacional, Rap e Hip Hop, Eletrônica, Classic Rock, Alternative, Lofi, Synthwave). Anote o tempo até a lista aparecer.
+1. Abra o app em produção: a home deve mostrar até 17 coleções (incluindo Rock Brasil, Reggaeton e Pop Brasil, novas em 2026-11-16; Top Hits, Sertanejo, Pagode e Samba, Funk, Forró, MPB, Gospel, Pop Internacional, Rap e Hip Hop, Eletrônica, Classic Rock, Alternative, Lofi, Synthwave). Anote o tempo até a lista aparecer.
 2. Confira o conteúdo de cada coleção nova contra o nome (as playlists foram escolhidas pelo título, sem ouvir todas).
 3. Toque numa faixa e volte à home depois de a música tocar mais de 30 s: a prateleira "Tocadas recentemente" deve aparecer no topo.
 

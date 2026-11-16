@@ -236,7 +236,7 @@ test('feed endpoint logs the category that failed and a summary line, and keeps 
   assert.equal(body.categories['synthwave'].tracks.length, 1);
   assert.equal(body.featured.id, 'deezer-30');
   assert.ok(warnings.some((line) => line.includes('Categoria "classic-rock" falhou')), warnings.join('\n'));
-  assert.ok(logs.some((line) => /\[Feed\] .*classic-rock=0 .*synthwave=1 em \d+ms/.test(line)), logs.join('\n'));
+  assert.ok(logs.some((line) => /\[Feed\] .*classic-rock=0 .*synthwave=1 .*em \d+ms/.test(line)), logs.join('\n'));
 });
 
 test('feed endpoint answers 502 without cache headers when every category fails', async () => {

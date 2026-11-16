@@ -17,6 +17,9 @@ const TILE_COLORS: Record<string, string> = {
   'hip-hop': '#6b7a8f',
   eletronica: '#1fa3c4',
   'classic-rock': '#d98b2b',
+  'rock-brasil': '#c0392b',
+  reggaeton: '#e8702a',
+  'pop-brasil': '#2a9fd8',
   'alternative-pop': '#e0507a',
   'lofi-chill': '#5b7fe8',
   synthwave: '#8b4fd8'
