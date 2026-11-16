@@ -32,7 +32,8 @@ export function usePersonalMixes({ entries, liked, feed, storage }: Input): Pers
   const day = dayKey(now);
   const hour = new Date(now).getHours();
 
-  const ranked = useMemo(() => rankArtists(entries, now, 5), [entries, day]);
+  // Likes count too (LIKE_WEIGHT): an artist liked but not played yet can start the mixes
+  const ranked = useMemo(() => rankArtists(entries, now, 5, liked), [entries, liked, day]);
   // The same list of names is the same request: a play that does not change the top does not ask again
   const topKey = ranked.slice(0, 3).map((artist) => artist.name).join('|');
   const known = useMemo(() => new Set(entries.map((entry) => normalizeName(entry.track.artist.split(/\s*(?:,|&)\s*/)[0] ?? ''))), [entries]);

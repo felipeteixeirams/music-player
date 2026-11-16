@@ -37,6 +37,20 @@ test('os artistas mais ouvidos vêm primeiro, o que foi tocado nos últimos 30 d
   assert.equal(ranked[0].score, 4);
 });
 
+test('INV-HOME-02: uma curtida vale 3 pontos no ranking; um artista só curtido, sem reprodução, entra; curtida e reprodução somam', () => {
+  const entries = [play(1, 'Tocado', 90), play(2, 'Tocado', 91)];
+  // Liked only: no plays at all
+  assert.deepEqual(rankArtists([], NOW, 5, [{ ...track(50), artist: 'Curtido' }]).map((a) => [a.name, a.score]), [['Curtido', 3]]);
+  // Two plays (1 each, old) against one like of another artist: the like ranks first
+  const mixed = rankArtists(entries, NOW, 5, [{ ...track(51), artist: 'Curtido' }]);
+  assert.deepEqual(mixed.map((a) => [a.name, a.score]), [['Tocado', 2], ['Curtido', 3]].sort((x, y) => (y[1] as number) - (x[1] as number)));
+  // Liked and played: the scores add up
+  const both = rankArtists([play(3, 'Curtido', 1)], NOW, 5, [{ ...track(52), artist: 'Curtido' }]);
+  assert.deepEqual(both.map((a) => [a.name, a.score]), [['Curtido', 5]]);
+  // Without likes the ranking is as before
+  assert.deepEqual(rankArtists(entries, NOW).map((a) => a.name), ['Tocado']);
+});
+
 test('interleave alterna entre as listas, sem repetir faixa e respeitando exclusões e o limite', () => {
   const a = [track(1), track(2), track(3)];
   const b = [track(10), track(2), track(11)];
