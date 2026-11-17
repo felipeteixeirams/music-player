@@ -1,31 +1,59 @@
 import React from 'react';
 import type { AlbumSummary } from '../types/music';
-import { historicAlbumSummary, historicCoverUrl, type HistoricEntry } from '../utils/historicCatalog';
+import { HISTORIC_ALBUM_PREFIX, type HistoricEntry } from '../utils/historicCatalog';
 import { CdCover } from './CdCover';
 
+interface HistoricCdsRowProps {
+  entries: HistoricEntry[];
+  onOpen: (album: AlbumSummary) => void;
+}
+
 /**
- * The CDs a search names, as a row of covers like the "Álbuns" and "Playlists" rows: tapping one opens its album page.
- * A CD without artwork in the catalog shows the disc.
+ * Horizontal row of historic CD compilations shown in the search view when
+ * the search query matches a known collection or compilation series.
  */
-export const HistoricCdsRow: React.FC<{ entries: HistoricEntry[]; onOpen: (album: AlbumSummary) => void }> = ({ entries, onOpen }) => {
-  if (entries.length === 0) return null;
+export const HistoricCdsRow: React.FC<HistoricCdsRowProps> = ({ entries, onOpen }) => {
+  if (!entries || entries.length === 0) return null;
+
   return (
-    <section aria-label="CDs históricos" className="px-4 pb-2">
-      <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">CDs históricos</h2>
-      <div className="flex gap-4 overflow-x-auto">
-        {entries.map((entry) => (
-          <button
-            key={entry.id}
-            onClick={() => onOpen(historicAlbumSummary(entry))}
-            className="flex w-32 shrink-0 flex-col gap-1.5 text-left active:opacity-60"
-          >
-            <CdCover url={historicCoverUrl(entry.mbid)} alt="" className="h-32 w-32 rounded-cover shadow-md" iconClassName="h-10 w-10 text-white/70" />
-            <span className="w-full truncate text-[13px] font-medium text-label">{entry.title}</span>
-            <span className="w-full truncate text-[11px] text-label-secondary">
-              {entry.year ? `${entry.year} · Som Livre` : 'Som Livre'}
-            </span>
-          </button>
-        ))}
+    <section role="region" aria-label="CDs históricos" className="px-4 pb-4">
+      <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">CDs Históricos</h2>
+      <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none">
+        {entries.map((entry) => {
+          const album: AlbumSummary = {
+            id: `${HISTORIC_ALBUM_PREFIX}${entry.id}`,
+            title: entry.title,
+            coverUrl: entry.coverUrl || '',
+            year: entry.year || 0,
+            artist: entry.label || 'Som Livre',
+            kind: 'album',
+            trackCount: entry.tracks
+          };
+
+          return (
+            <button
+              key={entry.id}
+              onClick={() => onOpen(album)}
+              aria-label={entry.title}
+              className="flex w-32 shrink-0 flex-col gap-1.5 text-left active:scale-[0.98] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-2xl"
+            >
+              <div className="relative">
+                <CdCover
+                  url={entry.coverUrl}
+                  alt={`Capa de ${entry.title}`}
+                  className="h-32 w-32 rounded-2xl object-cover bg-fill-tertiary shadow-md ring-1 ring-white/10"
+                  iconClassName="h-12 w-12 text-white/70"
+                />
+              </div>
+              <span className="w-full truncate text-[13px] font-medium text-label leading-tight">
+                {entry.title}
+              </span>
+              <span className="w-full truncate text-[11px] text-label-secondary">
+                {[entry.label || 'Coletânea', entry.year > 0 ? String(entry.year) : ''].filter(Boolean).join(' · ')}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

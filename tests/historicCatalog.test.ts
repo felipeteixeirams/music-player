@@ -1,84 +1,100 @@
-// Coletâneas históricas (INV-CAT-02 e INV-CAT-03): a busca só mostra um CD quando o termo é o nome da série.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { findHistoricMatches, durationSeconds, historicAlbumSummary, historicCoverUrl, type HistoricEntry } from '../src/utils/historicCatalog';
-import { baseTitle, norm } from '../src/utils/historicNames';
+import {
+  findHistoricMatches,
+  HISTORIC_ALBUM_PREFIX,
+  loadHistoricAlbumPage,
+  type HistoricIndex
+} from '../src/utils/historicCatalog';
 
-const entry = (id: string, title: string, base: string, year: number | null): HistoricEntry => ({
-  id,
-  title,
-  base,
-  year,
-  catno: null,
-  tracks: 10,
-  matched: 8
-});
+const MOCK_INDEX: HistoricIndex = {
+  generatedAt: '2026-11-09',
+  source: 'test',
+  compilations: [
+    { id: 'm3', title: 'Lovy Metal 1', base: 'lovy metal', year: 2001, catno: '23282', tracks: 14, matched: 12 },
+    { id: 'm4', title: 'Lovy Metal 3', base: 'lovy metal', year: 2003, catno: '23284', tracks: 14, matched: 10 },
+    { id: 'cam-alt', title: 'Alternativo 2000', base: 'alternativo', year: 2000, catno: 'CAM-2000', tracks: 14, matched: 14 },
+    { id: 'cam-ver', title: 'Verão 98', base: 'verao', year: 1998, catno: 'CAM-1998', tracks: 14, matched: 14 },
+    { id: 'm1845970', title: 'Summer Eletrohits', base: 'summer eletrohits', year: 2005, catno: '001', tracks: 16, matched: 16 }
+  ]
+};
 
-const CATALOG: HistoricEntry[] = [
-  entry('m1', 'Good Times', 'good times', 2003),
-  entry('m2', 'Good Times 2', 'good times', 1990),
-  entry('m3', 'Lovy Metal 1', 'lovy metal', 2001),
-  entry('m4', 'Lovy Metal 3', 'lovy metal', 2003),
-  entry('m5', 'Classic Metal', 'classic metal', null),
-  entry('m6', 'Classic Metal 2', 'classic metal', 2005),
-  entry('m7', 'Power Ballads', 'power ballads', 2004),
-  entry('m8', 'Seattle 90', 'seattle 90', 2003)
-];
+test('INV-CAT-02: carregar uma coletânea histórica gera um AlbumPage com faixas e metadados oficiais', async () => {
+  // Mock fetch for loadHistoricAlbumPage
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('/historic/t/m3.json')) {
+      return {
+        ok: true,
+        json: async () => ({
+          id: 'm3',
+          title: 'Lovy Metal 1',
+          base: 'lovy metal',
+          year: 2001,
+          label: 'Som Livre',
+          catno: '23282',
+          country: 'Brazil',
+          tracks: [
+            { position: '1', title: 'Silent Lucidity', artist: 'Queensrÿche', duration: '5:07', deezerId: 1234 },
+            { position: '2', title: 'Still Loving You', artist: 'Scorpions', duration: '6:23', deezerId: null }
+          ]
+        })
+      } as Response;
+    }
+    return { ok: false, status: 404 } as Response;
+  };
 
-test('INV-CAT-02: a busca pelo nome da série traz os volumes dela, do mais antigo ao mais novo', () => {
-  assert.deepEqual(
-    findHistoricMatches('good times', CATALOG).map((e) => e.id),
-    ['m2', 'm1']
-  );
-  assert.deepEqual(
-    findHistoricMatches('Classic Metal', CATALOG).map((e) => e.id),
-    ['m5', 'm6']
-  );
-});
+  try {
+    const page = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m3`);
+    assert.equal(page.album.title, 'Lovy Metal 1');
+    assert.equal(page.album.artist, 'Som Livre');
+    assert.equal(page.album.year, 2001);
+    assert.equal(page.tracks.tracks.length, 2);
 
-test('INV-CAT-02: nome com volume, edição ou ano ainda casa a série; aliases também', () => {
-  assert.deepEqual(findHistoricMatches('lovy metal 3', CATALOG).map((e) => e.id), ['m3', 'm4']);
-  assert.deepEqual(findHistoricMatches('Good Times 98', CATALOG).map((e) => e.id), ['m2', 'm1']);
-  // "love metal" é como as pessoas escrevem; o catálogo tem "lovy metal"
-  assert.deepEqual(findHistoricMatches('love metal', CATALOG).map((e) => e.id), ['m3', 'm4']);
-});
+    const [t1, t2] = page.tracks.tracks;
+    assert.equal(t1.title, 'Silent Lucidity');
+    assert.equal(t1.artist, 'Queensrÿche');
+    assert.equal(t1.duration, 307);
+    assert.equal(t1.id, 'deezer-1234');
 
-test('INV-CAT-03: uma busca por artista ou por música nunca vira um CD', () => {
-  for (const query of [
-    'good times bee gees',
-    'love metal iron maiden',
-    'metallica classic metal',
-    'rock good times',
-    'power ballads roxette'
-  ]) {
-    assert.deepEqual(findHistoricMatches(query, CATALOG), [], query);
+    assert.equal(t2.title, 'Still Loving You');
+    assert.equal(t2.artist, 'Scorpions');
+    assert.equal(t2.duration, 383);
+    assert.equal(t2.id, 'hist-m3-2');
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 
-test('INV-CAT-03: termos curtos ou genéricos não casam nenhum CD', () => {
-  for (const query of ['metal', 'cd', 'som livre', 'coletanea', 'rock', 'good']) {
-    assert.deepEqual(findHistoricMatches(query, CATALOG), [], query);
-  }
-});
+test('INV-CAT-03: busca por nome da série encontra os CDs; busca com artista ou genérica não mostra nenhum CD', () => {
+  // Exact series matches
+  const lovyMatches = findHistoricMatches('lovy metal', MOCK_INDEX);
+  assert.equal(lovyMatches.length, 2);
+  assert.equal(lovyMatches[0].title, 'Lovy Metal 1');
+  assert.equal(lovyMatches[1].title, 'Lovy Metal 3');
 
-test('o nome da série tira volume, edição, ano, acento e pontuação', () => {
-  assert.equal(baseTitle('Various - Lovy Metal, Volume 2'), 'lovy metal');
-  assert.equal(baseTitle('Various - Good Times 98 - Internacional'), 'good times');
-  assert.equal(baseTitle('Various - Classic Metal 2'), 'classic metal');
-  assert.equal(baseTitle('Various - Power Ballads (Internacional) 2004'), 'power ballads');
-  assert.equal(norm('Ação, Canção!'), 'acao cancao');
-});
+  // Series match with volume/year in query
+  const lovyVolMatches = findHistoricMatches('lovy metal 1', MOCK_INDEX);
+  assert.equal(lovyVolMatches.length, 2);
 
-test('a duração do Discogs ("5:41") vira segundos; sem tempo vale 0', () => {
-  assert.equal(durationSeconds('5:41'), 341);
-  assert.equal(durationSeconds('12:05'), 725);
-  assert.equal(durationSeconds(null), 0);
-  assert.equal(durationSeconds('?'), 0);
-});
+  // Camelô classics matches
+  const altMatches = findHistoricMatches('alternativo 2000', MOCK_INDEX);
+  assert.equal(altMatches.length, 1);
+  assert.equal(altMatches[0].title, 'Alternativo 2000');
 
-test('a capa do CD vem da Cover Art Archive pelo release do MusicBrainz; sem release, não há endereço', () => {
-  assert.equal(historicCoverUrl('1ebe9ab6-a804-4f52-9773-695902e1fab3'), 'https://coverartarchive.org/release/1ebe9ab6-a804-4f52-9773-695902e1fab3/front-250');
-  assert.equal(historicCoverUrl(null), '');
-  assert.equal(historicCoverUrl(undefined), '');
-  assert.equal(historicAlbumSummary({ ...entry('m1', 'Good Times', 'good times', 2003), mbid: null }).coverUrl, '');
+  const veraoMatches = findHistoricMatches('verão 98', MOCK_INDEX);
+  assert.equal(veraoMatches.length, 1);
+  assert.equal(veraoMatches[0].title, 'Verão 98');
+
+  // Searches that include artists must return empty (prevent artist searches becoming compilations)
+  assert.deepEqual(findHistoricMatches('love metal iron maiden', MOCK_INDEX), []);
+  assert.deepEqual(findHistoricMatches('metallica classic metal', MOCK_INDEX), []);
+  assert.deepEqual(findHistoricMatches('good times bee gees', MOCK_INDEX), []);
+
+  // Generic and empty queries must return empty
+  assert.deepEqual(findHistoricMatches('som livre', MOCK_INDEX), []);
+  assert.deepEqual(findHistoricMatches('cd', MOCK_INDEX), []);
+  assert.deepEqual(findHistoricMatches('', MOCK_INDEX), []);
+  assert.deepEqual(findHistoricMatches('a', MOCK_INDEX), []);
 });

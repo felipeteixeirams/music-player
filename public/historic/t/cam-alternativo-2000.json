@@ -1,0 +1,27 @@
+{
+  "id": "cam-alternativo-2000",
+  "title": "Alternativo 2000",
+  "base": "alternativo",
+  "year": 2000,
+  "label": "Camelô Classics",
+  "catno": "CAM-2000",
+  "country": "Brazil",
+  "tracks": [
+    { "position": "1", "title": "The Kids Aren't Alright", "artist": "The Offspring", "duration": "3:00", "deezerId": null },
+    { "position": "2", "title": "All The Small Things", "artist": "blink-182", "duration": "2:48", "deezerId": null },
+    { "position": "3", "title": "Higher", "artist": "Creed", "duration": "5:17", "deezerId": null },
+    { "position": "4", "title": "Otherside", "artist": "Red Hot Chili Peppers", "duration": "4:15", "deezerId": null },
+    { "position": "5", "title": "Take A Look Around", "artist": "Limp Bizkit", "duration": "5:21", "deezerId": null },
+    { "position": "6", "title": "Learn to Fly", "artist": "Foo Fighters", "duration": "3:58", "deezerId": null },
+    { "position": "7", "title": "Last Resort", "artist": "Papa Roach", "duration": "3:19", "deezerId": null },
+    { "position": "8", "title": "Ana's Song (Open Fire)", "artist": "Silverchair", "duration": "3:42", "deezerId": null },
+    { "position": "9", "title": "Drive", "artist": "Incubus", "duration": "3:52", "deezerId": null },
+    { "position": "10", "title": "Iris", "artist": "Goo Goo Dolls", "duration": "4:49", "deezerId": null },
+    { "position": "11", "title": "Freak on a Leash", "artist": "Korn", "duration": "4:15", "deezerId": null },
+    { "position": "12", "title": "Minority", "artist": "Green Day", "duration": "2:49", "deezerId": null },
+    { "position": "13", "title": "With Arms Wide Open", "artist": "Creed", "duration": "4:35", "deezerId": null },
+    { "position": "14", "title": "All Star", "artist": "Smash Mouth", "duration": "3:20", "deezerId": null }
+  ],
+  "matched": 14,
+  "mbid": null
+}
