@@ -61,7 +61,8 @@ test('INV-CAT-02: carregar uma coletânea histórica gera um AlbumPage com faixa
     assert.equal(t2.title, 'Still Loving You');
     assert.equal(t2.artist, 'Scorpions');
     assert.equal(t2.duration, 383);
-    assert.equal(t2.id, 'hist-m3-2');
+    // The id format stored on devices and accounts since the first release (INV-CAT-02)
+    assert.equal(t2.id, 'historic-m3-2');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -97,4 +98,22 @@ test('INV-CAT-03: busca por nome da série encontra os CDs; busca com artista ou
   assert.deepEqual(findHistoricMatches('cd', MOCK_INDEX), []);
   assert.deepEqual(findHistoricMatches('', MOCK_INDEX), []);
   assert.deepEqual(findHistoricMatches('a', MOCK_INDEX), []);
+});
+
+test('INV-CAT-02: a capa do CD vem da Cover Art Archive pelo MBID do release; sem MBID, não há endereço', async () => {
+  const originalFetch = globalThis.fetch;
+  const record = (mbid: string | null) => ({
+    ok: true,
+    json: async () => ({ id: 'm9', title: 'Verão 98', year: 1998, label: 'Camelô Classics', mbid, tracks: [] })
+  }) as Response;
+  try {
+    globalThis.fetch = async () => record('e29453df-b5a4-4bf1-b248-5a3ae0654dd3');
+    const withCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m9`);
+    assert.equal(withCover.album.coverUrl, 'https://coverartarchive.org/release/e29453df-b5a4-4bf1-b248-5a3ae0654dd3/front-250');
+    globalThis.fetch = async () => record(null);
+    const withoutCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m9`);
+    assert.equal(withoutCover.album.coverUrl, '');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

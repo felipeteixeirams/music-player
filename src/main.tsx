@@ -5,9 +5,12 @@ import { startAppearance } from './utils/appearance';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { installErrorReporter } from './utils/errorReporter';
 import { hideSplash } from './utils/splash';
+import { sendCacheLimitToWorker } from './utils/cacheLimit';
 
 startAppearance();
 installErrorReporter();
+// The cache limit chosen in Settings reaches the service worker on every start (INV-PERF-05)
+sendCacheLimitToWorker();
 
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>

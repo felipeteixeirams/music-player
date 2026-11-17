@@ -1,6 +1,6 @@
 // The service worker (public/sw.js) with the real worker running. The other specs block it (see playwright.config.ts),
 // so this file is the only place its caches are checked. INV-PERF-04: covers and the shell have their own caches,
-// each capped, so the device does not accumulate files forever.
+// each capped, so the device does not accumulate files forever. The cover cache is capped by the MB chosen in Settings (INV-PERF-05).
 import { expect, test, type Page } from '@playwright/test';
 import { fakeYouTube, stubApi } from './fixtures';
 
@@ -8,7 +8,6 @@ test.use({ serviceWorkers: 'allow' });
 
 const COVERS = 'aurastream-covers-v1';
 const SHELL = 'aurastream-v1';
-const COVER_LIMIT = 400;
 
 async function waitForWorker(page: Page) {
   // The app registers the worker only once it is mounted, which needs a signed-in user (the stubs provide one)
@@ -42,20 +41,17 @@ test('INV-PERF-04: capas vão para a cache de capas, não para a da casca', asyn
   expect(await cacheKeys(page, SHELL)).not.toContain('/icon.svg?cover=1');
 });
 
-test('INV-PERF-04: a cache de capas não passa do limite; sai o mais antigo', async ({ page }) => {
+test('INV-PERF-05: a cache de capas respeita o limite em MB dos Ajustes; sai o mais antigo e fica o mais novo', async ({ page }) => {
   await waitForWorker(page);
-  const total = COVER_LIMIT + 20;
-  // Sequential in batches, so the worker stores them in order and the oldest ones are the first
+  // The page sends the Settings limit to the worker (cacheLimit.ts); 1 KB is less than a few covers
+  await page.evaluate(() => navigator.serviceWorker.controller?.postMessage({ type: 'cache-limit', mb: 0.001 }));
+  const total = 12;
   await page.evaluate(async (count) => {
-    for (let start = 0; start < count; start += 20) {
-      await Promise.all(
-        Array.from({ length: Math.min(20, count - start) }, (_, k) => fetch(`/icon.svg?n=${start + k}`).then((r) => r.text()))
-      );
-    }
+    for (let n = 0; n < count; n += 1) await fetch(`/icon.svg?b=${n}`).then((r) => r.text());
   }, total);
   // The worker writes after answering, so wait until the cache has settled on its last state
-  await expect.poll(async () => (await cacheKeys(page, COVERS)).includes(`/icon.svg?n=${total - 1}`)).toBe(true);
-  await expect.poll(async () => (await cacheKeys(page, COVERS)).length).toBe(COVER_LIMIT);
+  await expect.poll(async () => (await cacheKeys(page, COVERS)).includes(`/icon.svg?b=${total - 1}`)).toBe(true);
   const keys = await cacheKeys(page, COVERS);
-  expect(keys).not.toContain('/icon.svg?n=0');
+  expect(keys.length).toBeLessThan(total);
+  expect(keys).not.toContain('/icon.svg?b=0');
 });

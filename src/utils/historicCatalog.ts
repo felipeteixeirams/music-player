@@ -1,6 +1,11 @@
 import type { AlbumPage, AlbumSummary, Track } from '../types/music';
 
-export const HISTORIC_ALBUM_PREFIX = 'hist-';
+/** The ids that the app already stores for a CD (favorites, playlists, history): changing them would lose them. */
+export const HISTORIC_ALBUM_PREFIX = 'historic-';
+
+/** The front cover at 250 px from the Cover Art Archive, for a CD whose MusicBrainz release is known (499 of 2,569). */
+export const historicCoverUrl = (mbid: string | null | undefined): string =>
+  mbid ? `https://coverartarchive.org/release/${mbid}/front-250` : '';
 
 export interface HistoricEntry {
   id: string;
@@ -138,9 +143,7 @@ export function findHistoricMatches(query: string, index: HistoricIndex | null):
  * Loads a historic compilation album from public/historic/t/<id>.json and formats it as an AlbumPage.
  */
 export async function loadHistoricAlbumPage(albumId: string, signal?: AbortSignal): Promise<AlbumPage> {
-  const cleanId = albumId.startsWith(HISTORIC_ALBUM_PREFIX)
-    ? albumId.slice(HISTORIC_ALBUM_PREFIX.length)
-    : albumId;
+  const cleanId = albumId.startsWith(HISTORIC_ALBUM_PREFIX) ? albumId.slice(HISTORIC_ALBUM_PREFIX.length) : albumId;
 
   const res = await fetch(`/historic/t/${cleanId}.json`, { signal });
   if (!res.ok) {
@@ -149,18 +152,20 @@ export async function loadHistoricAlbumPage(albumId: string, signal?: AbortSigna
 
   const record: HistoricRecord = await res.json();
   const rawTracks = record.tracks || record.trackList || [];
+  const cover = record.coverUrl || historicCoverUrl(record.mbid);
 
   const tracks: Track[] = rawTracks.map((t, index) => {
-    const trackId = t.deezerId ? `deezer-${t.deezerId}` : `hist-${cleanId}-${t.position || index + 1}`;
+    // Same ids as before: a track without a Deezer id keeps `historic-<cd>-<position>`
+    const trackId = t.deezerId ? `deezer-${t.deezerId}` : `${HISTORIC_ALBUM_PREFIX}${cleanId}-${t.position || index + 1}`;
     return {
       id: trackId,
       title: t.title,
       artist: t.artist,
-      album: record.title,
+      album: record.label ? `${record.title} (${record.label})` : record.title,
       duration: parseDuration(t.duration),
-      coverUrl: record.coverUrl || '',
-      style: 'Historic',
-      categoryId: 'historic',
+      coverUrl: cover,
+      style: 'Coletânea Histórica',
+      categoryId: 'rock',
       sources: {
         localUrl: '',
         previewUrl: ''
@@ -172,9 +177,10 @@ export async function loadHistoricAlbumPage(albumId: string, signal?: AbortSigna
   const album: AlbumSummary = {
     id: albumId.startsWith(HISTORIC_ALBUM_PREFIX) ? albumId : `${HISTORIC_ALBUM_PREFIX}${cleanId}`,
     title: record.title,
+    // The CD's own label (Som Livre, Camelô...): the old fixed "Som Livre" was wrong for the newer CDs
     artist: record.label || 'Som Livre',
     year: record.year || 0,
-    coverUrl: record.coverUrl || '',
+    coverUrl: cover,
     kind: 'album',
     trackCount: tracks.length
   };

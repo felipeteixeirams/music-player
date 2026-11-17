@@ -11,7 +11,7 @@ export type MixKind = 'for-you' | 'mood' | 'discovery' | 'favorites' | 'rediscov
 
 export interface PersonalMix {
   id: MixKind;
-  /** Small line on the card: "Feito para você", "Humor para você". */
+  /** Small line on the card: "Feito para você", "Para o momento". */
   label: string;
   title: string;
   description: string;
@@ -200,7 +200,7 @@ export function buildMood(pages: Record<string, TrackPage> | undefined, hour: nu
   if (tracks.length < MIN_MOOD_TRACKS) return null;
   return {
     id: 'mood',
-    label: 'Humor para você',
+    label: 'Para o momento',
     title: mood.title,
     description: mood.description,
     tracks: seededShuffle(tracks, `mood:${day}:${mood.categoryId}`),

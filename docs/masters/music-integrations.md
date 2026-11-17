@@ -206,6 +206,7 @@ Diagnóstico, medições e o plano em [Auditoria de desempenho](../specs/current
 - **INV-PERF-02:** a medição de travadas (`stallWatch`) só conta os quadros do primeiro minuto com a página visível, e custa nada depois disso.
 - **INV-PERF-03:** o JavaScript do build comprimido cabe no orçamento de `scripts/check-bundle.mjs`; passar dele é decisão consciente (subir o número na mesma mudança).
 - **INV-PERF-04:** `/assets/*` (nomes com hash) tem cache de um ano e imutável; a casca, `sw.js` e `version.json` pedem revalidação. As caches do service worker têm limite (capas e casca separadas), para o aparelho não acumular lixo.
+- **INV-PERF-05:** o cache de capas do service worker é limitado pelo tamanho em MB escolhido nos Ajustes (padrão 250 MB), com um teto de 2000 entradas. A página envia o limite ao worker (`sendCacheLimitToWorker`, `src/utils/cacheLimit.ts`) na abertura e ao salvar. Resposta de outro domínio não informa o tamanho: conta como 40 KB (estimativa). O teste está em `tests/e2e/serviceWorker.spec.ts`.
 
 ## Atualização deste master
 

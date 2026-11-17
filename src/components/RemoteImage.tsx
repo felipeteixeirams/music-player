@@ -6,8 +6,12 @@ import { coverSrc, deezerCoverAtSize, DEEZER_COVER_SIZES, imagesViaProxy, isProx
  * An `<img>` of a catalog cover. It loads from the CDN; when that fails it tries once through this site's proxy (for a
  * network that blocks the CDN's domain), and the device switches to the proxy for good after a couple of such rescues.
  */
-export const RemoteImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttributes<HTMLImageElement>>(function RemoteImage(
-  { src, onError, onLoad, ...rest },
+/**
+ * `placeholder`: the picture shown when the cover is missing or fails for good (the neutral picture by default). `null`
+ * means the caller draws its own fallback: it gets the error instead (for instance the disc of a CD).
+ */
+export const RemoteImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttributes<HTMLImageElement> & { placeholder?: string | null }>(function RemoteImage(
+  { src, onError, onLoad, placeholder = COVER_PLACEHOLDER, ...rest },
   ref
 ) {
   const viaProxyDevice = useSyncExternalStore(subscribeImagesViaProxy, imagesViaProxy);
@@ -30,7 +34,7 @@ export const RemoteImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttri
       ref={ref}
       {...rest}
       referrerPolicy="no-referrer"
-      src={showPlaceholder ? COVER_PLACEHOLDER : addressFor(src)}
+      src={showPlaceholder ? placeholder ?? undefined : addressFor(src)}
       srcSet={srcSet}
       onError={(event) => {
         if (showPlaceholder) {
@@ -40,6 +44,10 @@ export const RemoteImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttri
         }
         if (!proxied && isProxiableImageUrl(src)) {
           setRetriedViaProxy(true);
+          return;
+        }
+        if (placeholder === null) {
+          onError?.(event);
           return;
         }
         setFailedForGood(true);

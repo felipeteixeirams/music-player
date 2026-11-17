@@ -21,4 +21,6 @@ test('INV-MEDIA-04: uma capa que não carrega vira o desenho padrão, sem pedir 
   expect(requests.filter((url) => url.includes('unsplash'))).toEqual([]);
   // The row still reads: the title is there next to the picture
   await expect(page.locator('main [role=button]', { hasText: TOP_HITS[0].title }).first()).toBeVisible();
+  // Requests still in flight through the rewrite are dropped before the test ends
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
