@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Heart, Sparkles } from 'lucide-react';
-import { TrackPlaybackIcon } from './PlaybackIcon';
+import { TrackPlaybackIcon, SoundWaveEqualizer } from './PlaybackIcon';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { formatTime, prefetchResolved } from '../utils/audioEngine';
@@ -87,10 +87,13 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                     else onTrackSelect(track);
                   }
                 }}
-                className={`relative aspect-square w-full rounded-cover overflow-hidden cursor-pointer transition-all active:scale-95 shadow-lg shadow-black/50 ${
+                className={`relative aspect-square w-full rounded-cover overflow-hidden cursor-pointer transition-all active:scale-95 shadow-lg shadow-black/50 ring-[0.5px] ring-white/10 ${
                   isThisTrackActive ? 'ring-2 ring-accent' : ''
                 }`}
               >
+                {/* Specular glass highlight on top edge */}
+                <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/[0.12] to-transparent pointer-events-none z-10" />
+
                 <RemoteImage
                   src={track.coverUrl}
                   sizes="(min-width: 640px) 164px, 148px"
@@ -127,11 +130,7 @@ export const TrackCarousel: React.FC<TrackCarouselProps> = ({
                     {formatTime(track.duration)}
                   </span>
                   {isThisTrackPlaying && (
-                    <span className="flex items-center gap-0.5">
-                      <span className="w-1 h-3 bg-white rounded-full animate-pulse" />
-                      <span className="w-1 h-2 bg-white rounded-full animate-pulse delay-75" />
-                      <span className="w-1 h-3.5 bg-white rounded-full animate-pulse delay-150" />
-                    </span>
+                    <SoundWaveEqualizer isPlaying={true} className="h-3 w-3" barClassName="bg-white" />
                   )}
                 </div>
 

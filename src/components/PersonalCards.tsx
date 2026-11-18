@@ -25,9 +25,11 @@ export const PersonalCards: React.FC<{ mixes: PersonalMix[]; onOpen: (mix: Perso
             onClick={() => onOpen(mix)}
             aria-label={`${mix.title}: ${mix.description}`}
             data-mix={mix.id}
-            className="relative aspect-[3/4] w-[72vw] max-w-[272px] shrink-0 snap-start overflow-hidden rounded-[20px] text-left text-white shadow-xl shadow-black/25 transition-transform active:scale-[0.97]"
+            className="relative aspect-[3/4] w-[72vw] max-w-[272px] shrink-0 snap-start overflow-hidden rounded-[20px] text-left text-white shadow-xl shadow-black/25 ring-[0.5px] ring-white/10 transition-transform active:scale-[0.97]"
             style={{ background: mixBackground(mix.colors) }}
           >
+            {/* Top specular reflection */}
+            <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/[0.12] to-transparent pointer-events-none" />
             <span className="absolute right-4 top-4 flex items-center gap-1 text-[15px] font-semibold text-white/90">
               <Music2 className="h-4 w-4" aria-hidden="true" />
               AuraStream
@@ -48,8 +50,10 @@ export const PersonalCards: React.FC<{ mixes: PersonalMix[]; onOpen: (mix: Perso
           onClick={openSmartPlaylist}
           data-testid="home-create-ai"
           aria-label="Criar playlist com IA: descreva o que quer ouvir"
-          className="ai-aurora relative aspect-[3/4] w-[72vw] max-w-[272px] shrink-0 snap-start overflow-hidden rounded-[20px] text-left text-white shadow-xl shadow-black/25 transition-transform active:scale-[0.98]"
+          className="ai-aurora relative aspect-[3/4] w-[72vw] max-w-[272px] shrink-0 snap-start overflow-hidden rounded-[20px] text-left text-white shadow-xl shadow-black/25 ring-[0.5px] ring-white/10 transition-transform active:scale-[0.98]"
         >
+          {/* Top specular reflection */}
+          <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/[0.14] to-transparent pointer-events-none" />
           <span className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
             <Sparkles className="ai-spark h-6 w-6" aria-hidden="true" />
           </span>

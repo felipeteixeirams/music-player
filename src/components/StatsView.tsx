@@ -5,7 +5,7 @@ import { usePlayStats } from '../hooks/usePlayStats';
 import { formatPlayTime } from '../utils/playStats';
 import { RemoteImage } from './RemoteImage';
 import { useAudio } from '../context/AudioContext';
-import { TrackPlaybackIcon } from './PlaybackIcon';
+import { TrackPlaybackIcon, SoundWaveEqualizer } from './PlaybackIcon';
 import { triggerHaptic } from '../utils/haptics';
 
 interface StatsViewProps {
@@ -36,7 +36,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onPlay }) => {
   }
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 page-enter">
       {/* 1. Summary Metric Highlights (Apple Music Bento Cards) */}
       <section aria-label="Resumo de audição" className="px-4 grid grid-cols-2 gap-3 pt-2">
         <div className="p-3.5 rounded-2xl bg-fill-tertiary/70 border border-white/[0.06] flex flex-col justify-between">
@@ -197,8 +197,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ onPlay }) => {
                           className="w-full h-full object-cover"
                         />
                         {isThisPlaying && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <TrackPlaybackIcon trackId={track.id} className="w-4 h-4 text-accent" />
+                          <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
+                            <SoundWaveEqualizer isPlaying={true} className="h-4 w-4" barClassName="bg-accent" />
                           </div>
                         )}
                       </div>

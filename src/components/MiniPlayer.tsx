@@ -1,10 +1,26 @@
 import React, { useRef, useState } from 'react';
 import { SkipForward } from 'lucide-react';
-import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
-import { useAudio } from '../context/AudioContext';
+import { PlaybackIcon, SoundWaveEqualizer, playbackLabel, usePlaybackState } from './PlaybackIcon';
+import { useAudio, usePlaybackTime } from '../context/AudioContext';
 import { swipeAction } from '../utils/scrollChrome';
 import { RemoteImage } from './RemoteImage';
 import { triggerHaptic } from '../utils/haptics';
+
+/** Separate sub-component to isolate 4Hz clock renders from MiniPlayer controls and container */
+const MiniPlayerProgress: React.FC = () => {
+  const { currentTime, duration } = usePlaybackTime();
+  const percent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+  if (percent <= 0) return null;
+
+  return (
+    <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/[0.08] overflow-hidden pointer-events-none">
+      <div
+        className="h-full bg-accent transition-[width] duration-200 ease-linear"
+        style={{ width: `${percent}%` }}
+      />
+    </div>
+  );
+};
 
 export const MiniPlayer: React.FC = () => {
   const playback = usePlaybackState();
@@ -30,7 +46,7 @@ export const MiniPlayer: React.FC = () => {
   return (
     <div className="w-full">
       <div className="w-full">
-        {/* iOS-Style Floating Glassmorphic Container */}
+        {/* iOS-Style Floating Glassmorphic Container with Specular Top Highlight */}
         <div
           onClick={() => {
             if (justSwiped.current) return;
@@ -82,13 +98,20 @@ export const MiniPlayer: React.FC = () => {
             }
           }}
           aria-label={`Abrir player expandido para ${currentTrack.title} por ${currentTrack.artist}`}
-          className="relative h-12 overflow-hidden rounded-full material-regular ring-[0.5px] ring-separator shadow-xl shadow-black/30 cursor-pointer select-none touch-pan-y active:scale-[0.99] transition-all"
+          className="relative h-12 overflow-hidden rounded-full material-regular ring-[0.5px] ring-separator shadow-2xl shadow-black/40 cursor-pointer select-none touch-pan-y active:scale-[0.99] transition-all"
         >
-          <div className="flex items-center justify-between p-1.5 pl-1.5 gap-2.5">
-            {/* Left Slot: Rotating Album Artwork (Vinyl effect) */}
+          {/* Real-time integrated progress line */}
+          {!isLive && <MiniPlayerProgress />}
+
+          <div className="flex items-center justify-between p-1.5 pl-2 gap-2.5">
+            {/* Left Slot: Rotating Album Artwork with Ambient Halo */}
             <div className="relative shrink-0">
               <div
-                className="w-9 h-9 rounded-full overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative"
+                className="absolute -inset-1 rounded-full bg-accent/25 blur-[5px] pointer-events-none"
+                aria-hidden="true"
+              />
+              <div
+                className="w-9 h-9 rounded-full overflow-hidden shadow-md bg-elevated-2 flex items-center justify-center relative ring-1 ring-white/15"
               >
                 <RemoteImage
                   src={currentTrack.coverUrl}
@@ -109,6 +132,9 @@ export const MiniPlayer: React.FC = () => {
                 <h3 className="text-[15px] leading-tight font-medium text-label truncate">
                   {currentTrack.title}
                 </h3>
+                {playback === 'playing' && (
+                  <SoundWaveEqualizer isPlaying={true} className="h-2.5 w-2.5 shrink-0" barClassName="bg-accent" />
+                )}
               </div>
               <p className="text-[13px] text-label-secondary truncate">{currentTrack.artist}</p>
             </div>

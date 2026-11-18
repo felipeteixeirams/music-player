@@ -146,7 +146,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       onSearchChange(genre);
                       onSearchScopeChange('online');
                     }}
-                    className="px-3 py-1.5 rounded-full bg-fill-tertiary text-label text-xs font-medium whitespace-nowrap active:scale-95 transition-all hover:bg-white/15 shrink-0"
+                    className="px-3.5 py-1.5 rounded-full material-thin ring-[0.5px] ring-white/10 text-label text-xs font-medium whitespace-nowrap active:scale-95 transition-all hover:bg-white/15 shrink-0 shadow-sm"
                   >
                     {genre}
                   </button>

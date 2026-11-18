@@ -46,3 +46,33 @@ export const PlaybackIcon: React.FC<PlaybackIconProps> = ({ state, className = '
 export const TrackPlaybackIcon: React.FC<{ trackId: string; className?: string; playOffset?: string }> = ({ trackId, className, playOffset }) => (
   <PlaybackIcon state={usePlaybackState(trackId)} className={className} playOffset={playOffset} />
 );
+
+/** Animated equalizer bars that dance when the music is actively playing, as in Apple Music's "Now Playing" */
+export const SoundWaveEqualizer: React.FC<{ isPlaying?: boolean; className?: string; barClassName?: string }> = ({
+  isPlaying = true,
+  className = 'h-3.5 w-3.5',
+  barClassName = 'bg-accent'
+}) => (
+  <span className={`inline-flex items-end justify-between gap-[2px] ${className}`} aria-hidden="true">
+    <span
+      className={`w-[2px] rounded-full transition-all duration-300 ${barClassName} ${
+        isPlaying ? 'eq-bar-1 h-full' : 'h-[30%]'
+      }`}
+    />
+    <span
+      className={`w-[2px] rounded-full transition-all duration-300 ${barClassName} ${
+        isPlaying ? 'eq-bar-2 h-full' : 'h-[60%]'
+      }`}
+    />
+    <span
+      className={`w-[2px] rounded-full transition-all duration-300 ${barClassName} ${
+        isPlaying ? 'eq-bar-3 h-full' : 'h-[40%]'
+      }`}
+    />
+    <span
+      className={`w-[2px] rounded-full transition-all duration-300 ${barClassName} ${
+        isPlaying ? 'eq-bar-4 h-full' : 'h-[75%]'
+      }`}
+    />
+  </span>
+);

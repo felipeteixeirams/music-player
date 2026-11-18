@@ -423,7 +423,7 @@ const MusicAppContent: React.FC = () => {
           onClose={() => setIsCacheSettingsOpen(false)}
         />
 
-        <main className="flex-1 space-y-4">
+        <main className="flex-1 space-y-4 page-enter">
           {activeMix ? (
             <MixScreen mix={activeMix} />
           ) : podcastView ? (

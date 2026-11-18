@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Heart, Music, ListPlus, MinusCircle, MoreHorizontal } from 'lucide-react';
 import { TrackActionsSheet } from './TrackActionsSheet';
-import { TrackPlaybackIcon } from './PlaybackIcon';
+import { TrackPlaybackIcon, SoundWaveEqualizer } from './PlaybackIcon';
 import { Track } from '../types/music';
 import { useAudio } from '../context/AudioContext';
 import { prefetchResolved } from '../utils/audioEngine';
@@ -103,7 +103,7 @@ export const TrackList: React.FC<TrackListProps> = ({
             >
               {/* Left Slot: Artwork & Details */}
               <div className="flex items-center gap-3 min-w-0">
-                <div className="relative w-14 h-14 rounded-cover overflow-hidden shrink-0 bg-elevated-2 flex items-center justify-center">
+                <div className="relative w-14 h-14 rounded-cover overflow-hidden shrink-0 bg-elevated-2 flex items-center justify-center ring-[0.5px] ring-white/10 shadow-sm">
                   <Music className="w-5 h-5 text-label-tertiary" />
                   <RemoteImage
                     src={track.coverUrl}
@@ -127,7 +127,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                 <div className="min-w-0 text-left">
                   <h3
                     className={`text-[17px] truncate ${
-                      isThisTrackActive ? 'text-accent' : 'text-label'
+                      isThisTrackActive ? 'text-accent font-medium' : 'text-label'
                     }`}
                   >
                     {track.title}
@@ -136,11 +136,15 @@ export const TrackList: React.FC<TrackListProps> = ({
                 </div>
               </div>
 
-              {/* Right Slot: Duration, playlist and favorite */}
-              <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                <span className="text-[13px] text-label-secondary tabular-nums mr-1">
-                  {formatTime(track.duration)}
-                </span>
+              {/* Right Slot: Duration, equalizer indicator, playlist and favorite */}
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                {isThisTrackPlaying ? (
+                  <SoundWaveEqualizer isPlaying={true} className="h-3.5 w-3.5 mr-0.5" barClassName="bg-accent" />
+                ) : (
+                  <span className="text-[13px] text-label-secondary tabular-nums mr-0.5">
+                    {formatTime(track.duration)}
+                  </span>
+                )}
 
                 {onRemove ? (
                   <button

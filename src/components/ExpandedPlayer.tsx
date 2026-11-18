@@ -67,7 +67,7 @@ const PlaybackProgress: React.FC<{
 
   return (
     <>
-      <div className="relative flex items-center">
+      <div className="relative flex items-center py-1">
         <input
           type="range"
           min="0"
@@ -80,16 +80,22 @@ const PlaybackProgress: React.FC<{
           onMouseUp={onScrubCommit}
           onTouchEnd={onScrubCommit}
           aria-label="Linha do tempo da música"
-          className="w-full h-1 rounded-full appearance-none cursor-pointer accent-white focus:outline-none"
+          className={`w-full rounded-full appearance-none cursor-pointer accent-white focus:outline-none transition-[height] duration-150 ${
+            isScrubbing ? 'h-1.5' : 'h-1'
+          }`}
           style={{
-            background: `linear-gradient(to right, #fff 0%, #fff ${progressPercent}%, rgba(255, 255, 255, 0.3) ${progressPercent}%, rgba(255, 255, 255, 0.3) 100%)`
+            background: `linear-gradient(to right, #fff 0%, #fff ${progressPercent}%, rgba(255, 255, 255, 0.25) ${progressPercent}%, rgba(255, 255, 255, 0.25) 100%)`
           }}
         />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-label-secondary tabular-nums">
-        <span>{formatTime(displayTime)}</span>
-        <span>{formatRemainingTime(displayTime, duration)}</span>
+      <div className="flex items-center justify-between text-xs tabular-nums transition-colors">
+        <span className={isScrubbing ? 'text-label font-medium scale-105 transition-transform' : 'text-label-secondary'}>
+          {formatTime(displayTime)}
+        </span>
+        <span className="text-label-secondary">
+          {formatRemainingTime(displayTime, duration)}
+        </span>
       </div>
     </>
   );
@@ -394,7 +400,7 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           )}
         </div>
 
-        {/* 2. Cover with Swipe Gestures */}
+        {/* 2. Cover with Swipe Gestures & Dynamic Ambient Aura */}
         {activeView === 'cover' && (
         <div
           onTouchStart={handleCoverTouchStart}
@@ -409,12 +415,26 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
               transition: coverDragX !== 0 ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
+            {/* Atmospheric Ambient Glow behind the cover */}
+            <div
+              className={`absolute -inset-4 rounded-3xl blur-2xl transition-all duration-700 pointer-events-none ${
+                isPlaying ? 'opacity-50 scale-100 ambient-glow-pulse' : 'opacity-15 scale-90'
+              }`}
+              style={{
+                background: `radial-gradient(circle at center, ${coverColor ?? 'rgba(235, 72, 84, 0.45)'} 0%, transparent 75%)`
+              }}
+              aria-hidden="true"
+            />
+
             {/* The cover shrinks when paused and grows back on play, as in Apple Music */}
             <div
-              className={`relative w-full h-full rounded-card overflow-hidden shadow-2xl shadow-black/60 transition-transform duration-500 bg-elevated-2 flex items-center justify-center ${
+              className={`relative w-full h-full rounded-card overflow-hidden shadow-2xl shadow-black/80 transition-transform duration-500 bg-elevated-2 flex items-center justify-center ring-[0.5px] ring-white/10 ${
                 isPlaying ? 'scale-100' : 'scale-[0.86]'
               }`}
             >
+              {/* Specular glass reflection at top edge */}
+              <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/[0.14] to-transparent pointer-events-none z-10" />
+
               <RemoteImage
                 src={currentTrack.coverUrl}
                 alt={`Capa do álbum ${currentTrack.album}`}
