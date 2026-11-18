@@ -6,7 +6,14 @@ export type ReportKind = 'error' | 'unhandledrejection' | 'react' | 'webgl' | 's
 
 const MAX_REPORTS_PER_SESSION = 5;
 /** Errors that say nothing we could act on: a cross-origin script (the YouTube frame) or a browser notice. */
-const IGNORED = [/^Script error\.?$/i, /ResizeObserver loop/i, /AbortError/, /The operation was aborted/i];
+const IGNORED = [
+  /^Script error\.?$/i,
+  /ResizeObserver loop/i,
+  /AbortError/,
+  /The operation was aborted/i,
+  /WebSocket closed without opened/i,
+  /@vite\/client/i
+];
 
 export const shouldReport = (message: string): boolean => Boolean(message) && !IGNORED.some((pattern) => pattern.test(message));
 
