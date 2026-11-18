@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Disc } from 'lucide-react';
 import { RemoteImage } from './RemoteImage';
 
@@ -19,6 +19,8 @@ export const CdCover: React.FC<CdCoverProps> = ({
   iconClassName = 'h-12 w-12 text-white/70'
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
+  // Another CD's cover starts over (the list reuses this component)
+  useEffect(() => setImgFailed(false), [url]);
 
   if (url && !imgFailed) {
     return (
@@ -26,6 +28,7 @@ export const CdCover: React.FC<CdCoverProps> = ({
         src={url}
         alt={alt}
         referrerPolicy="no-referrer"
+        placeholder={null}
         onError={() => setImgFailed(true)}
         className={`object-cover bg-fill-tertiary ${className}`}
       />

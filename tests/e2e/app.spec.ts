@@ -586,7 +586,7 @@ test.describe('cartões personalizados da home', () => {
     await expect(page.getByText('NO TOPO DO BRASIL AGORA')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Reproduzir Primeira Faixa$/ })).toHaveCount(0);
     const mood = cards.locator('[data-mix="mood"]');
-    await expect(mood).toContainText('Humor para você');
+    await expect(mood).toContainText('Para o momento');
     await expect(mood).toContainText('Para a noite');
     // Nothing to build the others from yet
     await expect(cards.locator('[data-mix="favorites"]')).toHaveCount(0);

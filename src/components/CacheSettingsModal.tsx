@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Database, Trash2, HardDrive, Settings, X, Check, RefreshCw } from 'lucide-react';
-
-const CACHE_SIZE_KEY = 'aurastream_cache_limit_mb';
-const DEFAULT_CACHE_LIMIT_MB = 250; // 250 MB default quota
+import { CACHE_SIZE_KEY, DEFAULT_CACHE_LIMIT_MB, sendCacheLimitToWorker } from '../utils/cacheLimit';
 
 export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -65,6 +63,7 @@ export const CacheSettingsModal: React.FC<{ isOpen: boolean; onClose: () => void
     setSelectedLimit(limit);
     try {
       localStorage.setItem(CACHE_SIZE_KEY, limit.toString());
+      sendCacheLimitToWorker(limit);
       setSuccessMessage('Cota de cache atualizada com sucesso!');
       setTimeout(() => setSuccessMessage(null), 2500);
     } catch {}
