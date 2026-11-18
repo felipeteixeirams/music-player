@@ -135,6 +135,24 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <span>Biblioteca</span>
               </button>
             </div>
+
+            {/* Quick discovery genre/compilation chips */}
+            {!searchQuery && (
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 pb-1">
+                {['Alternativo 2000', 'Verão 98', 'Flashback', 'Dance', 'Pop', 'Lo-Fi', 'Rock'].map((genre) => (
+                  <button
+                    key={genre}
+                    onClick={() => {
+                      onSearchChange(genre);
+                      onSearchScopeChange('online');
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-fill-tertiary text-label text-xs font-medium whitespace-nowrap active:scale-95 transition-all hover:bg-white/15 shrink-0"
+                  >
+                    {genre}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </header>

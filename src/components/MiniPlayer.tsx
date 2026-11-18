@@ -4,6 +4,7 @@ import { PlaybackIcon, playbackLabel, usePlaybackState } from './PlaybackIcon';
 import { useAudio } from '../context/AudioContext';
 import { swipeAction } from '../utils/scrollChrome';
 import { RemoteImage } from './RemoteImage';
+import { triggerHaptic } from '../utils/haptics';
 
 export const MiniPlayer: React.FC = () => {
   const playback = usePlaybackState();
@@ -59,8 +60,13 @@ export const MiniPlayer: React.FC = () => {
               justSwiped.current = true;
               window.setTimeout(() => { justSwiped.current = false; }, 0);
             }
-            if (action === 'next') playNext();
-            else if (action === 'previous') playPrevious();
+            if (action === 'next') {
+              triggerHaptic('selection');
+              playNext();
+            } else if (action === 'previous') {
+              triggerHaptic('selection');
+              playPrevious();
+            }
           }}
           onPointerCancel={() => {
             dragStart.current = null;
@@ -112,6 +118,7 @@ export const MiniPlayer: React.FC = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  triggerHaptic('light');
                   togglePlayPause();
                 }}
                 aria-label={playbackLabel(playback, { pause: 'Pausar música', play: 'Reproduzir música', loading: 'Carregando música' })}
@@ -125,6 +132,7 @@ export const MiniPlayer: React.FC = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  triggerHaptic('selection');
                   playNext();
                 }}
                 aria-label="Avançar para a próxima faixa"

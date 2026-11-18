@@ -1,10 +1,14 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import path from 'path';
 import {defineConfig, type Plugin} from 'vite';
+import path from 'path';
+import { readFileSync } from 'fs';
 
-// Identifies one build. Open sessions compare it with /version.json to learn that a newer deploy exists.
-const APP_VERSION = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? Date.now().toString(36);
+const pkg = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf-8'));
+const baseVersion = pkg.version || '1.5.0';
+const APP_VERSION = process.env.VERCEL_GIT_COMMIT_SHA 
+  ? `${baseVersion}-${process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)}` 
+  : baseVersion;
 
 function versionFile(): Plugin {
   return {

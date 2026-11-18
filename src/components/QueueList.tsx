@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AlignJustify } from 'lucide-react';
+import { AlignJustify, Trash2 } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { RemoteImage } from './RemoteImage';
 
@@ -7,7 +7,7 @@ const MAX_ROWS = 50;
 
 /** What plays after the current track, in the queue's order; a tap plays that track and the handle drags it elsewhere. */
 export const QueueList: React.FC = () => {
-  const { queue, currentIndex, playTrack, radioStation, moveQueueTrack } = useAudio();
+  const { queue, currentIndex, playTrack, radioStation, moveQueueTrack, removeFromQueue } = useAudio();
   const first = currentIndex + 1;
   const upcoming = queue.slice(first, first + MAX_ROWS);
 
@@ -58,6 +58,14 @@ export const QueueList: React.FC = () => {
                     <span className="block truncate text-[16px] text-label">{track.title}</span>
                     <span className="block truncate text-[14px] text-label-secondary">{track.artist}</span>
                   </span>
+                </button>
+                <button
+                  onClick={() => removeFromQueue(first + row)}
+                  aria-label={`Remover ${track.title} da fila`}
+                  className="flex h-12 w-10 shrink-0 items-center justify-center text-label-secondary hover:text-red-400 active:scale-90"
+                  title="Remover da fila"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   aria-label={`Reordenar ${track.title}`}

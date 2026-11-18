@@ -13,7 +13,8 @@ import {
   MessageSquareQuote,
   ListMusic,
   MoreHorizontal,
-  SearchX
+  SearchX,
+  Moon
 } from 'lucide-react';
 import { useAudio, usePlaybackTime } from '../context/AudioContext';
 import { usePlaylists } from '../context/PlaylistsContext';
@@ -30,6 +31,7 @@ import { LyricsView } from './LyricsView';
 import { QueueList } from './QueueList';
 import { RemoteImage } from './RemoteImage';
 import { ArtistAlbumActionSheet } from './ArtistAlbumActionSheet';
+import { triggerHaptic } from '../utils/haptics';
 
 interface ExpandedPlayerProps {
   onNavigateToArtist?: (artistName: string) => void;
@@ -128,7 +130,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
     isLive,
     playbackSpeed,
     cycleSpeed,
-    skipBy
+    skipBy,
+    sleepTimerMinutes,
+    remainingSleepSeconds,
+    setSleepTimer
   } = useAudio();
   const { openAddToPlaylist, playlists } = usePlaylists();
   const follows = usePodcastFollows();
@@ -142,6 +147,14 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
   const [scrubTime, setScrubTime] = useState(0);
   const [syncedLyrics, setSyncedLyrics] = useState<LrcLine[]>([]);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+
+  // Touch gesture state: cover swipe to skip/previous track
+  const coverDragStart = useRef<{ x: number; y: number } | null>(null);
+  const [coverDragX, setCoverDragX] = useState(0);
+
+  // Touch gesture state: pull down from top to minimize
+  const topDragStart = useRef<number | null>(null);
+  const [pullDownY, setPullDownY] = useState(0);
 
   const handleSelectArtist = (artistName: string) => {
     setIsActionSheetOpen(false);
@@ -195,8 +208,8 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
   const saved = liked || playlists.some((playlist) => playlist.tracks.some((track) => track.id === currentTrack.id));
   const isPodcast = isPodcastTrack(currentTrack);
   const hasLyrics = !isLive && !isPodcast && syncedLyrics.length > 0;
-  // The menu holds what only matters now and then: the versions of the track (they come from the YouTube video that plays)
-  const hasMenu = !isLive && versionCount > 0;
+  // The menu holds what only matters now and then: versions, sleep timer, etc.
+  const hasMenu = true;
   // A track without lyrics falls back to the cover; a live station has no queue to show
   const activeView = view === 'lyrics' && !hasLyrics ? 'cover' : view === 'queue' && isLive ? 'cover' : view;
   const show = currentTrack.podcast
@@ -236,12 +249,68 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
     setIsScrubbing(false);
   };
 
+  const handleCoverTouchStart = (e: React.TouchEvent) => {
+    coverDragStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleCoverTouchMove = (e: React.TouchEvent) => {
+    if (!coverDragStart.current) return;
+    const dx = e.touches[0].clientX - coverDragStart.current.x;
+    const dy = e.touches[0].clientY - coverDragStart.current.y;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+      setCoverDragX(Math.max(-75, Math.min(75, dx * 0.4)));
+    }
+  };
+
+  const handleCoverTouchEnd = (e: React.TouchEvent) => {
+    if (!coverDragStart.current) return;
+    const dx = e.changedTouches[0].clientX - coverDragStart.current.x;
+    const dy = e.changedTouches[0].clientY - coverDragStart.current.y;
+    coverDragStart.current = null;
+    setCoverDragX(0);
+
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0 && !isLive) {
+        triggerHaptic('selection');
+        playNext();
+      } else if (dx > 0 && !isRadio) {
+        triggerHaptic('selection');
+        playPrevious();
+      }
+    }
+  };
+
+  const handleTopTouchStart = (e: React.TouchEvent) => {
+    topDragStart.current = e.touches[0].clientY;
+  };
+
+  const handleTopTouchMove = (e: React.TouchEvent) => {
+    if (topDragStart.current === null) return;
+    const dy = e.touches[0].clientY - topDragStart.current;
+    if (dy > 0) {
+      setPullDownY(Math.min(120, dy * 0.6));
+    }
+  };
+
+  const handleTopTouchEnd = (e: React.TouchEvent) => {
+    if (topDragStart.current === null) return;
+    const dy = e.changedTouches[0].clientY - topDragStart.current;
+    topDragStart.current = null;
+    setPullDownY(0);
+    if (dy > 70) {
+      triggerHaptic('light');
+      toggleExpanded(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col theme-dark bg-canvas text-label overflow-hidden animate-in slide-in-from-bottom duration-300 select-none"
       style={{
         paddingTop: 'max(var(--safe-top), 12px)',
-        paddingBottom: 'max(var(--safe-bottom), 20px)'
+        paddingBottom: 'max(var(--safe-bottom), 20px)',
+        transform: pullDownY > 0 ? `translateY(${pullDownY}px)` : undefined,
+        transition: pullDownY > 0 ? 'none' : 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
     >
       {/* Background: the cover's dominant color fading to black (neutral gray when the color cannot be read) */}
@@ -256,9 +325,17 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
       {/* Main Container constrained to mobile/tablet ergonomics */}
       <div className="relative z-10 flex flex-col flex-1 max-w-lg w-full mx-auto px-5 py-3 justify-between">
         {/* 1. Top Bar */}
-        <div className="flex items-center justify-between pt-1">
+        <div
+          onTouchStart={handleTopTouchStart}
+          onTouchMove={handleTopTouchMove}
+          onTouchEnd={handleTopTouchEnd}
+          className="flex items-center justify-between pt-1 cursor-grab"
+        >
           <button
-            onClick={() => toggleExpanded(false)}
+            onClick={() => {
+              triggerHaptic('light');
+              toggleExpanded(false);
+            }}
             aria-label="Minimizar player expandido"
             className="w-10 h-10 rounded-full material-ultrathin flex items-center justify-center text-label active:scale-90 transition-all"
           >
@@ -292,8 +369,21 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
                     {versionCount > 1 && (
                       <MenuItem icon={<Replace className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="Tocar outra versão" onSelect={() => { setMenuOpen(false); switchVersion(); }} />
                     )}
-                    {versionCount > 0 && (
+                    {versionCount > 0 && !isLive && (
                       <MenuItem icon={<SearchX className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="Não é esta música" onSelect={() => { setMenuOpen(false); markWrongVersion(); }} />
+                    )}
+                    <div className="px-3 py-1.5 text-[11px] font-semibold text-label-secondary uppercase tracking-wider border-t border-white/10 mt-1">
+                      Temporizador de Sono {sleepTimerMinutes ? `(${Math.floor((remainingSleepSeconds ?? 0) / 60)}m)` : ''}
+                    </div>
+                    {sleepTimerMinutes ? (
+                      <MenuItem icon={<Moon className="h-4 w-4 text-accent" aria-hidden="true" />} label="Desativar temporizador" onSelect={() => { setMenuOpen(false); setSleepTimer(null); }} />
+                    ) : (
+                      <>
+                        <MenuItem icon={<Moon className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="15 minutos" onSelect={() => { setMenuOpen(false); setSleepTimer(15); }} />
+                        <MenuItem icon={<Moon className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="30 minutos" onSelect={() => { setMenuOpen(false); setSleepTimer(30); }} />
+                        <MenuItem icon={<Moon className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="45 minutos" onSelect={() => { setMenuOpen(false); setSleepTimer(45); }} />
+                        <MenuItem icon={<Moon className="h-4 w-4 text-label-secondary" aria-hidden="true" />} label="60 minutos" onSelect={() => { setMenuOpen(false); setSleepTimer(60); }} />
+                      </>
                     )}
                   </div>
                 </>
@@ -304,10 +394,21 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           )}
         </div>
 
-        {/* 2. Cover */}
+        {/* 2. Cover with Swipe Gestures */}
         {activeView === 'cover' && (
-        <div className="flex-1 flex items-center justify-center my-3 max-h-[420px]">
-          <div className="relative w-full max-w-[320px] aspect-square mx-auto">
+        <div
+          onTouchStart={handleCoverTouchStart}
+          onTouchMove={handleCoverTouchMove}
+          onTouchEnd={handleCoverTouchEnd}
+          className="flex-1 flex items-center justify-center my-3 max-h-[420px] touch-pan-y"
+        >
+          <div
+            className="relative w-full max-w-[320px] aspect-square mx-auto transition-transform"
+            style={{
+              transform: coverDragX !== 0 ? `translateX(${coverDragX}px) rotate(${coverDragX * 0.04}deg)` : undefined,
+              transition: coverDragX !== 0 ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
             {/* The cover shrinks when paused and grows back on play, as in Apple Music */}
             <div
               className={`relative w-full h-full rounded-card overflow-hidden shadow-2xl shadow-black/60 transition-transform duration-500 bg-elevated-2 flex items-center justify-center ${
@@ -448,7 +549,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           {/* Shuffle Button */}
           {isRadio ? <div className="w-11 h-11" aria-hidden="true" /> : (
           <button
-            onClick={toggleShuffle}
+            onClick={() => {
+              triggerHaptic('selection');
+              toggleShuffle();
+            }}
             aria-label={isShuffle ? 'Desativar modo aleatório' : 'Ativar modo aleatório'}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90 ${
               isShuffle ? 'text-accent' : 'text-label-secondary hover:text-label'
@@ -461,7 +565,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           {/* Previous Track Button */}
           {isRadio ? <div className="w-12 h-12" aria-hidden="true" /> : (
           <button
-            onClick={playPrevious}
+            onClick={() => {
+              triggerHaptic('selection');
+              playPrevious();
+            }}
             aria-label="Faixa anterior"
             className="w-12 h-12 rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
           >
@@ -471,7 +578,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
 
           {/* Prominent Play/Pause Button (68px Circular) */}
           <button
-            onClick={togglePlayPause}
+            onClick={() => {
+              triggerHaptic('light');
+              togglePlayPause();
+            }}
             aria-label={playbackLabel(playback, { pause: 'Pausar reprodução', play: 'Iniciar reprodução', loading: 'Carregando reprodução' })}
             aria-busy={playback === 'loading'}
             className="w-[68px] h-[68px] rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
@@ -482,7 +592,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           {/* Next Track Button (a live broadcast has no next) */}
           {isLive ? <div className="w-12 h-12" aria-hidden="true" /> : (
           <button
-            onClick={playNext}
+            onClick={() => {
+              triggerHaptic('selection');
+              playNext();
+            }}
             aria-label="Próxima faixa"
             className="w-12 h-12 rounded-full flex items-center justify-center text-label active:scale-90 transition-all"
           >
@@ -493,7 +606,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           {/* Repeat Button */}
           {isRadio ? <div className="w-11 h-11" aria-hidden="true" /> : (
           <button
-            onClick={toggleRepeat}
+            onClick={() => {
+              triggerHaptic('selection');
+              toggleRepeat();
+            }}
             aria-label={
               repeatMode === 'one'
                 ? 'Repetindo a faixa atual'
@@ -525,7 +641,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
             </button>
           ) : hasLyrics ? (
             <button
-              onClick={() => setView(activeView === 'lyrics' ? 'cover' : 'lyrics')}
+              onClick={() => {
+                triggerHaptic('selection');
+                setView(activeView === 'lyrics' ? 'cover' : 'lyrics');
+              }}
               aria-label="Letra"
               aria-pressed={activeView === 'lyrics'}
               className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors active:scale-90 ${
@@ -539,7 +658,10 @@ export const ExpandedPlayer: React.FC<ExpandedPlayerProps> = ({
           )}
           {!isLive ? (
             <button
-              onClick={() => setView(activeView === 'queue' ? 'cover' : 'queue')}
+              onClick={() => {
+                triggerHaptic('selection');
+                setView(activeView === 'queue' ? 'cover' : 'queue');
+              }}
               aria-label="Fila de reprodução"
               aria-pressed={activeView === 'queue'}
               className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors active:scale-90 ${

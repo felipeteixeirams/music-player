@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Podcast, Sparkles, Trash2 } from 'lucide-react';
+import { BarChart3, ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Podcast, Sparkles, Trash2 } from 'lucide-react';
 import type { Track } from '../types/music';
 import { groupByAlbum, groupByArtist, tracksOf, type LibraryGroup, type LibraryView } from '../utils/library';
 import { TrackList } from './TrackList';
@@ -9,6 +9,7 @@ import { RemoteImage } from './RemoteImage';
 import { usePodcastFollows } from '../hooks/usePodcastFollows';
 import { ShowRow } from './PodcastsHome';
 import type { PodcastShowSummary } from '../types/music';
+import { StatsView } from './StatsView';
 
 interface LibraryScreenProps {
   view: LibraryView | null;
@@ -73,6 +74,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
       <nav className="px-4 py-2" aria-label="Seções da biblioteca">
         <Row icon={<ListMusic className="w-6 h-6" />} title="Playlists" count={playlists.length} onClick={() => onNavigate({ kind: 'playlists' })} />
         <Row icon={<Clock className="w-6 h-6" />} title="Reproduzidas recentemente" count={recent.length} onClick={() => onNavigate({ kind: 'recent' })} />
+        <Row icon={<BarChart3 className="w-6 h-6" />} title="Estatísticas & Mais tocadas" count={recent.length} onClick={() => onNavigate({ kind: 'stats' })} />
         <Row icon={<Music2 className="w-6 h-6" />} title="Músicas favoritas" count={liked.length} onClick={() => onNavigate({ kind: 'songs' })} />
         <Row icon={<Mic2 className="w-6 h-6" />} title="Artistas" count={groupByArtist(liked).length} onClick={() => onNavigate({ kind: 'artists' })} />
         <Row icon={<Disc3 className="w-6 h-6" />} title="Álbuns" count={groupByAlbum(liked).length} onClick={() => onNavigate({ kind: 'albums' })} />
@@ -301,6 +303,10 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, 
         )}
       </div>
     );
+  }
+
+  if (view.kind === 'stats') {
+    return <StatsView onPlay={onPlay} />;
   }
 
   const tracks = tracksOf(view, liked);

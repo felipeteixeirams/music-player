@@ -104,6 +104,10 @@ interface AudioContextType {
   markWrongVersion: () => void;
   /** Moves a track of the queue (absolute positions, both after the playing one) to another place. */
   moveQueueTrack: (from: number, to: number) => void;
+  removeFromQueue: (index: number) => void;
+  sleepTimerMinutes: number | null;
+  remainingSleepSeconds: number | null;
+  setSleepTimer: (minutes: number | null) => void;
   /** Tocar a seguir: the track plays right after the one playing (or now, when nothing plays). INV-PLAY-28. */
   addNextToQueue: (track: Track) => void;
   /** Adicionar à fila: the track goes to the end of the queue (or plays now, when nothing plays). INV-PLAY-28. */
@@ -203,7 +207,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   storageRef.current = storage;
   const lastProgressSaveRef = useRef(0);
   const [userSeekRequest, setUserSeekRequest] = useState<number | null>(null);
-  
+
+
   const [likedLibrary, setLikedLibrary] = useState<LikedLibrary>(() => {
     try {
       return loadLikedLibrary(storage);
@@ -382,6 +387,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ownPauseAtRef.current = performance.now();
     audioRef.current?.pause();
   }, []);
+
+  const [sleepTimerMinutes, setSleepTimerMinutes] = useState<number | null>(null);
+  const [remainingSleepSeconds, setRemainingSleepSeconds] = useState<number | null>(null);
+
+  const setSleepTimer = useCallback((minutes: number | null) => {
+    setSleepTimerMinutes(minutes);
+    setRemainingSleepSeconds(minutes ? minutes * 60 : null);
+    if (minutes) {
+      flashNotice(`Temporizador de sono definido para ${minutes} minutos.`);
+    } else {
+      flashNotice('Temporizador de sono desativado.');
+    }
+  }, [flashNotice]);
+
+  useEffect(() => {
+    if (!sleepTimerMinutes || remainingSleepSeconds === null || !isPlaying) return;
+    const interval = setInterval(() => {
+      setRemainingSleepSeconds((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          if (isPlayingRef.current) {
+            pauseAudio();
+            flashNotice('Temporizador de sono: reprodução pausada.');
+          }
+          setSleepTimerMinutes(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [sleepTimerMinutes, remainingSleepSeconds, isPlaying, pauseAudio, flashNotice]);
   /** Which call of `playPreview` is the latest: one that lost its turn (another track was tapped) must not touch the audio. */
   const previewCallRef = useRef(0);
   const playPreview = useCallback(async (track: Track, shouldPlay: boolean, notice?: string | null): Promise<boolean> => {
@@ -1221,6 +1258,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setQueue(queueRef.current);
   }, [currentIndex]);
 
+  const removeFromQueue = useCallback((index: number) => {
+    const next = [...queueRef.current];
+    if (index < 0 || index >= next.length) return;
+    next.splice(index, 1);
+    queueRef.current = next;
+    setQueue(next);
+    if (index < currentIndex) {
+      setCurrentIndex((c) => Math.max(0, c - 1));
+    }
+  }, [currentIndex]);
+
   const addNextToQueue = useCallback((track: Track) => {
     if (!currentTrackRef.current) {
       playTrack(track);
@@ -1384,6 +1432,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       switchVersion,
       markWrongVersion,
       moveQueueTrack,
+      removeFromQueue,
+      sleepTimerMinutes,
+      remainingSleepSeconds,
+      setSleepTimer,
       addNextToQueue,
       addToQueue,
       playbackSpeed,
@@ -1438,6 +1490,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       switchVersion,
       markWrongVersion,
       moveQueueTrack,
+      removeFromQueue,
+      sleepTimerMinutes,
+      remainingSleepSeconds,
+      setSleepTimer,
       addNextToQueue,
       addToQueue,
       playbackSpeed,
