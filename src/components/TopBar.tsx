@@ -10,8 +10,8 @@ interface TopBarProps {
   showSearch: boolean;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  searchScope: 'catalog' | 'online';
-  onSearchScopeChange: (scope: 'catalog' | 'online') => void;
+  searchScope?: 'catalog' | 'online';
+  onSearchScopeChange?: (scope: 'catalog' | 'online') => void;
   onSubmitOnlineSearch: () => void;
   isSearchingOnline: boolean;
   onOpenSettings: () => void;
@@ -112,30 +112,6 @@ export const TopBar: React.FC<TopBarProps> = ({
               )}
             </div>
 
-            {/* Apple Music style scope toggle pills */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-fill-tertiary rounded-xl">
-              <button
-                onClick={() => onSearchScopeChange('online')}
-                className={`py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
-                  searchScope === 'online'
-                    ? 'bg-segment text-label shadow-md'
-                    : 'text-label-secondary hover:text-label'
-                }`}
-              >
-                <span>Apple Music</span>
-              </button>
-              <button
-                onClick={() => onSearchScopeChange('catalog')}
-                className={`py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
-                  searchScope === 'catalog'
-                    ? 'bg-segment text-label shadow-md'
-                    : 'text-label-secondary hover:text-label'
-                }`}
-              >
-                <span>Biblioteca</span>
-              </button>
-            </div>
-
             {/* Quick discovery genre/compilation chips */}
             {!searchQuery && (
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 pb-1">
@@ -144,7 +120,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                     key={genre}
                     onClick={() => {
                       onSearchChange(genre);
-                      onSearchScopeChange('online');
                     }}
                     className="px-3.5 py-1.5 rounded-full material-thin ring-[0.5px] ring-white/10 text-label text-xs font-medium whitespace-nowrap active:scale-95 transition-all hover:bg-white/15 shrink-0 shadow-sm"
                   >
