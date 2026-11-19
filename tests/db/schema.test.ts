@@ -378,3 +378,73 @@ test('INV-FB-01: app_feedback aceita só linha da própria pessoa, com tipo e me
     await db.exec('delete from public.app_feedback');
   }
 });
+
+test('INV-NOT-01: a caixa de avisos mostra à pessoa só as próprias linhas, e anônimo não lê nada', async () => {
+  await db.exec(`insert into public.user_notifications (user_id, kind, payload) values ('${USER_A}', 'invite', '{"title":"Oi"}'), ('${USER_B}', 'invite', '{"title":"Tchau"}')`);
+  try {
+    const own = await as('authenticated', USER_A, (q) => q.query<{ user_id: string }>('select user_id from public.user_notifications'));
+    assert.deepEqual(own.rows.map((row) => row.user_id), [USER_A]);
+    await as('anon', null, async (q) => {
+      await rejects(q.query('select * from public.user_notifications'), /permission denied/);
+    });
+    // Nobody writes a notice from the app: no insert, no change to the text
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`insert into public.user_notifications (user_id, kind) values ($1, 'invite')`, [USER_A]), /permission denied/);
+    });
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`update public.user_notifications set kind = 'trocado' where user_id = $1`, [USER_A]), /permission denied/);
+    });
+  } finally {
+    await db.exec('delete from public.user_notifications');
+  }
+});
+
+test('INV-NOT-02: a pessoa marca como lida só a própria linha, mudando só read_at', async () => {
+  await db.exec(`insert into public.user_notifications (user_id, kind, payload) values ('${USER_A}', 'invite', '{"title":"Oi"}'), ('${USER_B}', 'invite', '{"title":"Tchau"}')`);
+  try {
+    const marked = await as('authenticated', USER_A, (q) =>
+      q.query(`update public.user_notifications set read_at = now() where user_id = $1 and read_at is null`, [USER_A])
+    );
+    assert.equal(marked.affectedRows, 1);
+    // The other person's notice is out of reach: the policy filters it, nothing changes
+    const other = await as('authenticated', USER_A, (q) =>
+      q.query(`update public.user_notifications set read_at = now() where user_id = $1`, [USER_B])
+    );
+    assert.equal(other.affectedRows, 0);
+    // The text of a notice is not the person's to change, even their own
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`update public.user_notifications set payload = '{"title":"Falso"}' where user_id = $1`, [USER_A]), /permission denied/);
+    });
+    const { rows } = await db.query<{ payload: { title: string }; read: boolean }>(
+      `select payload, read_at is not null as read from public.user_notifications where user_id = '${USER_B}'`
+    );
+    assert.deepEqual(rows, [{ payload: { title: 'Tchau' }, read: false }]);
+  } finally {
+    await db.exec('delete from public.user_notifications');
+  }
+});
+
+test('INV-NOT-03: só o servidor grava um aviso (notify_user), recusa aviso grande demais e apaga o que passou de 90 dias', async () => {
+  await db.exec(`insert into public.user_notifications (user_id, kind, created_at) values ('${USER_A}', 'invite', now() - interval '100 days'), ('${USER_A}', 'invite', now() - interval '10 days')`);
+  try {
+    // A person cannot call the function (it is for the server only)
+    await as('authenticated', USER_A, async (q) => {
+      await rejects(q.query(`select public.notify_user($1, 'invite', '{}')`, [USER_A]), /permission denied/);
+    });
+    // The server writes; the call also drops what is older than 90 days for that person
+    await as('service_role', null, async (q) => {
+      await q.query(`select public.notify_user($1, 'invite', '{"title":"Novo"}')`, [USER_A]);
+    });
+    const { rows } = await db.query<{ n: number }>(`select count(*)::int as n from public.user_notifications where user_id = '${USER_A}'`);
+    assert.equal(rows[0].n, 2, 'a de 10 dias e a nova ficam; a de 100 dias sai');
+    // Kinds with odd characters and payloads above 2 KB are refused by the table itself
+    await as('service_role', null, async (q) => {
+      await rejects(q.query(`select public.notify_user($1, 'Convite!', '{}')`, [USER_A]), /check constraint/);
+    });
+    await as('service_role', null, async (q) => {
+      await rejects(q.query(`select public.notify_user($1, 'invite', $2::jsonb)`, [USER_A, JSON.stringify({ title: 'x'.repeat(2100) })]), /check constraint/);
+    });
+  } finally {
+    await db.exec('delete from public.user_notifications');
+  }
+});

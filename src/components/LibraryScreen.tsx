@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Podcast, Sparkles, Trash2 } from 'lucide-react';
+import { Bell, BarChart3, ChevronRight, Clock, Disc3, ListMusic, Mic2, Music2, Pencil, Play, Plus, Podcast, Sparkles, Trash2 } from 'lucide-react';
 import type { Track } from '../types/music';
 import { groupByAlbum, groupByArtist, tracksOf, type LibraryGroup, type LibraryView } from '../utils/library';
 import { TrackList } from './TrackList';
@@ -10,6 +10,8 @@ import { usePodcastFollows } from '../hooks/usePodcastFollows';
 import { ShowRow } from './PodcastsHome';
 import type { PodcastShowSummary } from '../types/music';
 import { StatsView } from './StatsView';
+import { NotificationsScreen } from './NotificationsScreen';
+import { useNotifications } from '../context/NotificationsContext';
 
 interface LibraryScreenProps {
   view: LibraryView | null;
@@ -67,11 +69,17 @@ const Row: React.FC<{ icon?: React.ReactNode; cover?: string; placeholder?: Reac
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ view, onNavigate, liked, recent, onClearHistory, onPlay, onOpenShow }) => {
   const { playlists, createNew, rename, remove, removeTrack, openSmartPlaylist } = usePlaylists();
   const follows = usePodcastFollows();
+  const { unread } = useNotifications();
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'clear' | null>(null);
+
+  if (view?.kind === 'notifications') {
+    return <NotificationsScreen />;
+  }
 
   if (view === null) {
     return (
       <nav className="px-4 py-2" aria-label="Seções da biblioteca">
+        <Row icon={<Bell className="w-6 h-6" />} title="Avisos" count={unread} onClick={() => onNavigate({ kind: 'notifications' })} />
         <Row icon={<ListMusic className="w-6 h-6" />} title="Playlists" count={playlists.length} onClick={() => onNavigate({ kind: 'playlists' })} />
         <Row icon={<Clock className="w-6 h-6" />} title="Reproduzidas recentemente" count={recent.length} onClick={() => onNavigate({ kind: 'recent' })} />
         <Row icon={<BarChart3 className="w-6 h-6" />} title="Estatísticas & Mais tocadas" count={recent.length} onClick={() => onNavigate({ kind: 'stats' })} />

@@ -158,6 +158,8 @@ const PODCAST_PATHS = ['/podcast_follows', '/podcast_progress'];
 const APP_DAYS_PATHS = ['/app_days'];
 /** The feedback table (INV-FB-01): without it the sheet says the message did not go; nothing else breaks. */
 const APP_FEEDBACK_PATHS = ['/app_feedback'];
+/** The notice box (INV-NOT-01): without it the box says it is unavailable; nothing else breaks. */
+const USER_NOTIFICATIONS_PATHS = ['/user_notifications'];
 
 /**
  * What the services say: the public key is accepted, sign-up is closed (the app is by invitation), the e-mail
@@ -215,6 +217,9 @@ export async function checkDeepConfig(env: Env = process.env, fetchImpl: typeof 
           }
           if (!APP_FEEDBACK_PATHS.every((path) => path in (spec.paths as object))) {
             out.push(finding('migrations-app-feedback', 'warn', 'Falta no banco: app_feedback. Rode supabase/migrations/0006_app_feedback.sql no SQL Editor; sem ela o feedback dos usuários não é gravado (o resto do app segue igual).'));
+          }
+          if (!USER_NOTIFICATIONS_PATHS.every((path) => path in (spec.paths as object))) {
+            out.push(finding('migrations-user-notifications', 'warn', 'Falta no banco: user_notifications. Rode supabase/migrations/0007_user_notifications.sql no SQL Editor; sem ela a caixa de avisos aparece indisponível (o resto do app segue igual).'));
           }
           if (missing.length === 0) {
             out.push(

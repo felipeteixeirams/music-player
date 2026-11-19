@@ -69,7 +69,7 @@ O convite precisa chegar à convidada, e hoje o app não tem como avisar uma pes
 - **Push (depois):** 📖 o Web Push funciona em apps da tela inicial do iOS 16.4 ou mais novo, só depois de instalado e com um toque da pessoa autorizando, e há relatos de assinaturas que somem ([fontes na descoberta de funcionalidades](feature-discovery.spec.md), item D11). Exige chave VAPID, uma tabela de assinaturas, um service worker que recebe o push e um envio pelo servidor; 🔎 hoje são 9 das 12 funções da Vercel usadas, então cabe, de preferência dentro de uma rota existente. O plano gratuito da Vercel só permite tarefa agendada uma vez por dia (📖 conferido na descoberta), o que não atrapalha: o push sai no momento do evento, não por agendamento.
 - **Sem a caixa de avisos não há como a convidada saber do convite**: por isso ela vem antes de qualquer outra fase.
 
-## Banco (esboço da migração `0006`, aplicada à mão no SQL Editor como as anteriores)
+## Banco (esboço da migração `0008`, aplicada à mão no SQL Editor como as anteriores; a `0007` já é a caixa de avisos)
 
 Com duas pessoas por playlist o modelo fica menor do que na primeira versão (sem tabela de membros nem códigos de convite):
 
@@ -252,9 +252,9 @@ Ids provisórios: viram `INV-…` no master [Contas e dados](../../masters/accou
 
 ## Fases sugeridas
 
-0. **Caixa de avisos dentro do app** (`user_notifications`, tela Avisos, contador, aviso no Início). Vale por si só e desbloqueia o resto.
+0. **Caixa de avisos dentro do app** (`user_notifications`, tela Avisos, contador, aviso no Início). Vale por si só e desbloqueia o resto. **Feita em 2026-11-19** (migração `0007_user_notifications.sql`, aplicar à mão no SQL Editor; invariantes INV-NOT-01 a 03 no master de contas e dados). Ainda sem produtor de avisos: os convites entram na fase 3.
 1. **Banco e testes** da colaboração (migração `0006`, RLS, funções, gatilhos), sem interface.
-2. **Nome de exibição** em Ajustes e a busca de pessoas.
+2. **Nome de exibição, foto e a busca de pessoas.** Foto enviada pela pessoa (requisitos do usuário, 2026-11-19): aceitar só formatos de imagem compatíveis com a web; validar a resolução (a densidade em DPI é metadado de impressão e não entra na conta; o que pesa é a largura e a altura em pixels); comprimir antes de gravar, para não onerar o armazenamento; e, quando a imagem não for quadrada, oferecer um corte 1:1 antes de gravar. Ainda por decidir: formatos aceitos, dimensão final e a qualidade da compressão (ver a pergunta registrada em 2026-11-19).
 3. **Convidar, aceitar e recusar**, com o estado pendente.
 4. **Editar em conjunto** (adicionar, remover, mover, "adicionada por", fila local).
 5. **Remover convidada, sair, excluir**, "Salvar uma cópia só minha".

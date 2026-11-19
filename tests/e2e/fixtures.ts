@@ -129,7 +129,7 @@ export function silentClip(seconds: number): string {
 }
 
 /** Stubs every catalog route of the app. Returns the list of API requests the page made. */
-export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; podcastAudioUrls?: string[]; dzcdnCovers?: 'open' | 'blocked'; proxiedCovers?: string[]; otherVideoIds?: string[]; avoids?: string[]; reports?: string[]; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[] } = {}): Promise<string[]> {
+export async function stubApi(target: Page, options: { videoIds?: string[]; signedIn?: boolean; user?: ReturnType<typeof testUser>; quotaExceeded?: boolean; warmSkipped?: boolean; usedToday?: number; admin?: boolean; lyrics?: boolean; podcastAudioUrls?: string[]; dzcdnCovers?: 'open' | 'blocked'; proxiedCovers?: string[]; otherVideoIds?: string[]; avoids?: string[]; reports?: string[]; previewUrl?: string; stalePreview?: boolean; shortTracks?: boolean; cachedVideos?: Record<string, string[]>; lookups?: string[][]; warms?: string[]; notices?: Record<string, unknown>[]; noticeReads?: string[] } = {}): Promise<string[]> {
   const requests: string[] = [];
 
   // Signed in by default, as a person of its own (so parallel tests never share an account). Seeded once per tab, so signing out (and reloading) stays signed out
@@ -358,6 +358,14 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
   });
 
   // Preview links signed by the catalog: the expired one is refused (as the real CDN does), the new one plays
+  // The notice box (INV-NOT-01, INV-NOT-02): the notices the test seeds, and every "read" the page sends
+  await target.route('**/rest/v1/user_notifications*', (route) => {
+    if (route.request().method() === 'PATCH') {
+      options.noticeReads?.push(route.request().url());
+      return route.fulfill({ status: 204, body: '' });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(options.notices ?? []) });
+  });
   await target.route('https://cdn-preview.example/**', (route) =>
     route.request().url().includes('fresh=1')
       ? route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from(silentClip(20).split(',')[1], 'base64') })
