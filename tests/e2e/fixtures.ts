@@ -1,4 +1,4 @@
-import type { Page, Route } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
 import { STORAGE_KEY, testUser } from './supabaseMock';
 
 /** A 1x1 cover, inline, so no test reaches for the network. */
@@ -395,6 +395,18 @@ export async function stubApi(target: Page, options: { videoIds?: string[]; sign
   );
 
   return requests;
+}
+
+/**
+ * The Library tab, whether the bottom bar is expanded or collapsed. A click on a track scrolls the page, and a scrolled
+ * page collapses the bar, where the tab is not a labelled button: reveal the bar first (INV-PLAY-01 notes the same case).
+ */
+export async function openLibrary(target: Page): Promise<void> {
+  const library = nav(target, 'Biblioteca');
+  const reveal = target.getByRole('button', { name: 'Mostrar a navegação' });
+  await expect(library.or(reveal).first()).toBeVisible();
+  if (await reveal.isVisible()) await reveal.click();
+  await library.click();
 }
 
 export const nav = (target: Page, tab: 'Início' | 'Rádio' | 'Biblioteca' | 'Buscar') =>

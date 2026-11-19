@@ -11,9 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
+  # Types, unit and handler tests, and the bundle check (made-up secrets must stay out of dist/). Runs in parallel with e2e.
+  static:
+    name: Types, unit tests and build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -41,13 +43,32 @@ jobs:
           DATABASE_VITE_SUPABASE_ANON_KEY: canary-anon-key-public-2a6b
           CANARY_SECRET_VARS: DATABASE_SUPABASE_SERVICE_ROLE_KEY,DATABASE_SUPABASE_JWT_SECRET,DATABASE_POSTGRES_PASSWORD
           CANARY_PUBLIC_VARS: DATABASE_VITE_SUPABASE_URL,DATABASE_VITE_SUPABASE_ANON_KEY
+
+  # The end-to-end suite is split in two shards that run at the same time (Playwright --shard)
+  e2e:
+    name: End-to-end (shard ${{ matrix.shard }} of 2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
       - name: Build for the end-to-end tests
         run: npm run build:e2e
 
       - name: Browser for the end-to-end tests
         run: npx playwright install --with-deps chromium
-      - name: End-to-end tests
-        run: npm run test:e2e
+      - name: End-to-end tests (shard ${{ matrix.shard }} of 2)
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
         env:
           E2E_SKIP_BUILD: '1'
 
@@ -55,8 +76,20 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
           retention-days: 7
+
+  # The one status the branch protection requires (see AGENTS.md): passes only when every job above passed
+  checks:
+    name: checks
+    needs: [static, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed
+        run: |
+          test "${{ needs.static.result }}" = "success"
+          test "${{ needs.e2e.result }}" = "success"

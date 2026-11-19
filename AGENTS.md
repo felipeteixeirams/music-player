@@ -56,7 +56,7 @@ O app roda em tela cheia (`viewport-fit=cover` e barra de status `black-transluc
 - Os testes de ponta a ponta nunca tocam a Deezer, o YouTube nem a internet: `stubApi` (`tests/e2e/fixtures.ts`) responde todas as rotas `/api/*`. Por isso `playwright.config.ts` usa `serviceWorkers: 'block'`: o service worker do app faz as requisições por conta própria e `page.route` não as vê, o que fazia os testes receberem dados reais. Ao criar uma rota nova, acrescente a resposta dela em `stubApi`.
 - `tests/e2e/api.spec.ts` é a exceção: chama as rotas reais, só para o que não precisa de terceiros (proteção das rotas, validação de parâmetros, `health`, `version.json`).
 - Toda mudança de comportamento visível (navegação, abas, listas, favoritos, Rádio, ajustes) deve ganhar ou atualizar um teste de ponta a ponta. Antes de abrir um PR rode `npm run lint`, `npm test` e `npm run test:e2e`; localmente o Playwright usa os navegadores já instalados (`CHROMIUM_PATH` aponta para outro executável, se preciso).
-- `.github/workflows/ci.yml` roda tipos, testes, build e ponta a ponta em todo PR e em todo push na `main`, e guarda o relatório do Playwright quando falha. Para o merge exigir o resultado, ative em Settings > Branches a regra "Require status checks to pass" com o job `checks`.
+- `.github/workflows/ci.yml` roda em todo PR e em todo push na `main` com dois jobs em paralelo: `static` (tipos, testes unitários e build com segredos de mentira) e `e2e` (ponta a ponta, dividido em dois shards). O job `checks` só passa se os dois passaram, e é ele que a proteção do branch exige: em Settings > Branches, a regra "Require status checks to pass" deve apontar para `checks`. Os relatórios do Playwright são guardados por shard quando falham.
 
 ## Proteção das rotas públicas
 
