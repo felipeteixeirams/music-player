@@ -4,6 +4,21 @@ import { reportClientError } from './errorReporter';
 import { RemoteError } from './supabaseRest';
 
 /**
+ * What the server's log gets when the daily-use write is refused: the status, the start of the database's answer, and the
+ * account id the device sent (the same id the token belongs to). Compared with the token's owner in the logs, it shows
+ * whether the device and the token disagree (INV-ADMIN-03). Never the token.
+ */
+export function dailyUseFailureMessage(error: unknown, userId: string): string {
+  const reason =
+    error instanceof RemoteError
+      ? `${error.status} ${error.detail ?? error.message}`
+      : error instanceof Error
+        ? error.message
+        : 'erro';
+  return `uso diário: ${reason} (conta ${userId})`;
+}
+
+/**
  * Records that the signed-in person opened the app today (INV-ADMIN-03): one row per person and day, written with the
  * person's own token, so the database accepts only their own rows. Repeating the call on the same day changes nothing.
  * Never throws: the record is a count for the administrator, not something the app needs to work.
@@ -27,11 +42,7 @@ export async function recordAppOpen(
   } catch (error) {
     // Nothing for the person to see, but the reason goes to the server's log (as [Client]): a row that never lands is
     // otherwise invisible. The reason is the status and the start of the database's answer, never a token.
-    if (error instanceof RemoteError) {
-      void reportClientError('error', `uso diário: ${error.status} ${error.detail ?? error.message}`);
-    } else {
-      void reportClientError('error', `uso diário: ${error instanceof Error ? error.message : 'erro'}`);
-    }
+    void reportClientError('error', dailyUseFailureMessage(error, user.id));
     return false;
   }
 }
