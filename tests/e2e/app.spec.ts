@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fakeYouTube, loadedVideo, nav, silentClip, stubApi, TOP_HITS } from './fixtures';
+import { fakeYouTube, loadedVideo, nav, openLibrary, silentClip, stubApi, TOP_HITS } from './fixtures';
 
 const COLLECTION_NAMES = ['Top Hits', 'Classic Rock', 'Alternative & Indie', 'Lofi Chill', 'Synthwave & Retrowave'];
 
@@ -361,7 +361,8 @@ test.describe('playlists', () => {
     await page.getByRole('button', { name: 'Pronto' }).click();
 
     await page.getByLabel('Minimizar player expandido').click();
-    await nav(page, 'Biblioteca').click();
+    // The click on the track scrolled the page, and a scrolled page collapses the bar (the tab is then a single button)
+    await openLibrary(page);
     await page.getByRole('button', { name: /^Playlists/ }).click();
     await expect(page.getByRole('button', { name: /Treino/ })).toContainText('1');
   });
@@ -406,7 +407,9 @@ test.describe('catálogo fora do ar', () => {
   };
 
   test('a home abre com a última lista salva, avisa e atualiza quando o catálogo volta', async ({ page }) => {
-    // beforeEach already loaded the home once with the catalog answering, so a copy is saved on the device
+    // beforeEach already loaded the home once with the catalog answering, so a copy is saved on the device.
+    // The copy is written after the feed arrives: wait for it, or the catalog could go down before it exists.
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('aurastream_feed_cache') !== null)).toBe(true);
     const down = await feedDown(page);
     await page.reload();
 
@@ -437,6 +440,8 @@ test.describe('catálogo fora do ar', () => {
   });
 
   test('a cópia salva é a do último carregamento que deu certo', async ({ page }) => {
+    // The copy is written when the feed arrives (beforeEach has loaded the home): wait for it, do not depend on another test
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('aurastream_feed_cache') !== null)).toBe(true);
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('aurastream_feed_cache') ?? 'null'));
     expect(saved.feed.categories['top-hits'].tracks).toHaveLength(3);
     expect(typeof saved.savedAt).toBe('number');

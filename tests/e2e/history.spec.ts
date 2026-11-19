@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { nav, stubApi, TOP_HITS } from './fixtures';
+import { nav, openLibrary, stubApi, TOP_HITS } from './fixtures';
 import { MOCK_URL, testUser } from './supabaseMock';
 
 const PHONE = { viewport: { width: 414, height: 896 }, serviceWorkers: 'block', colorScheme: 'dark' } as const;
@@ -64,7 +64,7 @@ test('uma reprodução feita sem conexão chega à conta depois', async ({ page,
   await openApp(page, user);
   await page.route('**/rest/v1/**', (route) => route.abort());
   await playFirstTopHit(page);
-  await nav(page, 'Biblioteca').click();
+  await openLibrary(page);
   await expect(recentRow(page)).not.toContainText('0', { timeout: 15_000 });
   expect(await history(request, user.id)).toEqual([]);
 

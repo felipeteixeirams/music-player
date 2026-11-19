@@ -205,7 +205,9 @@ test('INV-POD-07: a posição do episódio vai para a conta ao sair do app e che
   await page.getByRole('button', { name: /Despertar Zen/ }).click();
   await page.getByRole('button', { name: /^Tocar Palestra Três/ }).click();
   await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
-  await page.waitForTimeout(12_500);
+  // Listen long enough for 12 s of audio even on a slow machine. The episode's audio element is created in script and is
+  // not in the page, so the test cannot read its position: a margin over the 12 s it asserts below is what it can do.
+  await page.waitForTimeout(16_000);
   await page.getByRole('button', { name: 'Pausar música' }).click();
   // The app going to the background sends what was listened to at once
   await page.evaluate(() => {
