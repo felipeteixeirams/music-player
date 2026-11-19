@@ -11,7 +11,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Types, unit and handler tests, and the bundle check (made-up secrets must stay out of dist/). Runs in parallel with e2e.
+  # Decides whether the end-to-end suite is needed: every push to main, and any pull request that changes code,
+  # tests, the build or the configuration. A pull request that only changes documentation skips it.
+  changes:
+    name: Which parts changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.check.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE" "$HEAD")
+          echo "$changed"
+          if echo "$changed" | grep -Eq '^(src/|api/|public/|tests/|scripts/|server\.ts$|index\.html$|vite\.config\.ts$|playwright\.config\.ts$|package(-lock)?\.json$|vercel\.json$|tsconfig[^/]*\.json$|\.github/workflows/)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Types, unit and handler tests, and the bundle check (made-up secrets must stay out of dist/). Always runs.
   static:
     name: Types, unit tests and build
     runs-on: ubuntu-latest
@@ -44,9 +74,11 @@ jobs:
           CANARY_SECRET_VARS: DATABASE_SUPABASE_SERVICE_ROLE_KEY,DATABASE_SUPABASE_JWT_SECRET,DATABASE_POSTGRES_PASSWORD
           CANARY_PUBLIC_VARS: DATABASE_VITE_SUPABASE_URL,DATABASE_VITE_SUPABASE_ANON_KEY
 
-  # The end-to-end suite is split in two shards that run at the same time (Playwright --shard)
+  # The end-to-end suite, in two shards that run at the same time. Skipped when a pull request changes no code.
   e2e:
     name: End-to-end (shard ${{ matrix.shard }} of 2)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -82,14 +114,16 @@ jobs:
             test-results/
           retention-days: 7
 
-  # The one status the branch protection requires (see AGENTS.md): passes only when every job above passed
+  # The one status the branch protection requires (see AGENTS.md). Passes when the static checks passed and the
+  # end-to-end suite either passed or was skipped on purpose (a pull request with no code change).
   checks:
     name: checks
-    needs: [static, e2e]
+    needs: [changes, static, e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Every job passed
+      - name: Every required job passed
         run: |
+          test "${{ needs.changes.result }}" = "success"
           test "${{ needs.static.result }}" = "success"
-          test "${{ needs.e2e.result }}" = "success"
+          test "${{ needs.e2e.result }}" = "success" -o "${{ needs.e2e.result }}" = "skipped"
