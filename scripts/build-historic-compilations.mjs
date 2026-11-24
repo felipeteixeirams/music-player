@@ -237,8 +237,71 @@ async function addTrackCovers() {
   console.log(`capas de faixa: ${withCover} de ${tracks} faixas com id do Deezer (capa do álbum da faixa)`);
 }
 
+/** The same comparison the catalog uses for names: no accents, no case, no punctuation. */
+const sameName = (value) => String(value ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * The artwork of a track the Deezer did not match: the iTunes song of the same artist with a similar title (INV-CAT-07).
+ * An artist who is not the same is never taken, and the title must start the same way. Cached per track.
+ */
+async function itunesTrackCover(title, artist) {
+  const key = createHash('sha1').update(`${sameName(artist)}|${sameName(title)}`).digest('hex');
+  const file = join(CACHE, 'itunes-track', `${key}.json`);
+  if (existsSync(file)) return JSON.parse(readFileSync(file, 'utf8')).cover;
+  await sleep(400);
+  let cover = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}&entity=song&country=br&limit=10`, { headers: { 'User-Agent': UA } });
+    if (response.status === 403 || response.status === 429) {
+      await sleep(60_000);
+      continue;
+    }
+    if (!response.ok) return null; // not cached: tried again on the next run
+    const data = await response.json();
+    const want = sameName(title).slice(0, 12);
+    const hit = (data.results ?? []).find((song) => sameName(song.artistName) === sameName(artist) && sameName(song.trackName).startsWith(want) && song.artworkUrl100);
+    cover = hit ? hit.artworkUrl100.replace('100x100bb', '250x250bb') : null;
+    break;
+  }
+  mkdirSync(join(CACHE, 'itunes-track'), { recursive: true });
+  writeFileSync(file, JSON.stringify({ title, artist, cover }));
+  return cover;
+}
+
+/**
+ * ITUNES_TRACK_COVERS=1: gives a track the Deezer did not match its artwork from iTunes (same artist, similar title).
+ * Rewrites each CD file and the mosaic in the index (INV-CAT-06, INV-CAT-07).
+ */
+async function addItunesTrackCovers() {
+  const indexFile = join(OUT, 'index.json');
+  const index = JSON.parse(readFileSync(indexFile, 'utf8'));
+  let found = 0;
+  let asked = 0;
+  for (const [i, entry] of index.compilations.entries()) {
+    const recordFile = join(OUT, 't', `${entry.id}.json`);
+    if (!existsSync(recordFile)) continue;
+    const record = JSON.parse(readFileSync(recordFile, 'utf8'));
+    const list = record.tracks ?? record.trackList ?? [];
+    for (const track of list) {
+      if (track.coverUrl || !track.title || !track.artist) continue;
+      asked += 1;
+      const cover = await itunesTrackCover(track.title, track.artist);
+      if (cover) {
+        track.coverUrl = cover;
+        found += 1;
+      }
+    }
+    writeFileSync(recordFile, JSON.stringify(record));
+    if (!entry.mbid) entry.covers = [...new Set(list.map((track) => track.coverUrl).filter(Boolean))].slice(0, 4);
+    if ((i + 1) % 100 === 0) console.log(`[${i + 1}/${index.compilations.length}] faixas com capa do iTunes até agora: ${found} de ${asked}`);
+  }
+  writeFileSync(indexFile, JSON.stringify(index));
+  console.log(`capas do iTunes: ${found} de ${asked} faixas sem capa do Deezer`);
+}
+
 async function main() {
   if (process.env.COVERS_ONLY === '1') return addCovers();
+  if (process.env.ITUNES_TRACK_COVERS === '1') return addItunesTrackCovers();
   if (process.env.TRACK_COVERS === '1') return addTrackCovers();
   const masters = (await listCompilations()).slice(0, LIMIT);
   console.log(`${masters.length} compilações da ${LABEL} no Discogs (masters e releases, sem repetição)`);
