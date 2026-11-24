@@ -7,7 +7,7 @@ const INDEX = {
   generatedAt: '2026-11-09',
   source: 'teste',
   compilations: [
-    { id: 'm3', title: 'Lovy Metal 1', base: 'lovy metal', year: 2001, catno: '23282', tracks: 2, matched: 1 },
+    { id: 'm3', title: 'Lovy Metal 1', base: 'lovy metal', year: 2001, catno: '23282', tracks: 2, matched: 1, mbid: '11111111-2222-4333-8444-555555555555' },
     { id: 'm4', title: 'Lovy Metal 3', base: 'lovy metal', year: 2003, catno: '23284', tracks: 1, matched: 0 }
   ]
 };
@@ -88,4 +88,22 @@ test('salvar o mesmo CD de novo não cria outra playlist com o mesmo nome', asyn
   await nav(page, 'Biblioteca').click();
   await page.getByRole('button', { name: /^Playlists/ }).click();
   await expect(page.getByText('Lovy Metal 1 (Som Livre)')).toHaveCount(1);
+});
+
+test('INV-CAT-02: a fileira de CDs da busca mostra a capa do CD pelo MBID do índice, como a página do CD', async ({ page }) => {
+  await stubApi(page);
+  await serveCatalog(page);
+  // A 1x1 image answers the Cover Art Archive address: the card must ask for the cover of its release
+  const requested: string[] = [];
+  await page.route('https://coverartarchive.org/**', (route) => {
+    requested.push(route.request().url());
+    return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') });
+  });
+  await page.goto('/');
+  await nav(page, 'Buscar').click();
+  await page.getByRole('searchbox', { name: 'Buscar' }).fill('lovy metal');
+  await expect(cdsRow(page)).toBeVisible();
+  const card = cdsRow(page).getByRole('button', { name: /Lovy Metal 1/ });
+  await expect(card.locator('img[src*="coverartarchive.org/release/11111111-2222-4333-8444-555555555555/front-250"]')).toHaveCount(1);
+  await expect.poll(() => requested.some((url) => url.includes('11111111-2222-4333-8444-555555555555'))).toBe(true);
 });

@@ -198,6 +198,20 @@ test('INV-POD-06: o botão do player de um episódio segue o programa', async ({
 
 test('INV-POD-07: a posição do episódio vai para a conta ao sair do app e chega a outro aparelho, que retoma dali', async ({ page, browser, request }) => {
   const user = testUser();
+  // The app's audio element is made in script and is not in the page: the test keeps the ones the page creates, to read
+  // how far the episode has played (a fixed wait was not enough on a slow machine)
+  await page.addInitScript(() => {
+    const Native = window.Audio;
+    const made: HTMLMediaElement[] = [];
+    (window as unknown as { __audios: HTMLMediaElement[] }).__audios = made;
+    const Recording = function (this: unknown, ...args: ConstructorParameters<typeof Audio>) {
+      const element = new Native(...args);
+      made.push(element);
+      return element;
+    } as unknown as typeof Audio;
+    Recording.prototype = Native.prototype;
+    window.Audio = Recording;
+  });
   await openAs(page, user);
   await nav(page, 'Buscar').click();
   await page.getByRole('button', { name: 'Podcasts' }).click();
@@ -205,9 +219,13 @@ test('INV-POD-07: a posição do episódio vai para a conta ao sair do app e che
   await page.getByRole('button', { name: /Despertar Zen/ }).click();
   await page.getByRole('button', { name: /^Tocar Palestra Três/ }).click();
   await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
-  // Listen long enough for 12 s of audio even on a slow machine. The episode's audio element is created in script and is
-  // not in the page, so the test cannot read its position: a margin over the 12 s it asserts below is what it can do.
-  await page.waitForTimeout(16_000);
+  // Listen until the episode has played 12 s, however slow the machine is
+  await expect
+    .poll(() => page.evaluate(() => Math.max(0, ...((window as unknown as { __audios: HTMLMediaElement[] }).__audios ?? []).filter((a) => a.src.includes('podcast.example')).map((a) => a.currentTime))), {
+      timeout: 60_000,
+      intervals: [250]
+    })
+    .toBeGreaterThanOrEqual(12);
   await page.getByRole('button', { name: 'Pausar música' }).click();
   // The app going to the background sends what was listened to at once
   await page.evaluate(() => {

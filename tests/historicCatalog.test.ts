@@ -110,9 +110,56 @@ test('INV-CAT-02: a capa do CD vem da Cover Art Archive pelo MBID do release; se
     globalThis.fetch = async () => record('e29453df-b5a4-4bf1-b248-5a3ae0654dd3');
     const withCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m9`);
     assert.equal(withCover.album.coverUrl, 'https://coverartarchive.org/release/e29453df-b5a4-4bf1-b248-5a3ae0654dd3/front-250');
+    // A different compilation: the record of m9 is kept for the session (INV-CAT-02), so this one needs its own id
     globalThis.fetch = async () => record(null);
-    const withoutCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m9`);
+    const withoutCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m10`);
     assert.equal(withoutCover.album.coverUrl, '');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('INV-CAT-02: abrir o mesmo CD de novo na mesma sessão não busca o arquivo outra vez; uma falha é tentada de novo', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  const body = JSON.stringify({ title: 'Cache CD', label: 'Som Livre', year: 1999, tracks: [{ title: 'Faixa', artist: 'Artista', position: 1, duration: '3:00' }] });
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) return new Response('falha', { status: 503 });
+    return new Response(body, { status: 200 });
+  };
+  try {
+    await assert.rejects(loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m77`), /503/);
+    const first = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m77`);
+    const second = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m77`);
+    assert.equal(first.album.title, 'Cache CD');
+    assert.equal(second.album.title, 'Cache CD');
+    assert.equal(calls, 2, 'a falha não fica guardada; o sucesso vale para as próximas aberturas');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('INV-CAT-05: a faixa de um CD histórico mostra a própria capa, nunca a do CD (coletânea de vários artistas)', async () => {
+  const originalFetch = globalThis.fetch;
+  const body = JSON.stringify({
+    id: 'm5',
+    title: 'Good Times',
+    label: 'Som Livre',
+    year: 2003,
+    mbid: 'cf0e9cdb-5585-473b-a81d-df861ed87a70',
+    tracks: [
+      { position: '1', title: 'Making Love Out Of Nothing At All', artist: 'Air Supply', duration: '5:41', deezerId: 3718493802, coverUrl: 'https://cdn-images.dzcdn.net/images/cover/air-supply.jpg' },
+      { position: '2', title: 'Forever By Your Side', artist: 'Sem capa', duration: '4:00' }
+    ]
+  });
+  globalThis.fetch = async () => new Response(body, { status: 200 });
+  try {
+    const page = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m5`);
+    // The first track has its own artwork; the second has none and must not inherit the CD's (the Montrose cover)
+    assert.equal(page.tracks.tracks[0].coverUrl, 'https://cdn-images.dzcdn.net/images/cover/air-supply.jpg');
+    assert.equal(page.tracks.tracks[1].coverUrl, '');
+    assert.equal(page.album.coverUrl, 'https://coverartarchive.org/release/cf0e9cdb-5585-473b-a81d-df861ed87a70/front-250');
   } finally {
     globalThis.fetch = originalFetch;
   }

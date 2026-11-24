@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PlaylistsProvider, usePlaylists } from './context/PlaylistsContext';
+import { NotificationsProvider, useNotifications } from './context/NotificationsContext';
 import { AddToPlaylistSheet } from './components/AddToPlaylistSheet';
 import { SmartPlaylistSheet } from './components/SmartPlaylistSheet';
 import { TopBar } from './components/TopBar';
@@ -71,6 +72,7 @@ const MusicAppContent: React.FC = () => {
   const { playTrack, likedTracks, hydrateLikedTracks, currentTrack } = useAudio();
   const { compact, expand } = useScrollChrome();
   const { playlists } = usePlaylists();
+  const { unread: unreadNotices } = useNotifications();
   const { recent: recentTracks, entries: historyEntries, clear: clearHistory } = usePlayHistory();
   const { storage } = useAuth();
 
@@ -424,6 +426,20 @@ const MusicAppContent: React.FC = () => {
         />
 
         <main className="flex-1 space-y-4 page-enter">
+          {activeTab === 'home' && !inDetail && unreadNotices > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                handleSelectTab('library');
+                setLibraryView({ kind: 'notifications' });
+              }}
+              className="mx-4 flex w-[calc(100%-2rem)] items-center justify-between rounded-card bg-fill-tertiary px-4 py-3 text-left text-[15px] font-semibold text-accent active:scale-[0.98] transition-transform"
+            >
+              <span>{unreadNotices === 1 ? 'Você tem 1 aviso novo' : `Você tem ${unreadNotices} avisos novos`}</span>
+              <span aria-hidden="true">›</span>
+            </button>
+          )}
+
           {activeMix ? (
             <MixScreen mix={activeMix} />
           ) : podcastView ? (
@@ -772,7 +788,9 @@ export const App: React.FC = () => {
     <AuthProvider>
       <AudioProvider>
         <PlaylistsProvider>
-          <MusicAppContent />
+          <NotificationsProvider>
+            <MusicAppContent />
+          </NotificationsProvider>
         </PlaylistsProvider>
       </AudioProvider>
     </AuthProvider>

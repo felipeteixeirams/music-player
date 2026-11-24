@@ -117,6 +117,14 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /*
+   * The iPhone home-screen app has no viewport-fit=cover (src/utils/standalone.ts), so env() reports 0 there and the
+   * home indicator's 34 px is reserved by hand. While a field has focus the keyboard takes that room instead.
+   */
+  html[data-standalone]:not([data-editing]) {
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), 34px);
+  }
+
   body {
     background-color: var(--color-canvas);
     color: var(--color-label);

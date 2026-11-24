@@ -33,6 +33,8 @@ export interface HistoricTrack {
   artist: string;
   duration?: string | number;
   deezerId?: number | null;
+  /** The track's own artwork (the artist's album), when the catalog has one. Never the CD's. */
+  coverUrl?: string;
 }
 
 export interface HistoricRecord {
@@ -139,18 +141,34 @@ export function findHistoricMatches(query: string, index: HistoricIndex | null):
   return matches.sort((a, b) => (a.year || 0) - (b.year || 0) || a.title.localeCompare(b.title));
 }
 
+// One request per compilation for the whole session: opening the same CD again (from the home, a search or a list)
+// reads the same record. Only successes are kept, so a failed read is tried again the next time.
+const loadedRecords = new Map<string, Promise<HistoricRecord>>();
+
+function loadRecord(cleanId: string): Promise<HistoricRecord> {
+  let request = loadedRecords.get(cleanId);
+  if (!request) {
+    request = fetch(`/historic/t/${cleanId}.json`).then(async (res) => {
+      if (!res.ok) {
+        throw new Error(`Não foi possível carregar a coletânea (${res.status})`);
+      }
+      return (await res.json()) as HistoricRecord;
+    });
+    loadedRecords.set(cleanId, request);
+    request.catch(() => loadedRecords.delete(cleanId));
+  }
+  return request;
+}
+
 /**
  * Loads a historic compilation album from public/historic/t/<id>.json and formats it as an AlbumPage.
  */
 export async function loadHistoricAlbumPage(albumId: string, signal?: AbortSignal): Promise<AlbumPage> {
   const cleanId = albumId.startsWith(HISTORIC_ALBUM_PREFIX) ? albumId.slice(HISTORIC_ALBUM_PREFIX.length) : albumId;
 
-  const res = await fetch(`/historic/t/${cleanId}.json`, { signal });
-  if (!res.ok) {
-    throw new Error(`Não foi possível carregar a coletânea (${res.status})`);
-  }
-
-  const record: HistoricRecord = await res.json();
+  // The request is shared, so it is not tied to this caller's signal: a caller that left just stops here
+  const record = await loadRecord(cleanId);
+  if (signal?.aborted) throw new DOMException('Carregamento cancelado', 'AbortError');
   const rawTracks = record.tracks || record.trackList || [];
   const cover = record.coverUrl || historicCoverUrl(record.mbid);
 
@@ -163,7 +181,8 @@ export async function loadHistoricAlbumPage(albumId: string, signal?: AbortSigna
       artist: t.artist,
       album: record.label ? `${record.title} (${record.label})` : record.title,
       duration: parseDuration(t.duration),
-      coverUrl: cover,
+      // A compilation's CD cover belongs to one release, not to each of its artists: a track shows its own artwork or none
+      coverUrl: t.coverUrl || '',
       style: 'Coletânea Histórica',
       categoryId: 'rock',
       sources: {

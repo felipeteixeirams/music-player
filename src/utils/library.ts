@@ -10,6 +10,7 @@ export type LibraryView =
   | { kind: 'artists' }
   | { kind: 'albums' }
   | { kind: 'podcasts' }
+  | { kind: 'notifications' }
   | { kind: 'artist'; name: string }
   | { kind: 'album'; name: string; artist: string };
 
@@ -56,6 +57,7 @@ export function libraryTitle(view: LibraryView | null, playlists: { id: string; 
     case 'artists': return 'Artistas';
     case 'albums': return 'Álbuns';
     case 'podcasts': return 'Podcasts';
+    case 'notifications': return 'Avisos';
     case 'artist': return view.name;
     case 'album': return view.name;
     default: return 'Biblioteca';
