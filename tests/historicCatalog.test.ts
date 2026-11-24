@@ -164,3 +164,23 @@ test('INV-CAT-05: a faixa de um CD histórico mostra a própria capa, nunca a do
     globalThis.fetch = originalFetch;
   }
 });
+
+test('INV-CAT-06: o mosaico usa até quatro capas distintas das faixas, na ordem, sem as faixas sem capa', async () => {
+  const { mosaicCovers } = await import('../src/utils/historicCatalog');
+  assert.deepEqual(mosaicCovers(['a', undefined, 'b', 'a', '', 'c', 'd', 'e']), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(mosaicCovers(['a', 'a']), ['a']);
+  assert.deepEqual(mosaicCovers([undefined, null]), []);
+  assert.deepEqual(mosaicCovers([]), []);
+
+  // A CD without a verified cover: its page takes the mosaic from its tracks, and no cover of its own
+  const originalFetch = globalThis.fetch;
+  const tracks = ['1', '2', '3', '4', '5'].map((n) => ({ position: n, title: `Faixa ${n}`, artist: `Artista ${n}`, duration: '3:00', coverUrl: `https://cdn-images.dzcdn.net/capa-${n}.jpg` }));
+  globalThis.fetch = async () => new Response(JSON.stringify({ id: 'm6', title: 'Sem Capa', label: 'Som Livre', year: 1995, mbid: null, tracks }), { status: 200 });
+  try {
+    const page = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m6`);
+    assert.equal(page.album.coverUrl, '');
+    assert.deepEqual(page.album.covers, ['https://cdn-images.dzcdn.net/capa-1.jpg', 'https://cdn-images.dzcdn.net/capa-2.jpg', 'https://cdn-images.dzcdn.net/capa-3.jpg', 'https://cdn-images.dzcdn.net/capa-4.jpg']);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -107,3 +107,24 @@ test('INV-CAT-02: a fileira de CDs da busca mostra a capa do CD pelo MBID do ín
   await expect(card.locator('img[src*="coverartarchive.org/release/11111111-2222-4333-8444-555555555555/front-250"]')).toHaveCount(1);
   await expect.poll(() => requested.some((url) => url.includes('11111111-2222-4333-8444-555555555555'))).toBe(true);
 });
+
+test('INV-CAT-06: um CD sem capa própria mostra o mosaico das capas das faixas na busca', async ({ page }) => {
+  await stubApi(page);
+  await serveCatalog(page);
+  // The Lovy Metal 3 CD has no verified cover: the index gives its tracks' covers for the mosaic
+  const covers = ['https://cdn-images.dzcdn.net/mosaico-1.jpg', 'https://cdn-images.dzcdn.net/mosaico-2.jpg', 'https://cdn-images.dzcdn.net/mosaico-3.jpg', 'https://cdn-images.dzcdn.net/mosaico-4.jpg'];
+  await page.route('**/historic/index.json', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...INDEX, compilations: [INDEX.compilations[0], { ...INDEX.compilations[1], covers }] }) })
+  );
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  await page.route('https://cdn-images.dzcdn.net/**', (route) => route.fulfill({ contentType: 'image/png', body: png }));
+  await page.goto('/');
+  await nav(page, 'Buscar').click();
+  await page.getByRole('searchbox', { name: 'Buscar' }).fill('lovy metal');
+  const card = cdsRow(page).getByRole('button', { name: /Lovy Metal 3/ });
+  await expect(card).toBeVisible();
+  // Four slots, each with one of the track covers, and no disc
+  await expect(card.locator('img')).toHaveCount(4);
+  await expect(card.locator('img[src*="mosaico-4.jpg"]')).toHaveCount(1);
+  await expect(card.locator('img[src*="11111111"]')).toHaveCount(0);
+});
