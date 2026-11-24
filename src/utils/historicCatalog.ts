@@ -33,6 +33,8 @@ export interface HistoricTrack {
   artist: string;
   duration?: string | number;
   deezerId?: number | null;
+  /** The track's own artwork (the artist's album), when the catalog has one. Never the CD's. */
+  coverUrl?: string;
 }
 
 export interface HistoricRecord {
@@ -179,7 +181,8 @@ export async function loadHistoricAlbumPage(albumId: string, signal?: AbortSigna
       artist: t.artist,
       album: record.label ? `${record.title} (${record.label})` : record.title,
       duration: parseDuration(t.duration),
-      coverUrl: cover,
+      // A compilation's CD cover belongs to one release, not to each of its artists: a track shows its own artwork or none
+      coverUrl: t.coverUrl || '',
       style: 'Coletânea Histórica',
       categoryId: 'rock',
       sources: {
