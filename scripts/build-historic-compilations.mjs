@@ -183,8 +183,59 @@ async function addCovers() {
   console.log(`capas: ${found} de ${index.compilations.length} CDs (Cover Art Archive, pelo número de catálogo)`);
 }
 
+/**
+ * The artwork of one track: the cover of the album the Deezer track belongs to (the artist's own record). Cached per track,
+ * so the run can stop and go on. A track Deezer does not know keeps none (the app shows the disc for it).
+ */
+async function deezerTrackCover(deezerId) {
+  const file = join(CACHE, 'deezer-track', `${deezerId}.json`);
+  if (existsSync(file)) return JSON.parse(readFileSync(file, 'utf8')).cover;
+  await sleep(120); // Deezer allows 50 requests every 5 s
+  let cover = null;
+  try {
+    const data = await getJson(`https://api.deezer.com/track/${deezerId}`);
+    cover = data?.album?.cover_medium || null;
+  } catch (error) {
+    console.warn(`faixa ${deezerId}: ${error.message}`);
+    return null; // not cached: tried again on the next run
+  }
+  mkdirSync(join(CACHE, 'deezer-track'), { recursive: true });
+  writeFileSync(file, JSON.stringify({ deezerId, cover }));
+  return cover;
+}
+
+/**
+ * TRACK_COVERS=1: gives each track of a built CD its own artwork (Deezer, by the track's id). The CD's cover is never
+ * copied to its tracks: in a compilation it belongs to one release, not to every artist on it (INV-CAT-05).
+ */
+async function addTrackCovers() {
+  const indexFile = join(OUT, 'index.json');
+  const index = JSON.parse(readFileSync(indexFile, 'utf8'));
+  let withCover = 0;
+  let tracks = 0;
+  for (const [i, entry] of index.compilations.entries()) {
+    const recordFile = join(OUT, 't', `${entry.id}.json`);
+    if (!existsSync(recordFile)) continue;
+    const record = JSON.parse(readFileSync(recordFile, 'utf8'));
+    const list = record.tracks ?? record.trackList ?? [];
+    for (const track of list) {
+      if (!track.deezerId) continue;
+      tracks += 1;
+      const cover = await deezerTrackCover(track.deezerId);
+      if (cover) {
+        track.coverUrl = cover;
+        withCover += 1;
+      }
+    }
+    writeFileSync(recordFile, JSON.stringify(record));
+    if ((i + 1) % 100 === 0) console.log(`[${i + 1}/${index.compilations.length}] faixas com capa até agora: ${withCover} de ${tracks}`);
+  }
+  console.log(`capas de faixa: ${withCover} de ${tracks} faixas com id do Deezer (capa do álbum da faixa)`);
+}
+
 async function main() {
   if (process.env.COVERS_ONLY === '1') return addCovers();
+  if (process.env.TRACK_COVERS === '1') return addTrackCovers();
   const masters = (await listCompilations()).slice(0, LIMIT);
   console.log(`${masters.length} compilações da ${LABEL} no Discogs (masters e releases, sem repetição)`);
   mkdirSync(join(OUT, 't'), { recursive: true });
