@@ -1,6 +1,6 @@
 import React from 'react';
 import type { AlbumSummary } from '../types/music';
-import { HISTORIC_ALBUM_PREFIX, type HistoricEntry } from '../utils/historicCatalog';
+import { HISTORIC_ALBUM_PREFIX, historicCoverUrl, type HistoricEntry } from '../utils/historicCatalog';
 import { CdCover } from './CdCover';
 
 interface HistoricCdsRowProps {
@@ -20,10 +20,12 @@ export const HistoricCdsRow: React.FC<HistoricCdsRowProps> = ({ entries, onOpen 
       <h2 className="text-[22px] font-bold text-label tracking-tight mb-2">CDs Históricos</h2>
       <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none">
         {entries.map((entry) => {
+          // The index keeps the MusicBrainz release, not the image address: the same address the album page uses
+          const coverUrl = entry.coverUrl || historicCoverUrl(entry.mbid);
           const album: AlbumSummary = {
             id: `${HISTORIC_ALBUM_PREFIX}${entry.id}`,
             title: entry.title,
-            coverUrl: entry.coverUrl || '',
+            coverUrl,
             year: entry.year || 0,
             artist: entry.label || 'Som Livre',
             kind: 'album',
@@ -39,7 +41,7 @@ export const HistoricCdsRow: React.FC<HistoricCdsRowProps> = ({ entries, onOpen 
             >
               <div className="relative">
                 <CdCover
-                  url={entry.coverUrl}
+                  url={coverUrl}
                   alt={`Capa de ${entry.title}`}
                   className="h-32 w-32 rounded-2xl object-cover bg-fill-tertiary shadow-md ring-1 ring-white/10"
                   iconClassName="h-12 w-12 text-white/70"
