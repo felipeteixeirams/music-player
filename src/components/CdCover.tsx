@@ -4,6 +4,8 @@ import { RemoteImage } from './RemoteImage';
 
 interface CdCoverProps {
   url?: string;
+  /** Used when there is no `url`: a mosaic of these (up to four), instead of the disc. */
+  covers?: string[];
   alt?: string;
   className?: string;
   iconClassName?: string;
@@ -14,6 +16,7 @@ interface CdCoverProps {
  */
 export const CdCover: React.FC<CdCoverProps> = ({
   url,
+  covers,
   alt = 'Capa do CD',
   className = 'h-32 w-32 rounded-2xl',
   iconClassName = 'h-12 w-12 text-white/70'
@@ -32,6 +35,24 @@ export const CdCover: React.FC<CdCoverProps> = ({
         onError={() => setImgFailed(true)}
         className={`object-cover bg-fill-tertiary ${className}`}
       />
+    );
+  }
+
+  if (covers && covers.length > 0) {
+    // Four slots, filled in turn from the covers there are: one cover, two, three or four all make a full square
+    return (
+      <div role="img" aria-label={alt} className={`grid grid-cols-2 grid-rows-2 overflow-hidden bg-fill-tertiary shadow-inner ${className}`}>
+        {[0, 1, 2, 3].map((slot) => (
+          <RemoteImage
+            key={slot}
+            src={covers[slot % covers.length]}
+            alt=""
+            referrerPolicy="no-referrer"
+            placeholder={null}
+            className="h-full w-full object-cover"
+          />
+        ))}
+      </div>
     );
   }
 

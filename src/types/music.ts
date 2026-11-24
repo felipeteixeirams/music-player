@@ -150,6 +150,8 @@ export interface AlbumSummary {
   kind?: 'album' | 'playlist';
   /** Number of tracks, when the catalog says (playlists and iTunes albums). */
   trackCount?: number;
+  /** Up to four covers of its tracks, drawn as a mosaic when the album has no cover of its own (historic CDs). */
+  covers?: string[];
 }
 
 /** Album page: the album and its tracks in album order. */

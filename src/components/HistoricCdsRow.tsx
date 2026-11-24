@@ -24,6 +24,7 @@ export const HistoricCdsRow: React.FC<HistoricCdsRowProps> = ({ entries, onOpen 
           const coverUrl = entry.coverUrl || historicCoverUrl(entry.mbid);
           const album: AlbumSummary = {
             id: `${HISTORIC_ALBUM_PREFIX}${entry.id}`,
+            covers: entry.covers,
             title: entry.title,
             coverUrl,
             year: entry.year || 0,
@@ -42,6 +43,7 @@ export const HistoricCdsRow: React.FC<HistoricCdsRowProps> = ({ entries, onOpen 
               <div className="relative">
                 <CdCover
                   url={coverUrl}
+                  covers={entry.covers}
                   alt={`Capa de ${entry.title}`}
                   className="h-32 w-32 rounded-2xl object-cover bg-fill-tertiary shadow-md ring-1 ring-white/10"
                   iconClassName="h-12 w-12 text-white/70"

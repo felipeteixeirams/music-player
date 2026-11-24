@@ -228,8 +228,12 @@ async function addTrackCovers() {
       }
     }
     writeFileSync(recordFile, JSON.stringify(record));
+    // A CD without a verified cover of its own shows a mosaic of up to four of its tracks' covers (INV-CAT-06)
+    if (entry.mbid) delete entry.covers;
+    else entry.covers = [...new Set(list.map((track) => track.coverUrl).filter(Boolean))].slice(0, 4);
     if ((i + 1) % 100 === 0) console.log(`[${i + 1}/${index.compilations.length}] faixas com capa até agora: ${withCover} de ${tracks}`);
   }
+  writeFileSync(indexFile, JSON.stringify(index));
   console.log(`capas de faixa: ${withCover} de ${tracks} faixas com id do Deezer (capa do álbum da faixa)`);
 }
 

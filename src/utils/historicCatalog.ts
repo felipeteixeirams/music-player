@@ -17,7 +17,22 @@ export interface HistoricEntry {
   matched?: number;
   mbid?: string | null;
   coverUrl?: string;
+  /** Mosaic covers (their tracks'), present when the CD has no cover of its own (INV-CAT-06). */
+  covers?: string[];
   label?: string;
+}
+
+/** How many track covers make the mosaic of a CD without a cover of its own (INV-CAT-06). */
+export const MOSAIC_COVERS = 4;
+
+/** The first distinct covers, in track order, up to the mosaic's size. Tracks without a cover are skipped. */
+export function mosaicCovers(urls: Array<string | null | undefined>): string[] {
+  const out: string[] = [];
+  for (const url of urls) {
+    if (url && !out.includes(url)) out.push(url);
+    if (out.length === MOSAIC_COVERS) break;
+  }
+  return out;
 }
 
 export interface HistoricIndex {
@@ -201,7 +216,8 @@ export async function loadHistoricAlbumPage(albumId: string, signal?: AbortSigna
     year: record.year || 0,
     coverUrl: cover,
     kind: 'album',
-    trackCount: tracks.length
+    trackCount: tracks.length,
+    covers: mosaicCovers(tracks.map((track) => track.coverUrl))
   };
 
   return {

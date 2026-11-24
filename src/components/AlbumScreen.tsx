@@ -87,6 +87,7 @@ export const AlbumScreen: React.FC<AlbumScreenProps> = ({ album, onOpenArtist })
             // A CD of the historic catalog: its artwork, or the disc when there is none
             <CdCover
               url={album.coverUrl}
+              covers={page?.album.covers ?? album.covers}
               alt={`Capa do CD ${album.title}`}
               className="h-56 w-56 sm:h-64 sm:w-64 rounded-2xl sm:rounded-3xl shadow-2xl shadow-black/60 ring-1 ring-white/10"
               iconClassName="h-20 w-20 text-white/70"
