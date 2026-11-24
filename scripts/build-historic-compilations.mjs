@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { baseTitle, norm } from '../src/utils/historicNames.ts';
+import { pickItunesCover, sameName } from './itunesTrackMatch.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const CACHE = join(ROOT, 'scripts', '.historic-cache');
@@ -237,9 +238,6 @@ async function addTrackCovers() {
   console.log(`capas de faixa: ${withCover} de ${tracks} faixas com id do Deezer (capa do álbum da faixa)`);
 }
 
-/** The same comparison the catalog uses for names: no accents, no case, no punctuation. */
-const sameName = (value) => String(value ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-
 /**
  * The artwork of a track the Deezer did not match: the iTunes song of the same artist with a similar title (INV-CAT-07).
  * An artist who is not the same is never taken, and the title must start the same way. Cached per track.
@@ -258,9 +256,7 @@ async function itunesTrackCover(title, artist) {
     }
     if (!response.ok) return null; // not cached: tried again on the next run
     const data = await response.json();
-    const want = sameName(title).slice(0, 12);
-    const hit = (data.results ?? []).find((song) => sameName(song.artistName) === sameName(artist) && sameName(song.trackName).startsWith(want) && song.artworkUrl100);
-    cover = hit ? hit.artworkUrl100.replace('100x100bb', '250x250bb') : null;
+    cover = pickItunesCover(data.results, title, artist);
     break;
   }
   mkdirSync(join(CACHE, 'itunes-track'), { recursive: true });
