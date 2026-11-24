@@ -8,7 +8,6 @@ const COVER_CACHE_NAME = 'aurastream-covers-v1';
 const COVER_BUDGET_DEFAULT_BYTES = 250 * 1024 * 1024;
 const COVER_ENTRY_LIMIT = 2000;
 const OPAQUE_COVER_BYTES = 40 * 1024;
-let coverBudgetBytes = COVER_BUDGET_DEFAULT_BYTES;
 const SHELL_CACHE_LIMIT = 120;
 const KEPT_CACHES = [CACHE_NAME, COVER_CACHE_NAME, 'aurastream-order-v1'];
 
@@ -33,36 +32,76 @@ async function writeOrder(cacheName, list) {
   await order.put(`/__order__/${cacheName}`, new Response(JSON.stringify(list)));
 }
 
-// Stores an answer and keeps the cache within its limits: at most `limit` entries and, when given, at most `budgetBytes`
-// (the oldest go first). One write at a time: when several covers arrive together, a trim that ran between the others'
-// writes would count too few entries and leave the cache over its limit.
+// Every change to a capped cache runs one at a time: when several covers arrive together, a trim that ran between the
+// others' writes would count too few entries and leave the cache over its limit.
 let writes = Promise.resolve();
+function queued(task) {
+  const run = writes.then(task);
+  writes = run.catch(() => {});
+  return run;
+}
+
 function answerBytes(response) {
   const length = Number(response.headers.get('content-length'));
   return Number.isFinite(length) && length > 0 ? length : OPAQUE_COVER_BYTES;
 }
+
+// Takes out of `order` (oldest first) what is over the entry limit or the byte budget; returns what to delete.
+function overLimits(order, limit, budgetBytes) {
+  const oldest = [];
+  while (order.length > limit) oldest.push(order.shift());
+  if (budgetBytes) {
+    let total = order.reduce((sum, entry) => sum + entry.bytes, 0);
+    while (order.length > 1 && total > budgetBytes) {
+      const gone = order.shift();
+      total -= gone.bytes;
+      oldest.push(gone);
+    }
+  }
+  return oldest;
+}
+
+// Stores an answer and keeps the cache within its limits: at most `limit` entries and at most `budgetBytes`.
 function putAndTrim(cacheName, request, response, limit, budgetBytes) {
   const bytes = answerBytes(response);
-  const write = writes.then(async () => {
+  return queued(async () => {
     const cache = await caches.open(cacheName);
     const order = (await readOrder(cacheName, cache)).filter((entry) => entry.url !== request.url);
     order.push({ url: request.url, bytes });
     await cache.put(request, response);
-    const oldest = [];
-    while (order.length > limit) oldest.push(order.shift());
-    if (budgetBytes) {
-      let total = order.reduce((sum, entry) => sum + entry.bytes, 0);
-      while (order.length > 1 && total > budgetBytes) {
-        const gone = order.shift();
-        total -= gone.bytes;
-        oldest.push(gone);
-      }
-    }
-    await Promise.all(oldest.map((entry) => cache.delete(entry.url)));
+    await Promise.all(overLimits(order, limit, budgetBytes).map((entry) => cache.delete(entry.url)));
     await writeOrder(cacheName, order);
   });
-  writes = write.catch(() => {});
-  return write;
+}
+
+// Brings a capped cache within its limits now, without waiting for a new answer.
+function trimNow(cacheName, limit, budgetBytes) {
+  return queued(async () => {
+    const cache = await caches.open(cacheName);
+    const order = await readOrder(cacheName, cache);
+    await Promise.all(overLimits(order, limit, budgetBytes).map((entry) => cache.delete(entry.url)));
+    await writeOrder(cacheName, order);
+  });
+}
+
+// The byte budget chosen in Settings is kept in the order cache, so a worker the browser starts again keeps it
+// (a page that opens later sends it again anyway). Read once per worker; the default until one is chosen.
+const BUDGET_KEY = '/__settings__/cover-budget';
+let budgetMemo = null;
+function currentBudget() {
+  if (!budgetMemo) {
+    budgetMemo = caches
+      .open(ORDER_CACHE_NAME)
+      .then((order) => order.match(BUDGET_KEY))
+      .then((saved) => (saved ? saved.json() : null))
+      .then((value) => (value && Number.isFinite(value.bytes) && value.bytes > 0 ? value.bytes : COVER_BUDGET_DEFAULT_BYTES))
+      .catch(() => COVER_BUDGET_DEFAULT_BYTES);
+  }
+  return budgetMemo;
+}
+function setBudget(bytes) {
+  budgetMemo = Promise.resolve(bytes);
+  return caches.open(ORDER_CACHE_NAME).then((order) => order.put(BUDGET_KEY, new Response(JSON.stringify({ bytes }))));
 }
 const STATIC_ASSETS = [
   '/',
@@ -71,12 +110,14 @@ const STATIC_ASSETS = [
   '/icon.svg'
 ];
 
-// The page tells the worker the limit chosen in Settings (MB). The worker cannot read the page's storage, and it starts
-// again with the default when the browser restarts it, so the page sends it on every start.
+// The page tells the worker the limit chosen in Settings (MB). The worker saves it and applies it to the covers already
+// there, at once (INV-PERF-05); the page also sends it on every start, so a device that never saved it still gets it.
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   const mb = Number(data.mb);
-  if (data.type === 'cache-limit' && Number.isFinite(mb) && mb > 0) coverBudgetBytes = mb * 1024 * 1024;
+  if (data.type !== 'cache-limit' || !Number.isFinite(mb) || mb <= 0) return;
+  const bytes = mb * 1024 * 1024;
+  event.waitUntil(setBudget(bytes).then(() => trimNow(COVER_CACHE_NAME, COVER_ENTRY_LIMIT, bytes)).catch(() => {}));
 });
 
 self.addEventListener('install', (event) => {
@@ -129,8 +170,9 @@ self.addEventListener('fetch', (event) => {
         try {
           const response = await fetch(event.request);
           if (response && response.status === 200) {
+            const budget = await currentBudget();
             // waitUntil keeps the write going after the answer is sent, so the answer is not delayed
-            event.waitUntil(putAndTrim(COVER_CACHE_NAME, event.request, response.clone(), COVER_ENTRY_LIMIT, coverBudgetBytes).catch(() => {}));
+            event.waitUntil(putAndTrim(COVER_CACHE_NAME, event.request, response.clone(), COVER_ENTRY_LIMIT, budget).catch(() => {}));
           }
           return response;
         } catch (err) {

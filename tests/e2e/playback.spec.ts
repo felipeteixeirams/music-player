@@ -493,6 +493,8 @@ test('INV-PLAY-24: ao sair do app e voltar, o Diagnóstico mostra o que o player
   await topHit(page).click();
   await expect.poll(() => loadedVideo(page)).toBe(FIRST);
   await expect(page.getByRole('button', { name: 'Pausar música' })).toBeVisible({ timeout: 10_000 });
+  // The button shows before the player reports it is playing: the log says "tocando" only after that report
+  await expect.poll(() => page.evaluate(() => (window as any).__ytPlayer?.state), { timeout: 8000 }).toBe(1);
 
   const setVisibility = (state: 'hidden' | 'visible') =>
     page.evaluate((value) => {

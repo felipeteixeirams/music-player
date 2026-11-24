@@ -110,9 +110,31 @@ test('INV-CAT-02: a capa do CD vem da Cover Art Archive pelo MBID do release; se
     globalThis.fetch = async () => record('e29453df-b5a4-4bf1-b248-5a3ae0654dd3');
     const withCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m9`);
     assert.equal(withCover.album.coverUrl, 'https://coverartarchive.org/release/e29453df-b5a4-4bf1-b248-5a3ae0654dd3/front-250');
+    // A different compilation: the record of m9 is kept for the session (INV-CAT-02), so this one needs its own id
     globalThis.fetch = async () => record(null);
-    const withoutCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m9`);
+    const withoutCover = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m10`);
     assert.equal(withoutCover.album.coverUrl, '');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('INV-CAT-02: abrir o mesmo CD de novo na mesma sessão não busca o arquivo outra vez; uma falha é tentada de novo', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  const body = JSON.stringify({ title: 'Cache CD', label: 'Som Livre', year: 1999, tracks: [{ title: 'Faixa', artist: 'Artista', position: 1, duration: '3:00' }] });
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) return new Response('falha', { status: 503 });
+    return new Response(body, { status: 200 });
+  };
+  try {
+    await assert.rejects(loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m77`), /503/);
+    const first = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m77`);
+    const second = await loadHistoricAlbumPage(`${HISTORIC_ALBUM_PREFIX}m77`);
+    assert.equal(first.album.title, 'Cache CD');
+    assert.equal(second.album.title, 'Cache CD');
+    assert.equal(calls, 2, 'a falha não fica guardada; o sucesso vale para as próximas aberturas');
   } finally {
     globalThis.fetch = originalFetch;
   }

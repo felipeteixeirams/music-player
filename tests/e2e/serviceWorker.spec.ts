@@ -55,3 +55,27 @@ test('INV-PERF-05: a cache de capas respeita o limite em MB dos Ajustes; sai o m
   expect(keys.length).toBeLessThan(total);
   expect(keys).not.toContain('/icon.svg?b=0');
 });
+
+test('INV-PERF-05: o limite novo vale já para as capas que estão na cache e fica salvo para o worker', async ({ page }) => {
+  await waitForWorker(page);
+  const total = 12;
+  await page.evaluate(async (count) => {
+    for (let n = 0; n < count; n += 1) await fetch(`/icon.svg?now=${n}`).then((r) => r.text());
+  }, total);
+  // The app keeps its own icon in this cache too, so count from whatever is there once the covers are in
+  await expect.poll(async () => (await cacheKeys(page, COVERS)).length).toBeGreaterThanOrEqual(total);
+  const before = (await cacheKeys(page, COVERS)).length;
+
+  // No new cover is fetched: the trim must happen because of the message alone
+  await page.evaluate(() => navigator.serviceWorker.controller?.postMessage({ type: 'cache-limit', mb: 0.001 }));
+  await expect.poll(async () => (await cacheKeys(page, COVERS)).length).toBeLessThan(before);
+  expect(await cacheKeys(page, COVERS)).not.toContain('/icon.svg?now=0');
+
+  // The limit is kept in the worker's own storage, so a worker started again finds it
+  const saved = await page.evaluate(async () => {
+    const order = await caches.open('aurastream-order-v1');
+    const response = await order.match('/__settings__/cover-budget');
+    return response ? response.json() : null;
+  });
+  expect(saved).toEqual({ bytes: 0.001 * 1024 * 1024 });
+});
