@@ -1,0 +1,57 @@
+# Workflow reutilizável: portão do fluxo de implementação.
+# Chamado por qualquer repositório, sem copiar nada além deste arquivo:
+#
+#   # .github/workflows/flow.yml no repositório que consome
+#   name: flow
+#   on:
+#     pull_request:
+#       types: [opened, edited, synchronize, reopened]
+#   jobs:
+#     gate:
+#       uses: felipeteixeirams/<repositorio-do-fluxo>/.github/workflows/flow-gate.yml@main
+#
+# Depois, no ruleset da branch padrão, exija o check do job "gate". Sem essa exigência o portão só informa.
+#
+# Limite declarado: o número da revisão ("P1 = 0, P2 = 0") é digitado pelo autor do PR. O verificador independente
+# é o revisor com contexto limpo (fase 5 do fluxo). Este portão garante que a seção existe, que as caixas foram
+# marcadas e que o resultado foi preenchido; não prova que a revisão aconteceu.
+
+name: flow-gate
+
+on:
+  workflow_call:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Conferir a seção do fluxo na descrição do PR
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$BODY" > "$RUNNER_TEMP/pr-body.md"
+          f="$RUNNER_TEMP/pr-body.md"
+          fail=0
+          say() { echo "::error::$1"; fail=1; }
+
+          if ! grep -q '^## Fluxo de implementação' "$f"; then
+            echo "::error::Falta a seção '## Fluxo de implementação' na descrição do PR."
+            exit 1
+          fi
+          section="$(awk '/^## Fluxo de implementação/{on=1;next} /^## /{on=0} on' "$f")"
+
+          if grep -q '^- \[ \]' <<< "$section"; then
+            say "Há itens do fluxo sem marcar (linhas '- [ ]'). Marque só o que foi feito, ou justifique nas regras de parada."
+          fi
+          if ! grep -qE 'P1 = 0, P2 = 0' <<< "$section"; then
+            say "A revisão independente precisa registrar 'P1 = 0, P2 = 0'."
+          fi
+          if grep -qE 'P1 = __|P2 = __' <<< "$section"; then
+            say "O campo da revisão ainda tem o marcador __; preencha com o resultado."
+          fi
+
+          [ "$fail" -eq 0 ] && echo "Seção do fluxo presente, revisão zerada e nenhuma caixa aberta."
+          exit "$fail"

@@ -15,6 +15,16 @@
 - [ ] `npm run lint`, `npm test` e `npm run test:e2e` passam (resultado: ____).
 - [ ] Mudança visível ganhou ou atualizou um teste de ponta a ponta.
 
+## Fluxo de implementação (AGENTS.md)
+
+- [ ] Âmbito: completo ou leve (se leve, a razão): ____
+- [ ] Spec na descrição: critérios de aceite numerados (AC1…) e a lista de arquivos alterados.
+- [ ] Testes escritos antes do código; a falha antes da mudança está registrada (RED): ____
+- [ ] Só os arquivos da lista da spec foram alterados (ou a lista foi atualizada e justificada).
+- [ ] CI verde no job `checks`: link da execução ____
+- [ ] Revisão independente com contexto limpo: P1 = __, P2 = __ (zero é o portão); rodadas de correção: __
+- [ ] Nenhuma regra de parada foi acionada (ou foi acionada e está descrita abaixo).
+
 ## Teste em iPhone
 
 <!-- Reprodução, login, sincronização, tela cheia: diga o que foi testado em aparelho real (modelo, navegador ou app instalado, versão do app da primeira linha do Diagnóstico) e o que NÃO foi. Se nada, escreva "não testado em iPhone". -->
