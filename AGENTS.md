@@ -25,6 +25,38 @@ Um branch existe para conduzir um único trabalho e deve ser mergeado e excluíd
 - Antes de encerrar o trabalho, liste os branches remotos (`git branch -r`) e relate qualquer um que tenha criado e que continue aberto.
 - Para checar se um branch é seguro de apagar, compare com a `main` (`git rev-list --count origin/main..<branch>`) e confira se o PR dele foi mergeado.
 
+## Fluxo de implementação (obrigatório)
+
+Base: o estudo de frameworks de agentes (Fabro, heliohq/ship, OpenHands) e a auditoria de um fluxo com spec em portões (arXiv 2611.05094, 2026-11). A lição que mais pesou: controles que são só instrução são seguidos pelo mesmo modelo que executa a tarefa, e o estudo mediu que falham. Por isso cada portão aqui tem um verificador fora do agente: o CI, o revisor com contexto limpo ou o usuário. Nada disso se declara sozinho.
+
+**Âmbito.** Fluxo completo: mudança de comportamento visível; `api/`; `src/context/` ou `src/utils/` que toque um invariante `INV-…`; migração ou schema; dados do catálogo. Fluxo leve (só lint, `npm test` e a razão escrita no PR): texto, documentação sem regra, CSS sem comportamento. Na dúvida, completo.
+
+**Fases** (cada uma gera um artefato e tem um portão):
+
+1. **Domínio e spec.** Ler `docs/README.md`, o master e os satélites. Escrever: objetivo, critérios de aceite numerados (AC1, AC2…), invariantes tocados e a lista exata de arquivos que serão alterados. Artefato: seção "Spec" na descrição do PR (ou no commit de documentação). Portão: decisão de domínio vai ao usuário no formato de pergunta, com contexto, alternativas e recomendação.
+2. **Testes antes do código.** Um teste por AC: unitário, ou ponta a ponta quando o comportamento é visível. O teste de cada invariante cita o id. Rodar e registrar que os testes novos **falham** antes da mudança (RED). Portão: falha registrada.
+3. **Implementação.** Só nos arquivos da lista da spec. Arquivo fora da lista: parar e reportar. Commits pequenos, um por AC quando possível.
+4. **Verificação por ferramenta.** `npm run lint`, `npm test`, `npm run test:e2e -- --trace off` e o job `checks` verde. O agente cita a saída ou o link da execução; "passou" sem saída não vale. Portão: CI verde.
+5. **Revisão independente.** Um subagente novo, com contexto limpo, recebe só: a spec, o diff, os invariantes tocados e um checklist fechado (invariante violado? teste sem id? AC sem teste? segredo em log? resposta de `api/` que quebra cliente antigo? cache sem as duas chaves? layout sem `--safe-bottom`?). Não recebe a conversa de implementação. Saída: achados com arquivo:linha em P1, P2 ou P3. Portão: zero P1 e zero P2. No máximo duas rodadas de correção; depois, parar e reportar. Re-revisão só da parte corrigida.
+6. **Aparelho.** Se o PR toca reprodução, login, sincronização, tela cheia ou layout, a descrição diz o que foi testado no iPhone e o que não foi. Quem marca "testado em aparelho" é o usuário. O agente nunca marca.
+7. **Entrega.** PR só quando o usuário pedir (regra já existente). Depois de aberto, o CI é o portão: no máximo três tentativas de correção, depois parar e reportar.
+
+**Regras de parada** (sem exceção): arquivo fora da spec; teste anterior que falha sem explicação; achado P1 na revisão; resposta ambígua do usuário (não é aprovação); pedido de apagar arquivo ou dado, que precisa de confirmação explícita; conflito com um invariante. Ao parar, registrar o motivo e não reescrever o registro para parecer aprovado.
+
+**Modelos por fase** (recomendação, a confirmar): especificação e revisão com o modelo de maior capacidade (Opus 5.5); implementação com Sonnet 5.5; tarefas mecânicas (texto de PR, data na matriz, conferência de links) com Haiku 5.5. O revisor, quando possível, não é o mesmo modelo que implementou.
+
+**Quanto cada controle vale hoje:**
+
+| Controle | Quem verifica | Força |
+| --- | --- | --- |
+| Este texto | o próprio agente | fraca: só instrução |
+| Checklist do template de PR | revisor humano | média: depende de quem revisa |
+| Revisão com contexto limpo (fase 5) | subagente separado | média: depende do checklist |
+| Job `checks` obrigatório na `main` | GitHub | forte: pendente, ação do usuário |
+| Hooks do harness | ferramenta local | forte: não configurado no repositório |
+
+Enquanto o job `checks` não for obrigatório, o fluxo depende de disciplina. Não vender como garantia.
+
 ## Dependências
 
 O gerenciador é o npm, e `package-lock.json` é o único lockfile. `npm ci` deve funcionar sem `--force` nem `--legacy-peer-deps`. **Exceção documentada (2026-11-02):** `native/capacitor/` é um protótipo isolado do Capacitor (casco nativo para testar o segundo plano no iPhone) com o próprio `package.json` e `package-lock.json`; não entra no `npm ci` da raiz, não é importado pelo app web e é excluído do `tsc` (`tsconfig.json`). Pode ser apagado inteiro se o protótipo for descartado. Ver o [README do casco](native/capacitor/README.md) e a [avaliação do Capacitor](docs/specs/current/capacitor-evaluation.spec.md). Antes de adicionar um pacote, confirme que algum código vai importá-lo; remova o que deixar de ser usado.
